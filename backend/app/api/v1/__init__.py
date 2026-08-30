@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.accounts import router as accounts_router
 from app.api.v1.categories import router as categories_router
 from app.api.v1.payment_methods import router as payment_methods_router
+from app.api.v1.reports import router as reports_router
 from app.api.v1.transactions import router as transactions_router
 
 # Router raiz de la v1. Cada recurso registra el suyo aca (ver skill nuevo-endpoint).
@@ -11,3 +12,4 @@ api_router.include_router(accounts_router)
 api_router.include_router(categories_router)
 api_router.include_router(payment_methods_router)
 api_router.include_router(transactions_router)
+api_router.include_router(reports_router)
