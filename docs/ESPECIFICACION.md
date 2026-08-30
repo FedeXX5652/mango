@@ -230,6 +230,59 @@ conexion, los cambios suben y bajan los de otros dispositivos.
 Consecuencia de diseno: **los identificadores los genera el cliente**, no el
 servidor. Si no, no se podria crear nada sin conexion.
 
+### 3.12 Estrategia multidispositivo
+ 
+Mango funciona en telefono y en computadora, y **no son la misma interfaz
+estirada**: son dos arboles de componentes distintos que consumen los mismos
+datos.
+ 
+La razon es que los usos difieren. Cargar un gasto es una tarea de telefono: se
+hace de pie, en un segundo, con una mano. Analizar el gasto del ano es una
+tarea de escritorio: se hace sentado, comparando, con varias cosas a la vista.
+Una interfaz que sirva para las dos termina sirviendo a medias para ambas.
+ 
+El punto de corte es 1024 px de ancho. Por debajo se monta el arbol movil, por
+encima el de escritorio. No hay estados intermedios.
+ 
+**Lo que se comparte**: toda la logica de negocio, el acceso a datos, el estado,
+las validaciones y el formateo. Vive en modulos agnosticos de la presentacion.
+ 
+**Lo que cambia**: navegacion, densidad de informacion y composicion de
+pantalla. En movil la navegacion es una barra inferior de cuatro destinos y el
+alta de movimiento ocupa la pantalla completa. En escritorio hay barra lateral
+fija, el alta es un panel lateral que deja la lista visible, y las listas son
+tablas densas en vez de tarjetas apiladas.
+ 
+El detalle de cada pantalla esta en `DESIGN.md`.
+
+### 3.13 Apariencia y temas
+ 
+La aplicacion usa un sistema de tokens de diseno: los componentes nunca
+declaran colores literales, sino nombres de variables que un tema resuelve.
+ 
+Cada tema define **dos modos**, claro y oscuro. No existe un tema que funcione
+solo en uno de los dos. El modo activo se resuelve segun la preferencia del
+usuario, con tres valores posibles: siempre claro, siempre oscuro, o seguir al
+sistema operativo. El ultimo es el valor por defecto.
+ 
+Ademas de los tokens habituales de fondo, texto y acciones, se agregan cinco
+propios del dominio: gasto, ingreso, transferencia, pendiente y rechazado.
+ 
+**Regla de accesibilidad**: ningun dato se comunica unicamente por color. Un
+gasto se distingue por el signo y la posicion tanto como por el tono, porque
+cerca del 8% de los varones tiene alguna deficiencia en la percepcion del rojo
+y el verde.
+ 
+El usuario puede elegir entre temas predefinidos y, mas adelante, sobreescribir
+tokens puntuales para armar el propio. La preferencia se guarda en su registro
+de usuario, asi que **viaja con la sincronizacion**: el tema elegido en el
+telefono aparece en la computadora.
+ 
+**Alcance por fase**: la arquitectura de tokens, los dos modos y los campos en
+el esquema van desde la fase 1, porque agregarlos despues implica reescribir
+todo el CSS. El editor de temas personalizados queda para la fase 3 o
+posterior: es una pantalla mas y puede esperar.
+
 ---
 
 ## 4. Sistema automatico: la ingesta
@@ -377,7 +430,7 @@ usuario.
 
 ## 5. Decisiones fundacionales
 
-Cinco decisiones baratas al principio y muy caras de agregar despues.
+Seis decisiones baratas al principio y muy caras de agregar despues.
 
 ### 5.1 Identificadores UUID generados por el cliente
 
@@ -407,9 +460,13 @@ fase 1 sea de un solo usuario.
 Nada se borra fisicamente: se marca con fecha de borrado. Sin esto es
 imposible propagar a otros dispositivos un borrado hecho sin conexion.
 
----
+### 5.6 Arquitectura de temas por usuario desde el principio
 
-## 6. Stack tecnologico
+Los componentes nunca declaran colores literales: usan tokens que un tema
+resuelve, y la preferencia (`theme_id`, `theme_custom`, `color_scheme`) vive en
+el registro del usuario. Agregar esto despues implica reescribir todo el CSS.
+La arquitectura y los campos van desde la fase 1; el editor de temas puede
+esperar (ver 3.13 y `DESIGN.md`).
 
 ### 6.1 Base de datos: PostgreSQL
 
@@ -485,8 +542,14 @@ Se eligio PWA sobre aplicacion nativa porque cubre Android e iOS con una sola
 base de codigo. **Limitacion conocida: no permite widgets en la pantalla de
 inicio**, que Money Manager si tiene.
 
-El frontend contiene solo logica de presentacion. La logica de negocio vive en
-el backend.
+El frontend se organiza en **dos arboles de componentes**, uno para movil y
+otro para escritorio, que comparten toda la logica. Ver seccion 3.12.
+
+La apariencia se define con tokens de diseno sobre las variables CSS de
+shadcn, con modo claro y oscuro. Ver seccion 3.13 y `DESIGN.md`.
+
+El frontend contiene solo logica de presentacion. La logica de negocio vive
+en el backend.
 
 ### 6.5 Infraestructura
 
@@ -514,7 +577,8 @@ Cuentas, medios de pago, categorias con subcategorias, alta y edicion de los
 tres tipos de movimiento, calculadora en el monto, autocompletado de comercio,
 vista de lista y de calendario, estadisticas basicas, presupuestos mensuales,
 recurrentes, plantillas, funcionamiento sin conexion, PWA instalable, codigo
-de acceso, exportacion a CSV.
+de acceso, exportacion a CSV, y apariencia por usuario (tema con modo claro y
+oscuro; sin editor todavia).
 
 ### Fase 2 - Sistema automatico
 
@@ -597,3 +661,4 @@ lleva al servidor.
 | `ESPECIFICACION.md` | Este documento |
 | `schema.sql` | Esquema completo de la base de datos, con comentarios |
 | `parser-visa.js` | Parser de alertas de compra Visa, para el nodo Code de n8n |
+| `DESIGN.md` | Guia de diseno: tokens, temas, los dos layouts y patrones de interfaz |

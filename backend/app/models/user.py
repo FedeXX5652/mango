@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     CHAR,
@@ -10,6 +11,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -26,6 +28,18 @@ class User(Base, IdMixin, TimestampMixin):
         CHAR(3), nullable=False, server_default=text("'ARS'")
     )
     locale: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'es-AR'"))
+
+    # Apariencia (per-user, viaja con la sync). Ver docs/DESIGN.md seccion 5.
+    # theme_id: tema predefinido; 'default' siempre existe y es el fallback.
+    theme_id: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'default'"))
+    # theme_custom: solo los tokens sobreescritos por modo (light/dark).
+    theme_custom: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # color_scheme: 'system' sigue la preferencia del sistema operativo.
+    color_scheme: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'system'"))
+
+    __table_args__ = (
+        CheckConstraint("color_scheme IN ('light','dark','system')", name="users_color_scheme_chk"),
+    )
 
 
 class Group(Base, IdMixin, TimestampMixin):

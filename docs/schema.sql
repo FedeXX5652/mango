@@ -24,9 +24,29 @@ CREATE TABLE users (
     display_name    TEXT NOT NULL,
     base_currency   CHAR(3) NOT NULL DEFAULT 'ARS',
     locale          TEXT NOT NULL DEFAULT 'es-AR',
+
+    -- Apariencia. Ver docs/DESIGN.md seccion 5.
+    --
+    -- theme_id: cual de los temas predefinidos usa. 'default' siempre existe y
+    -- es al que se cae si el tema guardado ya no esta disponible.
+    theme_id        TEXT NOT NULL DEFAULT 'default',
+
+    -- theme_custom: tokens que el usuario sobreescribio, por modo. Solo los
+    -- modificados; lo que no este aca se hereda del tema base. Asi un tema
+    -- personalizado sigue siendo valido si el tema base agrega tokens nuevos.
+    --
+    --   {"light": {"primary": "#0f766e"},
+    --    "dark":  {"primary": "#2dd4bf", "background": "#0c0f0e"}}
+    theme_custom    JSONB,
+
+    -- color_scheme: 'system' sigue la preferencia del sistema operativo.
+    color_scheme    TEXT NOT NULL DEFAULT 'system',
+
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at      TIMESTAMPTZ
+    deleted_at      TIMESTAMPTZ,
+
+    CONSTRAINT users_color_scheme_chk CHECK (color_scheme IN ('light','dark','system'))
 );
 
 -- Un grupo es un hogar, una pareja, un viaje compartido.
@@ -258,7 +278,21 @@ CREATE TABLE transactions (
         status <> 'confirmed' OR account_id IS NOT NULL
     ),
     -- El monto es magnitud positiva; la direccion la da `kind` (ver 0001)
-    CONSTRAINT tx_amount_chk CHECK (amount >= 0)
+    CONSTRAINT tx_amount_chk CHECK (amount >= 0),
+    -- Una transferencia mueve plata entre cuentas propias: no se categoriza
+    CONSTRAINT tx_transfer_sin_categoria_chk CHECK (
+        kind <> 'transfer' OR category_id IS NULL
+    ),
+    -- Gasto e ingreso necesitan categoria, con dos excepciones:
+    --   'pending'  una importacion puede quedar sin categoria justamente
+    --              porque falta resolverla (ver ESPECIFICACION 4.4 y 4.7)
+    --   'rejected' una compra que el banco rechazo no es un gasto real:
+    --              se guarda como registro pero no se categoriza
+    CONSTRAINT tx_categoria_obligatoria_chk CHECK (
+        kind = 'transfer'
+        OR status IN ('pending', 'rejected')
+        OR category_id IS NOT NULL
+    )
 );
 
 CREATE UNIQUE INDEX tx_external_uniq
@@ -439,34 +473,21 @@ CREATE TABLE exchange_rates (
     CONSTRAINT fx_uniq UNIQUE (base_currency, quote_currency, rate_date, source)
 );
 
+
 -- ------------------------------------------------------------
--- Sincronizacion
+-- Nota sobre sincronizacion
 --
--- Cada dispositivo pide "que cambio desde X". El servidor responde
--- con las filas cuyo updated_at es mayor. Los borrados viajan como
--- filas con deleted_at, por eso el borrado es logico.
+-- Aca no hay tablas de sincronizacion a proposito. Una version anterior de
+-- este esquema tenia `sync_state` y `sync_log` para un mecanismo escrito a
+-- mano del tipo "que cambio desde X".
+--
+-- Se eliminaron al decidir PowerSync como motor: el maneja la base local, la
+-- cola de escrituras sin conexion, los reintentos y la reconexion. Mantener
+-- tablas que nadie usa solo confunde sobre cual es el mecanismo real.
+--
+-- Lo que si hace falta y ya esta en cada tabla: `updated_at` y `deleted_at`.
+-- Sin ellos no se puede propagar un cambio ni un borrado hecho sin conexion.
+--
+-- Las reglas de que filas ve cada usuario viven en
+-- infra/powersync/sync-rules.yaml, no en el esquema.
 -- ------------------------------------------------------------
-
-CREATE TABLE sync_state (
-    id              UUID PRIMARY KEY,
-    user_id         UUID NOT NULL REFERENCES users(id),
-    device_id       TEXT NOT NULL,
-    last_synced_at  TIMESTAMPTZ NOT NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT sync_state_uniq UNIQUE (user_id, device_id)
-);
-
--- Auditoria de operaciones aplicadas, para depurar conflictos
-CREATE TABLE sync_log (
-    id              UUID PRIMARY KEY,
-    user_id         UUID NOT NULL REFERENCES users(id),
-    device_id       TEXT NOT NULL,
-    entity          TEXT NOT NULL,
-    entity_id       UUID NOT NULL,
-    operation       TEXT NOT NULL,
-    applied_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT sync_log_op_chk CHECK (operation IN ('insert','update','delete'))
-);
-
-CREATE INDEX sync_log_user_idx ON sync_log (user_id, applied_at DESC);
