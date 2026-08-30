@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from types import SimpleNamespace
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -11,7 +12,9 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
+from app.db import get_session
 from app.main import app
+from app.seed import seed_default_user
 
 
 @pytest.fixture
@@ -59,3 +62,40 @@ async def session() -> AsyncGenerator[AsyncSession, None]:
             yield s
         await trans.rollback()
     await test_engine.dispose()
+
+
+@pytest.fixture
+async def api() -> AsyncGenerator[SimpleNamespace, None]:
+    """Cliente HTTP contra la app real, con la DB aislada en una transaccion
+    que se revierte. `get_session` se sobreescribe para usar esa sesion, y el
+    usuario semilla queda sembrado (para satisfacer owner_id).
+
+    Devuelve un namespace con `.client` (AsyncClient) y `.session` (AsyncSession),
+    esta ultima para insertar datos de apoyo (ej: un recurso de otro usuario)."""
+    test_engine = create_async_engine(settings.database_url, poolclass=NullPool)
+    connection = await test_engine.connect()
+    trans = await connection.begin()
+    maker = async_sessionmaker(
+        bind=connection,
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )
+    session = maker()
+    await seed_default_user(session)
+    await session.flush()
+
+    async def _override_get_session() -> AsyncGenerator[AsyncSession, None]:
+        yield session
+
+    app.dependency_overrides[get_session] = _override_get_session
+    transport = ASGITransport(app=app)
+    client = AsyncClient(transport=transport, base_url="http://test")
+    try:
+        yield SimpleNamespace(client=client, session=session)
+    finally:
+        await client.aclose()
+        app.dependency_overrides.clear()
+        await session.close()
+        await trans.rollback()
+        await connection.close()
+        await test_engine.dispose()
