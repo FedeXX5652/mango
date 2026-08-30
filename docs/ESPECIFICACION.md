@@ -468,6 +468,10 @@ el registro del usuario. Agregar esto despues implica reescribir todo el CSS.
 La arquitectura y los campos van desde la fase 1; el editor de temas puede
 esperar (ver 3.13 y `DESIGN.md`).
 
+---
+
+## 6. Stack tecnologico
+
 ### 6.1 Base de datos: PostgreSQL
 
 Tipos ricos (UUID, JSONB, TIMESTAMPTZ), indices parciales, restricciones de
