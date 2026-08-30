@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user_id
@@ -16,6 +16,7 @@ from app.schemas.transaction import (
     TransactionRead,
     TransactionUpdate,
 )
+from app.services.export import transactions_csv
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -60,6 +61,33 @@ async def list_transactions(
         date_to=date_to,
         limit=limit,
         offset=offset,
+    )
+
+
+@router.get("/export")
+async def export_transactions_csv(
+    account_id: uuid.UUID | None = None,
+    category_id: uuid.UUID | None = None,
+    kind: TransactionKind | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    session: AsyncSession = Depends(get_session),
+    owner_id: uuid.UUID = Depends(get_current_user_id),
+) -> Response:
+    # Declarada antes de /{tx_id} para que "export" no se lea como un id.
+    csv_text = await transactions_csv(
+        session,
+        owner_id,
+        account_id=account_id,
+        category_id=category_id,
+        kind=kind,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="mango-transacciones.csv"'},
     )
 
 
