@@ -6,10 +6,10 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     ForeignKey,
+    Index,
     Integer,
     SmallInteger,
     Text,
-    UniqueConstraint,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -83,4 +83,14 @@ class PaymentMethodAccount(Base, IdMixin, TimestampMixin):
     account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id"), nullable=False)
     currency: Mapped[str] = mapped_column(CHAR(3), nullable=False)
 
-    __table_args__ = (UniqueConstraint("payment_method_id", "currency", name="pma_uniq"),)
+    # Unico parcial: una cuenta por (medio, moneda) entre las NO borradas.
+    # Plano bloquearia re-asociar una moneda cuya asociacion fue borrada (0003).
+    __table_args__ = (
+        Index(
+            "pma_uniq",
+            "payment_method_id",
+            "currency",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )

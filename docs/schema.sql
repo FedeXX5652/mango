@@ -120,9 +120,14 @@ CREATE TABLE payment_method_accounts (
     currency            CHAR(3) NOT NULL,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at          TIMESTAMPTZ,
-    CONSTRAINT pma_uniq UNIQUE (payment_method_id, currency)
+    deleted_at          TIMESTAMPTZ
 );
+
+-- Unico parcial: respeta el borrado logico. Una asociacion borrada libera la
+-- moneda para volver a asociarla (ver docs/decisiones/0003).
+CREATE UNIQUE INDEX pma_uniq
+    ON payment_method_accounts (payment_method_id, currency)
+    WHERE deleted_at IS NULL;
 
 -- ------------------------------------------------------------
 -- Categorias: en que se gasta (jerarquia de dos niveles)
