@@ -1,0 +1,24 @@
+@import "./tema-mango.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Los montos usan cifras tabulares para que alineen en columna (DESIGN.md 3). */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

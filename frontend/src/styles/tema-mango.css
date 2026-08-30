@@ -1,0 +1,176 @@
+/* Temas de Mango. Cada uno define sus tokens en modo claro y oscuro.
+ * El modo oscuro se activa con la clase .dark en <html>; el tema con el
+ * atributo data-tema. Valores del tema 'default' tomados de
+ * docs/default_theme.md (WCAG AA/AAA verificado). Ver DESIGN.md seccion 5. */
+
+:root {
+  --radius: 0.5rem;
+}
+
+/* ============================ default (mango) ============================ */
+:root[data-tema="default"] {
+  color-scheme: light;
+  --background: #fffcf5;
+  --foreground: #1c1917;
+  --card: #ffffff;
+  --card-foreground: #1c1917;
+  --popover: #ffffff;
+  --popover-foreground: #1c1917;
+  --muted: #f5f2ea;
+  --muted-foreground: #6b6259;
+  --secondary: #f5f2ea;
+  --secondary-foreground: #1c1917;
+  --primary: #fdbe02;
+  --primary-foreground: #1a1400;
+  --accent: #fef0c3;
+  --accent-foreground: #4a3a00;
+  --border: #d8cfba;
+  --input: #cfc5ad;
+  --ring: #d9a300;
+  --destructive: #c62828;
+  --destructive-foreground: #ffffff;
+  --expense: #c62828;
+  --income: #00795b;
+  --transfer: #1f5fbf;
+  --pending: #6d45c7;
+  --rejected: #6b6259;
+}
+:root[data-tema="default"].dark {
+  color-scheme: dark;
+  --background: #14120c;
+  --foreground: #f2ede1;
+  --card: #262218;
+  --card-foreground: #f2ede1;
+  --popover: #262218;
+  --popover-foreground: #f2ede1;
+  --muted: #2e291d;
+  --muted-foreground: #a8a093;
+  --secondary: #2e291d;
+  --secondary-foreground: #f2ede1;
+  --primary: #fdbe02;
+  --primary-foreground: #14120c;
+  --accent: #3a2f10;
+  --accent-foreground: #fdd34d;
+  --border: #474030;
+  --input: #474030;
+  --ring: #fdbe02;
+  --destructive: #ff8a80;
+  --destructive-foreground: #14120c;
+  --expense: #ff8a80;
+  --income: #4ade9b;
+  --transfer: #7fb0ff;
+  --pending: #c0a6ff;
+  --rejected: #a8a093;
+}
+
+/* ============================ bosque (teal) ============================= */
+:root[data-tema="bosque"] {
+  color-scheme: light;
+  --background: #f8fafa;
+  --foreground: #0f1a17;
+  --card: #ffffff;
+  --card-foreground: #0f1a17;
+  --popover: #ffffff;
+  --popover-foreground: #0f1a17;
+  --muted: #ecf1f0;
+  --muted-foreground: #5b6b66;
+  --secondary: #ecf1f0;
+  --secondary-foreground: #0f1a17;
+  --primary: #0f766e;
+  --primary-foreground: #ffffff;
+  --accent: #ccfbf1;
+  --accent-foreground: #134e4a;
+  --border: #d2dedb;
+  --input: #c4d3cf;
+  --ring: #0f766e;
+  --destructive: #c62828;
+  --destructive-foreground: #ffffff;
+  --expense: #c62828;
+  --income: #00795b;
+  --transfer: #1f5fbf;
+  --pending: #6d45c7;
+  --rejected: #5b6b66;
+}
+:root[data-tema="bosque"].dark {
+  color-scheme: dark;
+  --background: #0c1211;
+  --foreground: #e8efed;
+  --card: #16201e;
+  --card-foreground: #e8efed;
+  --popover: #16201e;
+  --popover-foreground: #e8efed;
+  --muted: #1e2a28;
+  --muted-foreground: #93a5a0;
+  --secondary: #1e2a28;
+  --secondary-foreground: #e8efed;
+  --primary: #2dd4bf;
+  --primary-foreground: #06201c;
+  --accent: #134e4a;
+  --accent-foreground: #99f6e4;
+  --border: #2e3e3b;
+  --input: #2e3e3b;
+  --ring: #2dd4bf;
+  --destructive: #ff8a80;
+  --destructive-foreground: #0c1211;
+  --expense: #ff8a80;
+  --income: #4ade9b;
+  --transfer: #7fb0ff;
+  --pending: #c0a6ff;
+  --rejected: #93a5a0;
+}
+
+/* ============================ indigo =================================== */
+:root[data-tema="indigo"] {
+  color-scheme: light;
+  --background: #fafafc;
+  --foreground: #17171f;
+  --card: #ffffff;
+  --card-foreground: #17171f;
+  --popover: #ffffff;
+  --popover-foreground: #17171f;
+  --muted: #eeeef3;
+  --muted-foreground: #62626e;
+  --secondary: #eeeef3;
+  --secondary-foreground: #17171f;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --accent: #e0e7ff;
+  --accent-foreground: #3730a3;
+  --border: #d8d8e1;
+  --input: #cbcbd8;
+  --ring: #4f46e5;
+  --destructive: #c62828;
+  --destructive-foreground: #ffffff;
+  --expense: #c62828;
+  --income: #00795b;
+  --transfer: #1f5fbf;
+  --pending: #6d45c7;
+  --rejected: #62626e;
+}
+:root[data-tema="indigo"].dark {
+  color-scheme: dark;
+  --background: #0e0e14;
+  --foreground: #e9e9f0;
+  --card: #1a1a22;
+  --card-foreground: #e9e9f0;
+  --popover: #1a1a22;
+  --popover-foreground: #e9e9f0;
+  --muted: #24242e;
+  --muted-foreground: #9a9aa6;
+  --secondary: #24242e;
+  --secondary-foreground: #e9e9f0;
+  --primary: #818cf8;
+  --primary-foreground: #0e0e14;
+  --accent: #3730a3;
+  --accent-foreground: #c7d2fe;
+  --border: #34343f;
+  --input: #34343f;
+  --ring: #818cf8;
+  --destructive: #ff8a80;
+  --destructive-foreground: #0e0e14;
+  --expense: #ff8a80;
+  --income: #4ade9b;
+  --transfer: #7fb0ff;
+  --pending: #c0a6ff;
+  --rejected: #9a9aa6;
+}
