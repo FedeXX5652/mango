@@ -319,9 +319,15 @@ CREATE TABLE budgets (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at      TIMESTAMPTZ,
-    CONSTRAINT budgets_period_chk CHECK (period IN ('weekly','monthly','yearly')),
-    CONSTRAINT budgets_uniq UNIQUE (owner_id, group_id, category_id, period, period_start)
+    CONSTRAINT budgets_period_chk CHECK (period IN ('weekly','monthly','yearly'))
 );
+
+-- Unico parcial (respeta borrado logico) con NULLS NOT DISTINCT: con group_id
+-- NULL (presupuesto personal) un unique comun no deduplicaria. Ver 0003.
+CREATE UNIQUE INDEX budgets_uniq
+    ON budgets (owner_id, group_id, category_id, period, period_start)
+    NULLS NOT DISTINCT
+    WHERE deleted_at IS NULL;
 
 -- Metas de ahorro: "Viaje 2027", "Notebook nueva"
 CREATE TABLE goals (

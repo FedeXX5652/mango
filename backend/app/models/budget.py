@@ -8,8 +8,8 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     ForeignKey,
+    Index,
     Text,
-    UniqueConstraint,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -32,8 +32,18 @@ class Budget(Base, IdMixin, TimestampMixin):
 
     __table_args__ = (
         CheckConstraint("period IN ('weekly','monthly','yearly')", name="budgets_period_chk"),
-        UniqueConstraint(
-            "owner_id", "group_id", "category_id", "period", "period_start", name="budgets_uniq"
+        # Unico parcial (respeta borrado logico, ver 0003) y NULLS NOT DISTINCT:
+        # con group_id NULL (fase 1) un unique comun no deduplicaria.
+        Index(
+            "budgets_uniq",
+            "owner_id",
+            "group_id",
+            "category_id",
+            "period",
+            "period_start",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+            postgresql_nulls_not_distinct=True,
         ),
     )
 

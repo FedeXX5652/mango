@@ -33,9 +33,10 @@ borrado logico.
 
 ## Consecuencias
 
+- **Ya convertidos**: `pma_uniq` (Inc 5), `budgets_uniq` (Inc 8, ademas con
+  `NULLS NOT DISTINCT` porque `group_id` NULL no deduplicaba).
 - **Pendiente de convertir cuando se construya cada uno** (hoy planos en
   `schema.sql`, tablas con `deleted_at`):
-  - `budgets_uniq` (Inc 8)
   - `group_members_uniq` (fase 3)
   - `users.email` unique (fase 3, registro real)
 - Quedan planos a proposito, porque sus tablas **no** tienen `deleted_at` (son
