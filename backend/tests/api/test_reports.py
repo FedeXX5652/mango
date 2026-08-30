@@ -5,8 +5,6 @@ from types import SimpleNamespace
 
 from sqlalchemy import text
 
-from app.core.config import settings
-
 AUG = "2026-08-15T12:00:00-03:00"
 
 
@@ -90,7 +88,7 @@ async def test_pending_does_not_affect_balance(api: SimpleNamespace) -> None:
         ),
         {
             "id": uuid.uuid4(),
-            "owner": settings.seed_user_id,
+            "owner": api.owner_id,  # el usuario de la prueba, para que el pending le pertenezca
             "acc": a,
             "cat": inc_cat,
         },

@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import AsyncGenerator
 from types import SimpleNamespace
 
@@ -11,10 +12,11 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 
+from app.api.deps import get_current_user, get_current_user_id
 from app.core.config import settings
 from app.db import get_session
 from app.main import app
-from app.seed import seed_default_user
+from app.models.user import User
 
 
 @pytest.fixture
@@ -67,11 +69,14 @@ async def session() -> AsyncGenerator[AsyncSession, None]:
 @pytest.fixture
 async def api() -> AsyncGenerator[SimpleNamespace, None]:
     """Cliente HTTP contra la app real, con la DB aislada en una transaccion
-    que se revierte. `get_session` se sobreescribe para usar esa sesion, y el
-    usuario semilla queda sembrado (para satisfacer owner_id).
+    que se revierte.
 
-    Devuelve un namespace con `.client` (AsyncClient) y `.session` (AsyncSession),
-    esta ultima para insertar datos de apoyo (ej: un recurso de otro usuario)."""
+    Cada prueba corre como un USUARIO FRESCO (no el semilla): asi los reportes y
+    saldos, que agregan sobre 'el usuario actual', no ven datos preexistentes de
+    la DB de dev ni de otras pruebas. Total aislamiento.
+
+    Devuelve un namespace con `.client`, `.session` (para insertar datos de
+    apoyo) y `.owner_id` (el usuario de la prueba)."""
     test_engine = create_async_engine(settings.database_url, poolclass=NullPool)
     connection = await test_engine.connect()
     trans = await connection.begin()
@@ -81,17 +86,29 @@ async def api() -> AsyncGenerator[SimpleNamespace, None]:
         join_transaction_mode="create_savepoint",
     )
     session = maker()
-    await seed_default_user(session)
+
+    owner_id = uuid.uuid4()
+    user = User(
+        id=owner_id,
+        email=f"{owner_id}@test.local",
+        password_hash="!",
+        display_name="Test",
+    )
+    session.add(user)
     await session.flush()
+    await session.refresh(user)  # carga los server_default (theme_id, etc.)
 
     async def _override_get_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
     app.dependency_overrides[get_session] = _override_get_session
+    app.dependency_overrides[get_current_user_id] = lambda: owner_id
+    app.dependency_overrides[get_current_user] = lambda: user
+
     transport = ASGITransport(app=app)
     client = AsyncClient(transport=transport, base_url="http://test")
     try:
-        yield SimpleNamespace(client=client, session=session)
+        yield SimpleNamespace(client=client, session=session, owner_id=owner_id)
     finally:
         await client.aclose()
         app.dependency_overrides.clear()

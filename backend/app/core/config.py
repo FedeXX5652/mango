@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     secret_key: str = "dev-insecure-change-me"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
+    # Origenes permitidos para CORS (Vite dev y preview por defecto).
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:4173"]
 
     # Usuario semilla (fase 1: un solo usuario, sin auth de servidor).
     # Su id es fijo para que owner_id sea estable entre dispositivos y reinicios.

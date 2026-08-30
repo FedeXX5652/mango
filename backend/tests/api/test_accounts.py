@@ -5,8 +5,6 @@ from types import SimpleNamespace
 
 from sqlalchemy import text
 
-from app.core.config import settings
-
 
 def _payload(**over) -> dict:
     base = {
@@ -134,5 +132,4 @@ async def test_archived_hidden_unless_requested(api: SimpleNamespace) -> None:
 async def test_list_only_returns_current_user(api: SimpleNamespace) -> None:
     await api.client.post("/api/v1/accounts", json=_payload(name="Mia"))
     listed = (await api.client.get("/api/v1/accounts")).json()
-    assert all(a["name"] != "Ajena" for a in listed)
-    assert settings.seed_user_id  # sanity: la sesion uso el usuario semilla
+    assert [a["name"] for a in listed] == ["Mia"]  # solo lo del usuario de la prueba
