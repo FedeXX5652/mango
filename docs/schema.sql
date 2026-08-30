@@ -172,10 +172,13 @@ CREATE TABLE category_rules (
 -- ------------------------------------------------------------
 -- Transacciones
 --
--- Gasto, ingreso y transferencia son el mismo registro:
---   expense   -> account_id de origen, amount negativo
---   income    -> account_id de destino, amount positivo
---   transfer  -> account_id origen + transfer_account_id destino
+-- Gasto, ingreso y transferencia son el mismo registro. El monto se guarda
+-- SIEMPRE como magnitud positiva (>= 0); la direccion la define `kind`:
+--   expense   -> sale de account_id
+--   income    -> entra a account_id
+--   transfer  -> sale de account_id, entra a transfer_account_id
+-- El signo para calcular saldos lo aplica la consulta, no el dato guardado.
+-- Ver docs/decisiones/0001-monto-magnitud-positiva.md
 -- ------------------------------------------------------------
 
 CREATE TABLE transactions (
@@ -195,7 +198,7 @@ CREATE TABLE transactions (
     payment_method_id   UUID REFERENCES payment_methods(id),
     category_id         UUID REFERENCES categories(id),
 
-    -- Monto en centavos, en la moneda de la operacion
+    -- Monto en centavos, magnitud positiva (ver comentario de arriba y 0001)
     amount              BIGINT NOT NULL,
     currency            CHAR(3) NOT NULL,
 
@@ -248,7 +251,9 @@ CREATE TABLE transactions (
     -- Una transaccion confirmada necesita cuenta
     CONSTRAINT tx_confirmed_chk CHECK (
         status <> 'confirmed' OR account_id IS NOT NULL
-    )
+    ),
+    -- El monto es magnitud positiva; la direccion la da `kind` (ver 0001)
+    CONSTRAINT tx_amount_chk CHECK (amount >= 0)
 );
 
 CREATE UNIQUE INDEX tx_external_uniq

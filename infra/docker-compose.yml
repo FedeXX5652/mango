@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: mango-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mango}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cambiar}
+      POSTGRES_DB: ${POSTGRES_DB:-mango}
+    ports:
+      - "5432:5432"
+    volumes:
+      - mango-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mango} -d ${POSTGRES_DB:-mango}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mango-pgdata:
