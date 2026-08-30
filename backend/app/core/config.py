@@ -1,3 +1,5 @@
+import uuid
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +22,13 @@ class Settings(BaseSettings):
     secret_key: str = "dev-insecure-change-me"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
+
+    # Usuario semilla (fase 1: un solo usuario, sin auth de servidor).
+    # Su id es fijo para que owner_id sea estable entre dispositivos y reinicios.
+    # El codigo de acceso (PIN) vive en el cliente, no aca (ver fase 3 para auth real).
+    seed_user_id: uuid.UUID = uuid.UUID("00000000-0000-0000-0000-000000000001")
+    seed_user_email: str = "yo@mango.local"
+    seed_user_name: str = "Yo"
 
 
 settings = Settings()
