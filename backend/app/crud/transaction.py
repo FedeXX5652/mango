@@ -92,8 +92,15 @@ async def _validate_invariants(
 
 
 async def create_transaction(
-    session: AsyncSession, owner_id: uuid.UUID, data: TransactionCreate
+    session: AsyncSession,
+    owner_id: uuid.UUID,
+    data: TransactionCreate,
+    *,
+    source: str = "manual",
 ) -> Transaction:
+    # `source` distingue el origen: 'manual' (API), 'template' (aplicar
+    # plantilla) o 'recurring' (regla recurrente). Nunca produce 'pending'
+    # (eso es exclusivo de la ingesta automatica, regla 4).
     await _validate_invariants(
         session,
         owner_id,
@@ -105,8 +112,8 @@ async def create_transaction(
     )
     tx = Transaction(
         owner_id=owner_id,
-        status="confirmed",  # la carga manual nunca es pending (regla 4)
-        source="manual",
+        status="confirmed",
+        source=source,
         **data.model_dump(),
     )
     session.add(tx)
