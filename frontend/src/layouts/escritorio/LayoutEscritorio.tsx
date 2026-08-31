@@ -12,9 +12,7 @@ export function LayoutEscritorio() {
     <div className="grid h-full grid-cols-[240px_1fr]">
       <aside className="flex flex-col gap-1 border-r border-border bg-card p-4">
         <div className="mb-4 flex items-center gap-2 px-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-            M
-          </span>
+          <img src="/icons/svg/mango.svg" alt="" className="h-8 w-8" />
           <span className="text-lg font-semibold">Mango</span>
         </div>
         {DESTINOS.map((d) => (

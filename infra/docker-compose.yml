@@ -2,6 +2,8 @@ services:
   postgres:
     image: postgres:16
     container_name: mango-postgres
+    # PowerSync replica por WAL logico; sin esto no puede leer los cambios.
+    command: ["postgres", "-c", "wal_level=logical"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-mango}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cambiar}
@@ -16,5 +18,56 @@ services:
       timeout: 5s
       retries: 5
 
+  # Postgres separado donde PowerSync guarda sus buckets de sincronizacion.
+  powersync-storage:
+    image: postgres:16
+    container_name: mango-powersync-storage
+    environment:
+      POSTGRES_USER: ${POWERSYNC_STORAGE_USER:-powersync}
+      POSTGRES_PASSWORD: ${POWERSYNC_STORAGE_PASSWORD:-powersync}
+      POSTGRES_DB: ${POWERSYNC_STORAGE_DB:-powersync}
+    volumes:
+      - mango-powersync-storage:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POWERSYNC_STORAGE_USER:-powersync} -d ${POWERSYNC_STORAGE_DB:-powersync}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  powersync:
+    image: journeyapps/powersync-service:latest
+    container_name: mango-powersync
+    command: ["start", "-r", "unified"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      powersync-storage:
+        condition: service_healthy
+    environment:
+      POWERSYNC_CONFIG_PATH: /config/service.yaml
+      # Fuente de datos (la base de la app) y storage de buckets, por DNS de docker.
+      PS_DATA_SOURCE_URI: postgresql://${POSTGRES_USER:-mango}:${POSTGRES_PASSWORD:-cambiar}@postgres:5432/${POSTGRES_DB:-mango}
+      PS_STORAGE_SOURCE_URI: postgresql://${POWERSYNC_STORAGE_USER:-powersync}:${POWERSYNC_STORAGE_PASSWORD:-powersync}@powersync-storage:5432/${POWERSYNC_STORAGE_DB:-powersync}
+      PS_PORT: "8080"
+      # Clave HS256 compartida (base64url) que valida los JWT de los clientes.
+      PS_JWKS_K: ${POWERSYNC_JWT_SECRET}
+      PS_JWT_AUDIENCE: ${POWERSYNC_JWT_AUDIENCE:-powersync}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./powersync:/config
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:8080/probes/liveness').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 2s
+      retries: 15
+
 volumes:
   mango-pgdata:
+  mango-powersync-storage:

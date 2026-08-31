@@ -15,6 +15,7 @@ import {
   type TipoMovimiento,
   api,
 } from "@/lib/api"
+import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 
 const TIPOS: { valor: TipoMovimiento; etiqueta: string }[] = [
@@ -95,7 +96,7 @@ export function Alta() {
     setGuardando(true)
     try {
       await api.createTransaction({
-        id: crypto.randomUUID(),
+        id: uuidv4(),
         kind: tipo,
         occurred_at: new Date(cuando).toISOString(),
         amount: centavos,
@@ -133,10 +134,10 @@ export function Alta() {
             key={t.valor}
             onClick={() => setTipo(t.valor)}
             className={cn(
-              "rounded-md border px-2 py-2 text-sm transition-colors",
+              "rounded-md border px-2 py-2 text-sm font-medium transition-colors",
               tipo === t.valor
-                ? "border-primary bg-accent text-accent-foreground"
-                : "border-border hover:bg-muted",
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground hover:bg-muted",
             )}
           >
             {t.etiqueta}

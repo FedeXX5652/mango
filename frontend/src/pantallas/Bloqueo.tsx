@@ -1,4 +1,4 @@
-import { Fingerprint, Lock } from "lucide-react"
+import { Fingerprint } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { Button } from "@/componentes/ui/button"
@@ -51,9 +51,7 @@ export function PantallaBloqueo({ modo, onListo }: Props) {
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6 bg-background px-6">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-        <Lock className="h-8 w-8" />
-      </div>
+      <img src="/icons/svg/mango.svg" alt="Mango" className="h-20 w-20" />
       <div className="text-center">
         <h1 className="text-2xl font-semibold">Mango</h1>
         <p className="text-sm text-muted-foreground">

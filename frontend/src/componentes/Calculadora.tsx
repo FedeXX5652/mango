@@ -28,6 +28,34 @@ export function Calculadora({
     onCambio(valorCentavos(estado))
   }, [estado, onCambio])
 
+  // Teclado fisico. Se ignora si el foco esta en otro campo (notas, comercio…)
+  // para no pisar lo que el usuario escribe ahi.
+  useEffect(() => {
+    function alTecla(ev: KeyboardEvent) {
+      const foco = document.activeElement?.tagName
+      if (foco === "INPUT" || foco === "TEXTAREA" || foco === "SELECT") return
+
+      const k = ev.key
+      let accion: ((e: typeof estado) => typeof estado) | null = null
+      if (/^[0-9]$/.test(k)) accion = (e) => digito(e, k)
+      else if (k === "," || k === ".") accion = coma
+      else if (k === "+") accion = (e) => operador(e, "+")
+      else if (k === "-") accion = (e) => operador(e, "-")
+      else if (k === "*" || k === "x" || k === "X") accion = (e) => operador(e, "×")
+      else if (k === "/") accion = (e) => operador(e, "÷")
+      else if (k === "Enter" || k === "=") accion = igual
+      else if (k === "Backspace") accion = borrarUltimo
+      else if (k === "Escape" || k === "Delete") accion = limpiar
+
+      if (accion) {
+        ev.preventDefault()
+        setEstado(accion)
+      }
+    }
+    window.addEventListener("keydown", alTecla)
+    return () => window.removeEventListener("keydown", alTecla)
+  }, [])
+
   const simbolo = moneda === "ARS" ? "$" : moneda
 
   return (

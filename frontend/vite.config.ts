@@ -8,7 +8,15 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icons/icon-192.png", "icons/icon-512.png"],
+      // Sirve manifest + SW tambien en `npm run dev`, para verificar
+      // instalabilidad en DevTools sin tener que hacer build/preview.
+      devOptions: { enabled: true, type: "module" },
+      includeAssets: [
+        "icons/favicon.ico",
+        "icons/svg/mango.svg",
+        "icons/png/mango-apple-180.png",
+        "icons/png/og-1200x630.png",
+      ],
       manifest: {
         name: "Mango",
         short_name: "Mango",
@@ -18,11 +26,20 @@ export default defineConfig({
         background_color: "#FFFCF5",
         display: "standalone",
         start_url: "/",
+        // Estandar y enmascarable son archivos distintos a proposito: el
+        // enmascarable tiene margen para el recorte (no compartir con purpose
+        // "any maskable"). El de 512 es obligatorio para que Chrome ofrezca instalar.
         icons: [
-          { src: "icons/icon-192.png", sizes: "192x192", type: "image/png" },
-          { src: "icons/icon-512.png", sizes: "512x512", type: "image/png" },
+          { src: "icons/png/mango-any-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "icons/png/mango-any-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
           {
-            src: "icons/icon-512.png",
+            src: "icons/png/mango-maskable-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "maskable",
+          },
+          {
+            src: "icons/png/mango-maskable-512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",

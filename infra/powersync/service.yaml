@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://unpkg.com/@powersync/service-schema@latest/json-schema/powersync-config.json
+#
+# Config del servicio PowerSync (Open Edition, self-hosted). Los valores
+# sensibles llegan por !env desde el docker-compose. Ver docs/decisiones y
+# ESPECIFICACION 6.2.
+
+telemetry:
+  disable_telemetry_sharing: true
+
+# Fuente de datos: la base de la app. PowerSync la lee por WAL logico.
+replication:
+  connections:
+    - type: postgresql
+      uri: !env PS_DATA_SOURCE_URI
+      sslmode: disable
+
+# Storage de los buckets de sincronizacion (Postgres aparte).
+storage:
+  type: postgresql
+  uri: !env PS_STORAGE_SOURCE_URI
+  sslmode: disable
+
+port: !env PS_PORT
+
+sync_config:
+  path: sync-rules.yaml
+
+# Validacion de los JWT que emite la API. HS256 con clave simetrica compartida
+# (JWK oct); la 'k' es el secreto en base64url. La API firma con el mismo secreto.
+client_auth:
+  audience: ["powersync"]
+  jwks:
+    keys:
+      - kty: oct
+        alg: HS256
+        kid: mango-hs256
+        k: !env PS_JWKS_K

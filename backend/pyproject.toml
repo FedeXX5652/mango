@@ -17,6 +17,8 @@ dependencies = [
     "pydantic-settings>=2.3",
     # Base de zonas IANA para zoneinfo (Windows no la trae del sistema).
     "tzdata>=2024.1",
+    # Firma de los JWT HS256 para PowerSync.
+    "pyjwt>=2.9",
 ]
 
 [project.optional-dependencies]

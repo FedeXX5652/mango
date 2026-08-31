@@ -1,0 +1,22 @@
+# Reglas de sincronizacion: que filas ve cada cliente.
+#
+# Fase 1 (un solo usuario): un bucket GLOBAL que sincroniza todo. Es correcto
+# porque hay un unico usuario. En fase 3 (multiusuario) esto pasa a buckets
+# parametrizados por `request.user_id()` filtrando por owner_id/visibility,
+# para que cada persona solo reciba lo suyo y lo compartido de su grupo.
+#
+# PowerSync usa la columna `id` (UUID) como identificador de cada fila.
+
+bucket_definitions:
+  global:
+    data:
+      - SELECT * FROM accounts
+      - SELECT * FROM categories
+      - SELECT * FROM category_rules
+      - SELECT * FROM payment_methods
+      - SELECT * FROM payment_method_accounts
+      - SELECT * FROM transactions
+      - SELECT * FROM transaction_splits
+      - SELECT * FROM budgets
+      - SELECT * FROM recurring_rules
+      - SELECT * FROM templates
