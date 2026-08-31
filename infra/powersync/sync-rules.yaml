@@ -18,5 +18,8 @@ bucket_definitions:
       - SELECT * FROM transactions
       - SELECT * FROM transaction_splits
       - SELECT * FROM budgets
+      - SELECT * FROM budget_rules
       - SELECT * FROM recurring_rules
       - SELECT * FROM templates
+      - SELECT * FROM tags
+      - SELECT * FROM transaction_tags

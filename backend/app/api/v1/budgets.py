@@ -1,4 +1,4 @@
-"""Rutas de presupuestos. Exponen 'spent' y 'available' calculados por periodo."""
+"""Rutas de asignaciones a sobres. CRUD plano; el calculo vive en el cliente."""
 
 import uuid
 
@@ -47,7 +47,7 @@ async def get_budget(
     budget = await crud.get_budget(session, owner_id, budget_id)
     if budget is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
-    return await crud.read_budget(session, owner_id, budget)
+    return budget
 
 
 @router.patch("/{budget_id}", response_model=BudgetRead)
@@ -60,7 +60,7 @@ async def update_budget(
     budget = await crud.get_budget(session, owner_id, budget_id)
     if budget is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
-    return await crud.update_budget(session, owner_id, budget, data)
+    return await crud.update_budget(session, budget, data)
 
 
 @router.delete("/{budget_id}", status_code=status.HTTP_204_NO_CONTENT)

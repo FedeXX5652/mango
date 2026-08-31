@@ -180,19 +180,116 @@ relaciona un patron de comercio con una categoria y subcategoria:
 Esta tabla se puede editar a mano desde la aplicacion, y crece sola cuando la
 persona confirma una sugerencia (ver 4.5).
 
-### 3.6 Presupuestos y metas
+### 3.5.1 Etiquetas: una dimension aparte de la categoria
 
-- **Presupuesto**: monto asignado a una categoria para un periodo (semanal,
-  mensual o anual). Permite ver cuanto queda disponible.
-- **Meta**: objetivo de ahorro con monto y fecha. "Viaje 2027", "Notebook
-  nueva". Sirve para planificar hacia adelante.
+La categoria y la etiqueta responden preguntas distintas y por eso son campos
+distintos:
+
+| Concepto | Que responde | Ejemplo |
+|---|---|---|
+| **Categoria** | De que TIPO es el gasto | `Comida / Restaurante` |
+| **Etiqueta** | A que PROYECTO pertenece | `Viaje 2027` |
+| **Comercio** | Donde se hizo | `LA CABRERA` |
+
+Sin etiquetas aparece un conflicto apenas se usan sobres para proyectos: una
+comida durante un viaje, si va a `Comida`, deja el sobre del viaje sin consumir;
+si va a `Viaje 2027`, arruina el informe de comida. La etiqueta lo resuelve: el
+gasto va a `Comida` **con la etiqueta** `Viaje 2027`, y salen los dos informes sin
+pisarse. Un gasto puede tener varias etiquetas o ninguna.
+
+El sobre de ahorro del viaje (`Ahorro / Viaje 2027`, con arrastre) es donde se
+aparta plata mes a mes; el costo real del viaje sale sumando por etiqueta.
+
+Las tablas `tags` y `transaction_tags` estan en el esquema desde ahora; la
+interfaz de etiquetas llega mas adelante (mismo criterio que 5.4/5.6).
+
+### 3.6 Presupuesto por sobres
+
+Mango presupuesta por **sobres** (envelope / base cero), como Actual o YNAB. Es
+**transaction-first en la interfaz** (la pantalla mas usada sigue siendo cargar
+un gasto) y **budget-first en el modelo de datos**: por debajo, todo soporta
+sobres con arrastre desde el principio.
+
+**Asignar plata a un sobre no mueve plata.** Es la regla que todo lo demas
+respeta. Si tenes 300.000 en la cuenta y asignas 50.000 al sobre Viaje, seguis
+teniendo 300.000; lo unico que cambio es que el sistema dejo de ofrecerte esos
+50.000 para otra cosa. Son dos dimensiones del mismo hecho: las **cuentas** dicen
+cuanta plata tenes; los **sobres**, para que esta comprometida. Y siempre cierran:
+la suma de las cuentas presupuestables = la suma de los sobres + lo que queda por
+asignar.
+
+**Un sobre es una categoria.** No es una entidad nueva: es la vista
+presupuestaria de una categoria. Para un mes, cada sobre tiene tres numeros:
+
+- **asignado** — cuanto pusiste ahi este mes
+- **gastado** — cuanto se consumio de transacciones de esa categoria
+- **saldo** — asignado menos gastado, mas el arrastre del mes anterior
+
+**Un padre es hoja y grupo a la vez, y siempre es un sobre.** Regla de consumo:
+*cada movimiento consume del sobre de su categoria exacta, y de ninguno mas.* Un
+gasto en `Comida > Delivery` consume del sobre `Delivery`; un gasto en `Comida` a
+secas consume del sobre `Comida`. El **encabezado del grupo** suma padre e hijas
+pero es **informativo**: no se le asigna plata, no entra en "por asignar" ni en la
+suma del invariante. Esto es a proposito y distinto de YNAB/Actual (donde el padre
+es solo grupo): asi, agregar una subcategoria a una categoria que ya tiene
+movimientos y presupuesto **no la rompe** —sigue siendo un sobre valido y la nueva
+nace al lado (ver decision 0004).
+
+**Arrastre (`rollover`, por sobre).** Comida suele ir sin arrastre (cada mes
+arranca con su tope). "Viaje 2027" va con arrastre: acumula mes a mes. Por eso un
+solo mecanismo cubre **topes de gasto** y **ahorro para objetivos**. (Las "metas"
+de ahorro son sobres con arrastre; ver 5.7 / decision 0004.)
+
+**Asignacion recurrente (`budget_rules`).** Un sobre puede fijar "$X todos los
+meses": al abrir la app (o al ejecutar los recurrentes) el sistema crea la
+asignacion del mes con ese monto **si todavia no hay una** —nunca pisa lo que
+asignaste a mano. Es lo que antes intentaba `default_budget`, ahora por el
+sistema de recurrentes (3.7). La configuracion vive en la propia tarjeta del
+sobre; mientras esta activa, editar el monto del mes actualiza la regla.
+
+**Por asignar.** Es la plata todavia no repartida:
+`por_asignar = saldo de cuentas presupuestables - suma de lo asignado`. Un ingreso
+suma a "por asignar", no a un sobre: vos decidis como repartirlo.
+
+**Cuentas dentro y fuera del presupuesto (`off_budget`).** Las cuentas dentro
+(caja de ahorro, efectivo, tarjeta de credito) suman a "por asignar". Las de fuera
+(inversiones, plazo fijo, terceros) cuentan para el patrimonio pero no para lo
+repartible. "Por asignar" no distingue de que cuenta viene la plata; en
+consecuencia, **una transferencia entre dos cuentas presupuestables no toca los
+sobres**.
+
+**Sobregiros: no se bloquea nada.**
+
+- *Sobre en rojo*: asignaste 40.000 y gastaste 55.000 -> saldo −15.000. Es
+  informacion, no error. El negativo arrastra salvo que se cubra.
+- *"Por asignar" en negativo*: presupuestaste plata que no tenes. Es el aviso mas
+  util: un tope por categoria te dice que te pasaste en comida; los sobres te
+  dicen que te pasaste **en total**.
+
+Siempre se avisa con el token `expense` y **nunca solo por color** (signo o icono).
+
+**Tarjeta de credito.** Es una cuenta con saldo negativo, dentro del presupuesto.
+El **gasto con tarjeta consume del sobre en el momento** (comprometiste esa plata,
+aunque todavia no salio de la cuenta). El **pago del resumen es una transferencia**
+banco -> tarjeta, no un gasto; registrarlo como gasto lo contaria dos veces.
+
+**Etiquetas (ver 3.5.1).** El costo total de un proyecto (un viaje) sale por
+etiqueta, sin ensuciar los informes por categoria.
 
 ### 3.7 Recurrentes y plantillas
 
-- **Recurrentes**: sueldo, alquiler, seguros, servicios. Se definen una vez
-  con su frecuencia y el sistema los genera solo, o avisa, segun se
-  configure.
-- **Plantillas**: gastos frecuentes precargados que se repiten con un toque.
+- **Recurrentes** (`recurring_rules`): sueldo, alquiler, seguros, servicios. Se
+  definen una vez con su frecuencia (diaria/semanal/mensual/anual + cada N) y el
+  sistema **genera la transaccion sola** cuando vence (`auto_create`), avanzando
+  `next_run_date`. La generacion la dispara `POST /recurring/run` (al abrir la
+  app, idempotente por fecha) o el boton manual "Ejecutar vencidas". Se pueden
+  pausar.
+- **Presupuestos recurrentes** (`budget_rules`): la asignacion recurrente de un
+  sobre (ver 3.6). El mismo `run` las aplica: crea la asignacion del mes que
+  falte. Reemplaza a `default_budget`.
+- **Plantillas** (`templates`): gastos o ingresos frecuentes precargados que se
+  cargan con un toque (chips en la pantalla de alta). Pueden estar parciales y
+  completarse al aplicarlas.
 
 ### 3.8 Visualizacion
 

@@ -24,6 +24,21 @@ export function formatearMonto(
   return `${signo}${simbolo}${formatearCentavos(centavos)}`
 }
 
+// Saldo: muestra el signo negativo cuando la cuenta esta en rojo (ej: deuda de
+// tarjeta). formatearCentavos usa magnitud, asi que el signo se antepone aca.
+export function formatearSaldo(centavos: number, moneda?: string): string {
+  const simbolo = moneda && moneda !== "ARS" ? `${moneda} ` : "$ "
+  return `${centavos < 0 ? "-" : ""}${simbolo}${formatearCentavos(centavos)}`
+}
+
+// Formatea la entrada de la calculadora (string en curso) con separador de
+// miles, conservando la coma decimal tal como se tipea (incluida la coma sola).
+export function formatearEntrada(entrada: string): string {
+  const [ent, dec] = entrada.split(",")
+  const entero = agrupador.format(Number(ent || "0"))
+  return entrada.includes(",") ? `${entero},${dec ?? ""}` : entero
+}
+
 // Convierte lo tipeado por el usuario ("2302,72" o "2302.72") a centavos.
 export function aCentavos(texto: string): number | null {
   const s = texto.trim()

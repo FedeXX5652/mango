@@ -21,7 +21,10 @@ export function LayoutMovil() {
         <Plus className="h-6 w-6" />
       </Link>
 
-      <nav className="fixed inset-x-0 bottom-0 grid h-16 grid-cols-4 border-t border-border bg-card">
+      <nav
+        className="fixed inset-x-0 bottom-0 grid h-16 border-t border-border bg-card"
+        style={{ gridTemplateColumns: `repeat(${DESTINOS.length}, minmax(0, 1fr))` }}
+      >
         {DESTINOS.map((d) => (
           <NavLink
             key={d.to}

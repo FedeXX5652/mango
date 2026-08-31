@@ -27,6 +27,11 @@ class Category(Base, IdMixin, TimestampMixin):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     archived: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
 
+    # Ajuste de sobre (el sobre ES la categoria, ver 3.6 / 0004).
+    # rollover: el saldo arrastra al mes siguiente (sobre de ahorro). La
+    # asignacion recurrente va por el sistema de recurrentes, no aca.
+    rollover: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+
     __table_args__ = (CheckConstraint("kind IN ('expense','income')", name="categories_kind_chk"),)
 
 

@@ -49,7 +49,7 @@ componente de layout movil importa algo de layout escritorio, algo se hizo mal.
 
 | | Movil | Escritorio |
 |---|---|---|
-| Navegacion | Barra inferior, 4 destinos | Barra lateral fija, todos los destinos |
+| Navegacion | Barra inferior, 5 destinos | Barra lateral fija, todos los destinos |
 | Accion principal | Boton flotante abajo a la derecha | Boton en la barra superior |
 | Alta de movimiento | Pantalla completa | Panel lateral derecho |
 | Lista de movimientos | Tarjetas apiladas, una columna | Tabla densa con columnas ordenables |

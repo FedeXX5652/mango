@@ -1,7 +1,7 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { X } from "lucide-react"
-import { useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 
 import { Calculadora } from "@/componentes/Calculadora"
 import { Button } from "@/componentes/ui/button"
@@ -9,6 +9,7 @@ import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import type { TipoMovimiento } from "@/lib/api"
+import { ordenarJerarquico } from "@/lib/categorias"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 
@@ -27,6 +28,17 @@ interface MedioLocal {
   id: string
   name: string
 }
+interface PlantillaLocal {
+  id: string
+  name: string
+  kind: string
+  account_id: string | null
+  category_id: string | null
+  payment_method_id: string | null
+  amount: number | null
+  payee: string | null
+  notes: string | null
+}
 
 const TIPOS: { valor: TipoMovimiento; etiqueta: string }[] = [
   { valor: "expense", etiqueta: "Gasto" },
@@ -42,6 +54,7 @@ function ahoraLocal(): string {
 
 export function Alta() {
   const navigate = useNavigate()
+  const location = useLocation()
   const db = usePowerSync()
 
   // Todo se lee de la base local (funciona sin conexion).
@@ -58,6 +71,9 @@ export function Alta() {
     "SELECT DISTINCT payee FROM transactions WHERE payee IS NOT NULL AND deleted_at IS NULL ORDER BY payee",
   )
   const comercios = comerciosRows.map((r) => r.payee)
+  const { data: plantillas } = useQuery<PlantillaLocal>(
+    "SELECT id, name, kind, account_id, category_id, payment_method_id, amount, payee, notes FROM templates WHERE deleted_at IS NULL ORDER BY sort_order, name",
+  )
 
   const [tipo, setTipo] = useState<TipoMovimiento>("expense")
   const [centavos, setCentavos] = useState(0)
@@ -70,6 +86,10 @@ export function Alta() {
   const [cuando, setCuando] = useState(ahoraLocal)
   const [error, setError] = useState("")
   const [guardando, setGuardando] = useState(false)
+  // Monto sembrado al aplicar una plantilla. `calcKey` remonta la calculadora
+  // (que maneja su estado interno) para que tome el nuevo valor inicial.
+  const [montoInicial, setMontoInicial] = useState(0)
+  const [calcKey, setCalcKey] = useState(0)
 
   const cuentaSel = cuentas.find((c) => c.id === cuentaId)
   const moneda = cuentaSel?.currency ?? "ARS"
@@ -79,13 +99,43 @@ export function Alta() {
     [categorias],
   )
   const categoriasDelTipo = useMemo(
-    () => categorias.filter((c) => c.kind === (tipo === "income" ? "income" : "expense")),
+    () =>
+      ordenarJerarquico(categorias).filter(
+        (c) => c.kind === (tipo === "income" ? "income" : "expense"),
+      ),
     [categorias, tipo],
   )
 
   function etiquetaCat(c: CategoriaLocal): string {
     return c.parent_id ? `${nombrePorId.get(c.parent_id) ?? "—"} › ${c.name}` : c.name
   }
+
+  const aplicarPlantilla = useCallback((t: PlantillaLocal) => {
+    setTipo(t.kind as TipoMovimiento)
+    if (t.account_id) setCuentaId(t.account_id)
+    setCategoriaId(t.category_id ?? "")
+    setMedioId(t.payment_method_id ?? "")
+    setComercio(t.payee ?? "")
+    setNotas(t.notes ?? "")
+    if (t.amount && t.amount > 0) {
+      setMontoInicial(t.amount)
+      setCalcKey((k) => k + 1)
+    }
+  }, [])
+
+  // Llegada desde la pantalla de Plantillas ("Usar"): aplica una sola vez,
+  // cuando las plantillas ya cargaron de la base local.
+  const aplicada = useRef(false)
+  useEffect(() => {
+    if (aplicada.current) return
+    const id = (location.state as { plantillaId?: string } | null)?.plantillaId
+    if (!id) return
+    const t = plantillas.find((p) => p.id === id)
+    if (t) {
+      aplicada.current = true
+      aplicarPlantilla(t)
+    }
+  }, [location.state, plantillas, aplicarPlantilla])
 
   async function guardar() {
     setError("")
@@ -155,7 +205,21 @@ export function Alta() {
         ))}
       </div>
 
-      <Calculadora moneda={moneda} onCambio={setCentavos} />
+      {plantillas.length > 0 && (
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+          {plantillas.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => aplicarPlantilla(t)}
+              className="shrink-0 rounded-full border border-border bg-card px-3 py-1 text-sm hover:bg-muted"
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <Calculadora key={calcKey} moneda={moneda} onCambio={setCentavos} inicial={montoInicial} />
 
       {cuentas.length === 0 ? (
         <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">

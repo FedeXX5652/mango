@@ -19,6 +19,7 @@ async def _integrity_handler(request: Request, exc: IntegrityError) -> JSONRespo
         content={"detail": "Conflicto de integridad (posible duplicado)"},
     )
 
+
 # El frontend corre en otro origen (Vite dev/preview); sin CORS el navegador
 # bloquea las llamadas. Los origenes permitidos se configuran por entorno.
 app.add_middleware(

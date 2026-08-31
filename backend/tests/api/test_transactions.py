@@ -177,6 +177,7 @@ async def test_big_amount_keeps_precision(api: SimpleNamespace) -> None:
 async def test_other_users_transaction_is_404(api: SimpleNamespace) -> None:
     other_user = uuid.uuid4()
     other_acc = uuid.uuid4()
+    other_cat = uuid.uuid4()
     other_tx = uuid.uuid4()
     await api.session.execute(
         text(
@@ -194,11 +195,20 @@ async def test_other_users_transaction_is_404(api: SimpleNamespace) -> None:
     )
     await api.session.execute(
         text(
-            "INSERT INTO transactions "
-            "(id, owner_id, kind, status, occurred_at, amount, currency, source, account_id) "
-            "VALUES (:id, :owner, 'income', 'confirmed', now(), 100, 'ARS', 'manual', :acc)"
+            "INSERT INTO categories (id, owner_id, name, kind) "
+            "VALUES (:id, :owner, 'Sueldo', 'income')"
         ),
-        {"id": other_tx, "owner": other_user, "acc": other_acc},
+        {"id": other_cat, "owner": other_user},
+    )
+    await api.session.execute(
+        text(
+            "INSERT INTO transactions "
+            "(id, owner_id, kind, status, occurred_at, amount, currency, source, "
+            " account_id, category_id) "
+            "VALUES (:id, :owner, 'income', 'confirmed', now(), 100, 'ARS', 'manual', "
+            " :acc, :cat)"
+        ),
+        {"id": other_tx, "owner": other_user, "acc": other_acc, "cat": other_cat},
     )
     await api.session.flush()
     assert (await api.client.get(f"/api/v1/transactions/{other_tx}")).status_code == 404

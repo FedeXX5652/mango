@@ -1,5 +1,6 @@
-import { Check } from "lucide-react"
+import { Check, ChevronRight } from "lucide-react"
 import { useEffect, useState } from "react"
+import { Link } from "react-router-dom"
 
 import { Button } from "@/componentes/ui/button"
 import { TEMAS } from "@/config/temas"
@@ -50,6 +51,27 @@ export function Ajustes() {
   return (
     <div className="mx-auto max-w-xl space-y-8 p-6">
       <h1 className="text-2xl font-semibold">Ajustes</h1>
+
+      <Seccion titulo="Gestión">
+        <div className="overflow-hidden rounded-lg border border-border">
+          {[
+            { to: "/cuentas", etiqueta: "Cuentas" },
+            { to: "/categorias", etiqueta: "Categorías" },
+            { to: "/medios", etiqueta: "Medios de pago" },
+            { to: "/plantillas", etiqueta: "Plantillas" },
+            { to: "/recurrentes", etiqueta: "Recurrentes" },
+          ].map((i) => (
+            <Link
+              key={i.to}
+              to={i.to}
+              className="flex items-center justify-between border-b border-border bg-card px-4 py-3 text-sm last:border-b-0 hover:bg-muted"
+            >
+              {i.etiqueta}
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </Link>
+          ))}
+        </div>
+      </Seccion>
 
       <Seccion titulo="Tema">
         <div className="grid grid-cols-3 gap-3">

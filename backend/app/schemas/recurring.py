@@ -75,3 +75,5 @@ class RecurringRead(BaseModel):
 class RecurringRunResult(BaseModel):
     generated: int
     transaction_ids: list[uuid.UUID]
+    # Asignaciones de sobre creadas por las reglas de presupuesto recurrente.
+    budgets_created: int = 0

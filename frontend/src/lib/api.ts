@@ -108,6 +108,12 @@ export interface CredencialesSync {
   powersync_url: string
 }
 
+export interface ResultadoRecurrentes {
+  generated: number
+  transaction_ids: string[]
+  budgets_created: number
+}
+
 export const api = {
   getMe: () => pedir<Usuario>("/users/me"),
   getSyncToken: () => pedir<CredencialesSync>("/sync/token"),
@@ -119,5 +125,8 @@ export const api = {
   listTransactions: (limite = 100) => pedir<Transaccion[]>(`/transactions?limit=${limite}`),
   createTransaction: (data: TransaccionCrear) =>
     pedir<Transaccion>("/transactions", { method: "POST", body: JSON.stringify(data) }),
+  // Genera las transacciones de las reglas recurrentes vencidas. Idempotente
+  // por fecha (avanza next_run_date), asi que es seguro llamarlo al abrir la app.
+  runRecurring: () => pedir<ResultadoRecurrentes>("/recurring/run", { method: "POST" }),
 }
 

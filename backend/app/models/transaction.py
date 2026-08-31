@@ -85,6 +85,17 @@ class Transaction(Base, IdMixin, TimestampMixin):
         CheckConstraint("status <> 'confirmed' OR account_id IS NOT NULL", name="tx_confirmed_chk"),
         # El monto es magnitud positiva; la direccion la da `kind` (ver 0001)
         CheckConstraint("amount >= 0", name="tx_amount_chk"),
+        # Una transferencia mueve plata entre cuentas propias: no se categoriza.
+        CheckConstraint(
+            "kind <> 'transfer' OR category_id IS NULL", name="tx_transfer_sin_categoria_chk"
+        ),
+        # Gasto e ingreso necesitan categoria, con dos excepciones: la ingesta
+        # puede dejar un 'pending' sin categoria (4.4/4.7), y un 'rejected' (una
+        # compra que el banco rechazo) llega como gasto sin categoria y no es real.
+        CheckConstraint(
+            "kind = 'transfer' OR status IN ('pending', 'rejected') OR category_id IS NOT NULL",
+            name="tx_categoria_obligatoria_chk",
+        ),
         Index(
             "tx_external_uniq",
             "owner_id",

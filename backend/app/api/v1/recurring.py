@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user_id
 from app.core.errors import DomainError
+from app.crud import budget_rule as budget_rule_crud
 from app.crud import recurring as crud
 from app.db import get_session
 from app.schemas.recurring import (
@@ -55,7 +56,10 @@ async def run_recurring(
     if as_of is None:
         as_of = datetime.now(ZoneInfo(DEFAULT_TZ)).date()
     ids = await crud.run_due(session, owner_id, as_of)
-    return RecurringRunResult(generated=len(ids), transaction_ids=ids)
+    budget_ids = await budget_rule_crud.apply_due(session, owner_id, as_of)
+    return RecurringRunResult(
+        generated=len(ids), transaction_ids=ids, budgets_created=len(budget_ids)
+    )
 
 
 @router.get("/{rule_id}", response_model=RecurringRead)

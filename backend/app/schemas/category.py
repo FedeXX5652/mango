@@ -17,6 +17,8 @@ class CategoryCreate(BaseModel):
     color: str | None = None
     icon: str | None = None
     sort_order: int = 0
+    # Ajuste de sobre (ver 3.6 / 0004). rollover = sobre de ahorro (acumula).
+    rollover: bool = False
 
 
 class CategoryUpdate(BaseModel):
@@ -27,6 +29,7 @@ class CategoryUpdate(BaseModel):
     icon: str | None = None
     sort_order: int | None = None
     archived: bool | None = None
+    rollover: bool | None = None
 
 
 class CategoryRead(BaseModel):
@@ -40,5 +43,6 @@ class CategoryRead(BaseModel):
     icon: str | None
     sort_order: int
     archived: bool
+    rollover: bool
     created_at: datetime
     updated_at: datetime

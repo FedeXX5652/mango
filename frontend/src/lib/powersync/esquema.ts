@@ -27,6 +27,8 @@ const categories = new Table(
     kind: column.text,
     archived: column.integer,
     sort_order: column.integer,
+    // Ajuste de sobre (ver 3.6 / 0004). rollover = sobre de ahorro (acumula).
+    rollover: column.integer,
     created_at: column.text,
     updated_at: column.text,
     deleted_at: column.text,
@@ -79,14 +81,25 @@ const transactions = new Table(
   { indexes: { por_fecha: ["occurred_at"], por_cuenta: ["account_id"] } },
 )
 
+// Asignacion de un mes a un sobre (categoria). Ver 3.6 / 0004.
 const budgets = new Table({
   owner_id: column.text,
   category_id: column.text,
-  period: column.text,
   period_start: column.text,
   amount: column.integer,
   currency: column.text,
-  rollover: column.integer,
+  created_at: column.text,
+  updated_at: column.text,
+  deleted_at: column.text,
+})
+
+// Asignacion recurrente a un sobre (categoria): $X todos los meses. Ver 3.6 / 0004.
+const budget_rules = new Table({
+  owner_id: column.text,
+  category_id: column.text,
+  amount: column.integer,
+  currency: column.text,
+  active: column.integer,
   created_at: column.text,
   updated_at: column.text,
   deleted_at: column.text,
@@ -140,6 +153,7 @@ export const AppSchema = new Schema({
   payment_method_accounts,
   transactions,
   budgets,
+  budget_rules,
   templates,
   recurring_rules,
 })

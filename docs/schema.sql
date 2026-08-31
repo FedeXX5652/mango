@@ -164,6 +164,10 @@ CREATE TABLE categories (
     icon            TEXT,
     sort_order      INTEGER NOT NULL DEFAULT 0,
     archived        BOOLEAN NOT NULL DEFAULT false,
+    -- Ajuste de sobre (el sobre ES la categoria; ver 3.6 / 0004).
+    -- rollover: el saldo arrastra al mes siguiente (sobre de ahorro). La
+    -- asignacion recurrente va por el sistema de recurrentes, no aca.
+    rollover        BOOLEAN NOT NULL DEFAULT false,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at      TIMESTAMPTZ,
@@ -335,7 +339,50 @@ CREATE TABLE attachments (
 );
 
 -- ------------------------------------------------------------
--- Presupuestos
+-- Etiquetas: una dimension separada de la categoria.
+--
+-- La categoria dice de que TIPO es el gasto (Comida/Restaurante); la etiqueta a
+-- que PROYECTO pertenece (Viaje 2027). Un gasto de comida durante un viaje va a
+-- 'Comida' con la etiqueta 'Viaje 2027', y asi salen los dos informes sin
+-- pisarse. Ver ESPECIFICACION 3.6. Estructura ahora, sin interfaz todavia.
+-- ------------------------------------------------------------
+
+CREATE TABLE tags (
+    id          UUID PRIMARY KEY,
+    owner_id    UUID NOT NULL REFERENCES users(id),
+    group_id    UUID REFERENCES groups(id),
+    name        TEXT NOT NULL,
+    color       TEXT,
+    archived    BOOLEAN NOT NULL DEFAULT false,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at  TIMESTAMPTZ
+);
+
+CREATE TABLE transaction_tags (
+    id              UUID PRIMARY KEY,
+    transaction_id  UUID NOT NULL REFERENCES transactions(id),
+    tag_id          UUID NOT NULL REFERENCES tags(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ
+);
+
+-- Unico parcial (respeta el borrado logico, ver 0003): una etiqueta se puede
+-- sacar y volver a poner sin chocar con la fila borrada.
+CREATE UNIQUE INDEX transaction_tags_uniq
+    ON transaction_tags (transaction_id, tag_id)
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX transaction_tags_tag_idx ON transaction_tags (tag_id) WHERE deleted_at IS NULL;
+
+-- ------------------------------------------------------------
+-- Presupuestos por sobres
+--
+-- Cada fila es la ASIGNACION de un mes a un sobre (categoria). Los sobres son
+-- mensuales (`period_start` = dia 1). El arrastre vive en la categoria
+-- (`rollover`); la asignacion recurrente va por el sistema de recurrentes.
+-- Ver ESPECIFICACION 3.6 y decision 0004.
 -- ------------------------------------------------------------
 
 CREATE TABLE budgets (
@@ -343,23 +390,42 @@ CREATE TABLE budgets (
     owner_id        UUID REFERENCES users(id),
     group_id        UUID REFERENCES groups(id),
     category_id     UUID NOT NULL REFERENCES categories(id),
-    period          TEXT NOT NULL DEFAULT 'monthly',
-    -- Primer dia del periodo
+    -- Primer dia del mes
     period_start    DATE NOT NULL,
     amount          BIGINT NOT NULL,
     currency        CHAR(3) NOT NULL,
-    -- Si el sobrante pasa al periodo siguiente
-    rollover        BOOLEAN NOT NULL DEFAULT false,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at      TIMESTAMPTZ,
-    CONSTRAINT budgets_period_chk CHECK (period IN ('weekly','monthly','yearly'))
+    deleted_at      TIMESTAMPTZ
 );
 
 -- Unico parcial (respeta borrado logico) con NULLS NOT DISTINCT: con group_id
--- NULL (presupuesto personal) un unique comun no deduplicaria. Ver 0003.
+-- NULL (presupuesto personal) un unique comun no deduplicaria. Una asignacion
+-- por (sobre, mes). Ver 0003.
 CREATE UNIQUE INDEX budgets_uniq
-    ON budgets (owner_id, group_id, category_id, period, period_start)
+    ON budgets (owner_id, group_id, category_id, period_start)
+    NULLS NOT DISTINCT
+    WHERE deleted_at IS NULL;
+
+-- Asignacion recurrente a un sobre: cada mes, /recurring/run crea la fila de
+-- budgets del mes con este monto si todavia no hay una (no pisa lo asignado a
+-- mano). Reemplaza al viejo default_budget. Ver 3.6 / 0004.
+CREATE TABLE budget_rules (
+    id              UUID PRIMARY KEY,
+    owner_id        UUID REFERENCES users(id),
+    group_id        UUID REFERENCES groups(id),
+    category_id     UUID NOT NULL REFERENCES categories(id),
+    amount          BIGINT NOT NULL,
+    currency        CHAR(3) NOT NULL,
+    active          BOOLEAN NOT NULL DEFAULT true,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ
+);
+
+-- Una regla por sobre (unico parcial que respeta el borrado logico, ver 0003).
+CREATE UNIQUE INDEX budget_rules_uniq
+    ON budget_rules (owner_id, group_id, category_id)
     NULLS NOT DISTINCT
     WHERE deleted_at IS NULL;
 

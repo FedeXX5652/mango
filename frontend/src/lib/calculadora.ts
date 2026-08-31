@@ -75,3 +75,10 @@ export function limpiar(): EstadoCalc {
 export function valorCentavos(e: EstadoCalc): number {
   return aCentavos(e.entrada) ?? 0
 }
+
+// Estado inicial sembrado con un monto (en centavos), p. ej. al aplicar una
+// plantilla. Con 0 o negativo, vuelve al inicial vacio.
+export function desdeCentavos(centavos: number): EstadoCalc {
+  if (!centavos || centavos <= 0) return INICIAL
+  return { entrada: aEntrada(centavos / 100), acumulado: null, op: null, reiniciar: true }
+}

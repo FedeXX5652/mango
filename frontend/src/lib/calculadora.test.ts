@@ -4,6 +4,7 @@ import {
   INICIAL,
   type EstadoCalc,
   coma,
+  desdeCentavos,
   digito,
   igual,
   operador,
@@ -64,6 +65,14 @@ describe("calculadora", () => {
       (s) => digito(s, "4"),
     ])
     expect(e.entrada).toBe("1,23")
+  })
+
+  it("siembra un monto inicial desde centavos (plantilla)", () => {
+    expect(valorCentavos(desdeCentavos(230272))).toBe(230272)
+    expect(desdeCentavos(230272).entrada).toBe("2302,72")
+    // 0 o negativo -> inicial vacio, listo para escribir encima.
+    expect(desdeCentavos(0)).toEqual(INICIAL)
+    expect(desdeCentavos(-5)).toEqual(INICIAL)
   })
 
   it("encadena operaciones izquierda a derecha", () => {
