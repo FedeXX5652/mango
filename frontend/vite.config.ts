@@ -11,6 +11,8 @@ export default defineConfig({
       // Sirve manifest + SW tambien en `npm run dev`, para verificar
       // instalabilidad en DevTools sin tener que hacer build/preview.
       devOptions: { enabled: true, type: "module" },
+      // Los WASM de wa-sqlite (SQLite en el navegador) superan los 2 MB.
+      workbox: { maximumFileSizeToCacheInBytes: 6 * 1024 * 1024 },
       includeAssets: [
         "icons/favicon.ico",
         "icons/svg/mango.svg",
@@ -50,5 +52,10 @@ export default defineConfig({
   ],
   resolve: {
     alias: { "@": new URL("./src", import.meta.url).pathname },
+  },
+  // PowerSync usa web workers ESM y WASM (wa-sqlite); no se pre-bundlean.
+  worker: { format: "es" },
+  optimizeDeps: {
+    exclude: ["@powersync/web", "@journeyapps/wa-sqlite"],
   },
 })

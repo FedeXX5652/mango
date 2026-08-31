@@ -11,6 +11,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@journeyapps/wa-sqlite": "^2.0.3",
+    "@powersync/react": "^2.0.0",
+    "@powersync/web": "^2.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.469.0",
@@ -30,5 +33,8 @@
     "vite": "^6.0.5",
     "vite-plugin-pwa": "^0.21.1",
     "vitest": "^2.1.8"
+  },
+  "overrides": {
+    "@powersync/common": "2.1.0"
   }
 }

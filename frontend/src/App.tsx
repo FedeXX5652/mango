@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 import { ProveedorBloqueo } from "@/hooks/bloqueo"
 import { ProveedorTema } from "@/hooks/tema"
 import { useLayout } from "@/hooks/useLayout"
+import { ProveedorPowerSync } from "@/lib/powersync/proveedor"
 import { LayoutEscritorio } from "@/layouts/escritorio/LayoutEscritorio"
 import { LayoutMovil } from "@/layouts/movil/LayoutMovil"
 import { Ajustes } from "@/pantallas/Ajustes"
@@ -33,7 +34,9 @@ export function App() {
     <BrowserRouter>
       <ProveedorTema>
         <ProveedorBloqueo>
-          <Rutas />
+          <ProveedorPowerSync>
+            <Rutas />
+          </ProveedorPowerSync>
         </ProveedorBloqueo>
       </ProveedorTema>
     </BrowserRouter>

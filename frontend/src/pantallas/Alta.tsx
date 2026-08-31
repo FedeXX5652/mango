@@ -1,5 +1,6 @@
+import { usePowerSync, useQuery } from "@powersync/react"
 import { X } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { Calculadora } from "@/componentes/Calculadora"
@@ -7,16 +8,25 @@ import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
-import {
-  ApiError,
-  type Categoria,
-  type Cuenta,
-  type MedioPago,
-  type TipoMovimiento,
-  api,
-} from "@/lib/api"
+import type { TipoMovimiento } from "@/lib/api"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
+
+interface CuentaLocal {
+  id: string
+  name: string
+  currency: string
+}
+interface CategoriaLocal {
+  id: string
+  name: string
+  kind: string
+  parent_id: string | null
+}
+interface MedioLocal {
+  id: string
+  name: string
+}
 
 const TIPOS: { valor: TipoMovimiento; etiqueta: string }[] = [
   { valor: "expense", etiqueta: "Gasto" },
@@ -32,12 +42,22 @@ function ahoraLocal(): string {
 
 export function Alta() {
   const navigate = useNavigate()
+  const db = usePowerSync()
 
-  const [cuentas, setCuentas] = useState<Cuenta[]>([])
-  const [categorias, setCategorias] = useState<Categoria[]>([])
-  const [medios, setMedios] = useState<MedioPago[]>([])
-  const [comercios, setComercios] = useState<string[]>([])
-  const [cargando, setCargando] = useState(true)
+  // Todo se lee de la base local (funciona sin conexion).
+  const { data: cuentas, isLoading } = useQuery<CuentaLocal>(
+    "SELECT id, name, currency FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
+  )
+  const { data: categorias } = useQuery<CategoriaLocal>(
+    "SELECT id, name, kind, parent_id FROM categories WHERE deleted_at IS NULL AND archived = 0",
+  )
+  const { data: medios } = useQuery<MedioLocal>(
+    "SELECT id, name FROM payment_methods WHERE deleted_at IS NULL AND archived = 0",
+  )
+  const { data: comerciosRows } = useQuery<{ payee: string }>(
+    "SELECT DISTINCT payee FROM transactions WHERE payee IS NOT NULL AND deleted_at IS NULL ORDER BY payee",
+  )
+  const comercios = comerciosRows.map((r) => r.payee)
 
   const [tipo, setTipo] = useState<TipoMovimiento>("expense")
   const [centavos, setCentavos] = useState(0)
@@ -51,23 +71,6 @@ export function Alta() {
   const [error, setError] = useState("")
   const [guardando, setGuardando] = useState(false)
 
-  useEffect(() => {
-    Promise.all([
-      api.listAccounts(),
-      api.listCategories(),
-      api.listPaymentMethods(),
-      api.listTransactions(200),
-    ])
-      .then(([cs, cats, ms, txs]) => {
-        setCuentas(cs.filter((c) => !c.archived))
-        setCategorias(cats.filter((c) => !c.archived))
-        setMedios(ms.filter((m) => !m.archived))
-        setComercios([...new Set(txs.map((t) => t.payee).filter((p): p is string => !!p))])
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : "No se pudo cargar"))
-      .finally(() => setCargando(false))
-  }, [])
-
   const cuentaSel = cuentas.find((c) => c.id === cuentaId)
   const moneda = cuentaSel?.currency ?? "ARS"
 
@@ -80,7 +83,7 @@ export function Alta() {
     [categorias, tipo],
   )
 
-  function etiquetaCat(c: Categoria): string {
+  function etiquetaCat(c: CategoriaLocal): string {
     return c.parent_id ? `${nombrePorId.get(c.parent_id) ?? "—"} › ${c.name}` : c.name
   }
 
@@ -95,27 +98,34 @@ export function Alta() {
 
     setGuardando(true)
     try {
-      await api.createTransaction({
-        id: uuidv4(),
-        kind: tipo,
-        occurred_at: new Date(cuando).toISOString(),
-        amount: centavos,
-        currency: moneda,
-        account_id: cuentaId,
-        transfer_account_id: tipo === "transfer" ? cuentaDestinoId : null,
-        category_id: tipo === "transfer" ? null : categoriaId,
-        payment_method_id: medioId || null,
-        payee: comercio || null,
-        notes: notas || null,
-      })
+      // Escritura LOCAL: PowerSync la encola y la sube por la API en segundo plano.
+      await db.execute(
+        `INSERT INTO transactions
+           (id, kind, occurred_at, amount, currency, account_id, transfer_account_id,
+            category_id, payment_method_id, payee, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          uuidv4(),
+          tipo,
+          new Date(cuando).toISOString(),
+          centavos,
+          moneda,
+          cuentaId,
+          tipo === "transfer" ? cuentaDestinoId : null,
+          tipo === "transfer" ? null : categoriaId,
+          medioId || null,
+          comercio || null,
+          notas || null,
+        ],
+      )
       navigate("/movimientos")
-    } catch (e) {
-      setError(e instanceof ApiError ? e.detalle : "No se pudo guardar")
+    } catch {
+      setError("No se pudo guardar")
       setGuardando(false)
     }
   }
 
-  if (cargando) {
+  if (isLoading) {
     return <div className="p-6 text-sm text-muted-foreground">Cargando…</div>
   }
 
@@ -149,8 +159,8 @@ export function Alta() {
 
       {cuentas.length === 0 ? (
         <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-          No tenés cuentas todavía. La gestión de cuentas llega en el Inc 14; por ahora se crean
-          por la API.
+          No tenés cuentas todavía (o están sincronizando). La gestión de cuentas llega en el Inc
+          14; por ahora se crean por la API.
         </p>
       ) : (
         <div className="space-y-4">
@@ -237,8 +247,6 @@ export function Alta() {
           </Button>
         </div>
       )}
-
-      {error && cuentas.length === 0 && <p className="text-sm text-destructive">{error}</p>}
     </div>
   )
 }

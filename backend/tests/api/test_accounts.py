@@ -133,3 +133,11 @@ async def test_list_only_returns_current_user(api: SimpleNamespace) -> None:
     await api.client.post("/api/v1/accounts", json=_payload(name="Mia"))
     listed = (await api.client.get("/api/v1/accounts")).json()
     assert [a["name"] for a in listed] == ["Mia"]  # solo lo del usuario de la prueba
+
+
+async def test_duplicate_id_returns_409(api: SimpleNamespace) -> None:
+    # Un reintento de subida de PowerSync con el mismo id no es un 500: es 409
+    # (ya aplicado), asi el cliente no reintenta en loop.
+    payload = _payload()
+    assert (await api.client.post("/api/v1/accounts", json=payload)).status_code == 201
+    assert (await api.client.post("/api/v1/accounts", json=payload)).status_code == 409
