@@ -71,6 +71,27 @@ Vale la pena mirar:
   que en cargas ya concisas el ahorro puede ser negativo. Mediciones
   independientes dan 15-25% real, no el 65% que se promociona.
 
+## Reproducir la configuracion en otra maquina
+
+Lo que se versiona en git (viaja con el repo):
+
+- `CLAUDE.md`, `.claude/settings.json`, `.claude/README.md`
+- `.claude/agents/` (los tres subagentes)
+- `.claude/hooks/` (el hook post-edit)
+- `.claude/skills/nueva-migracion/` y `nuevo-endpoint/` (skills propias)
+- `skills-lock.json` (fija version y origen de cada skill de terceros)
+
+Lo que **no** se versiona: las skills de terceros. En `.claude/skills/` son
+symlinks a `.agents/` con rutas absolutas y se rompen en otra maquina. Se
+restauran desde el lockfile:
+
+```
+npx skills experimental_install    # lee skills-lock.json, reinstala todo
+```
+
+Lo que queda fuera a proposito: `.claude/settings.local.json` (permisos
+personales de la maquina, no se comparte).
+
 ## Lo que mas ahorra, en orden
 
 1. **Este `CLAUDE.md` bien escrito.** Evita re-explicar el proyecto en cada

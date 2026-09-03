@@ -35,3 +35,12 @@ Thumbs.db
 # Datos de desarrollo
 /data/
 /backups/
+
+# Skills de terceros instaladas por el CLI (skills.sh).
+# El contenido real vive en .agents/ (cache local) y .claude/skills/ son
+# symlinks con rutas absolutas: se rompen en otra maquina. No se versionan.
+# Se restauran desde skills-lock.json con `npx skills experimental_install`.
+/.agents/
+.claude/skills/*
+!.claude/skills/nueva-migracion/
+!.claude/skills/nuevo-endpoint/
