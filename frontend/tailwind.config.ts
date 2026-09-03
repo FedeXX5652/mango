@@ -39,6 +39,36 @@ export default {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
       },
+      // Motion (DESIGN.md 8): solo para comunicar un cambio de estado. Un unico
+      // ease-out compartido y las duraciones del presupuesto de §8. Se aplican
+      // con la variante motion-safe para respetar prefers-reduced-motion.
+      transitionTimingFunction: {
+        salida: "cubic-bezier(0.23, 1, 0.32, 1)",
+      },
+      keyframes: {
+        subir: {
+          from: { opacity: "0", transform: "translateY(8%)" },
+          to: { opacity: "1", transform: "none" },
+        },
+        aparecer: {
+          from: { opacity: "0", transform: "scale(0.98)" },
+          to: { opacity: "1", transform: "none" },
+        },
+        fundir: {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        punto: {
+          from: { opacity: "0", transform: "scale(0.3)" },
+          to: { opacity: "1", transform: "none" },
+        },
+      },
+      animation: {
+        subir: "subir 220ms cubic-bezier(0.23, 1, 0.32, 1)",
+        aparecer: "aparecer 200ms cubic-bezier(0.23, 1, 0.32, 1)",
+        fundir: "fundir 200ms cubic-bezier(0.23, 1, 0.32, 1)",
+        punto: "punto 150ms cubic-bezier(0.23, 1, 0.32, 1)",
+      },
     },
   },
   plugins: [],

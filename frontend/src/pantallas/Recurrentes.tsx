@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom"
 
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
+import { ConfirmarDestructivo } from "@/componentes/ui/confirmar"
+import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { api } from "@/lib/api"
@@ -68,6 +70,7 @@ export function Recurrentes() {
   const [mostrarForm, setMostrarForm] = useState(false)
   const [corriendo, setCorriendo] = useState(false)
   const [aviso, setAviso] = useState("")
+  const [aBorrar, setABorrar] = useState<Regla | null>(null)
 
   async function ejecutar() {
     setCorriendo(true)
@@ -107,18 +110,18 @@ export function Recurrentes() {
       </p>
 
       <div className="flex gap-2">
-        {mostrarForm ? null : (
-          <Button className="flex-1" onClick={() => setMostrarForm(true)}>
-            Nueva regla
-          </Button>
-        )}
+        <Button className="flex-1" onClick={() => setMostrarForm(true)}>
+          Nueva regla
+        </Button>
         <Button variant="outline" onClick={ejecutar} disabled={corriendo}>
           {corriendo ? "Ejecutando…" : "Ejecutar vencidas"}
         </Button>
       </div>
       {aviso && <p className="text-sm text-muted-foreground">{aviso}</p>}
 
-      {mostrarForm && <FormRegla onCerrar={() => setMostrarForm(false)} />}
+      <Hoja abierta={mostrarForm} onOpenChange={setMostrarForm} titulo="Nueva regla">
+        <FormRegla onCerrar={() => setMostrarForm(false)} />
+      </Hoja>
 
       {reglas.length === 0 ? (
         <p className="p-8 text-center text-sm text-muted-foreground">
@@ -151,7 +154,7 @@ export function Recurrentes() {
                   variant="ghost"
                   size="icon"
                   className="text-expense"
-                  onClick={() => borrar(r)}
+                  onClick={() => setABorrar(r)}
                   aria-label="Borrar"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -161,6 +164,17 @@ export function Recurrentes() {
           ))}
         </ul>
       )}
+
+      <ConfirmarDestructivo
+        abierta={aBorrar !== null}
+        onOpenChange={(v) => {
+          if (!v) setABorrar(null)
+        }}
+        titulo="Borrar regla"
+        detalle={aBorrar ? `Se elimina "${aBorrar.name}".` : undefined}
+        etiqueta="Borrar"
+        onConfirmar={() => aBorrar && borrar(aBorrar)}
+      />
     </div>
   )
 }
@@ -215,35 +229,39 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
     const moneda = cuentas.find((c) => c.id === cuentaId)?.currency ?? "ARS"
     const intervaloN = Math.max(1, Number.parseInt(intervalo, 10) || 1)
 
-    await db.execute(
-      `INSERT INTO recurring_rules
-         (id, name, kind, account_id, transfer_account_id, category_id, payment_method_id,
-          amount, currency, frequency, interval_count, start_date, next_run_date, end_date,
-          auto_create, active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [
-        uuidv4(),
-        name.trim(),
-        kind,
-        cuentaId,
-        kind === "transfer" ? cuentaDestinoId : null,
-        kind === "transfer" ? null : categoriaId,
-        medioId || null,
-        centavos,
-        moneda,
-        frequency,
-        intervaloN,
-        desde,
-        desde, // next_run_date arranca en la primera fecha
-        hasta || null,
-        autoCreate ? 1 : 0,
-      ],
-    )
-    onCerrar()
+    try {
+      await db.execute(
+        `INSERT INTO recurring_rules
+           (id, name, kind, account_id, transfer_account_id, category_id, payment_method_id,
+            amount, currency, frequency, interval_count, start_date, next_run_date, end_date,
+            auto_create, active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        [
+          uuidv4(),
+          name.trim(),
+          kind,
+          cuentaId,
+          kind === "transfer" ? cuentaDestinoId : null,
+          kind === "transfer" ? null : categoriaId,
+          medioId || null,
+          centavos,
+          moneda,
+          frequency,
+          intervaloN,
+          desde,
+          desde, // next_run_date arranca en la primera fecha
+          hasta || null,
+          autoCreate ? 1 : 0,
+        ],
+      )
+      onCerrar()
+    } catch {
+      setError("No se pudo guardar")
+    }
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+    <div className="space-y-3">
       <Campo etiqueta="Nombre">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Alquiler, Sueldo…" />
       </Campo>

@@ -1,13 +1,16 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { ChevronLeft, ChevronRight, PiggyBank, Plus, Repeat, Trash2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
+import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
+import { ConfirmarDestructivo } from "@/componentes/ui/confirmar"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, formatearCentavos, formatearSaldo } from "@/lib/dinero"
+import { mesAnio } from "@/lib/fecha"
 import { type EntradaSobre, type SaldoSobre, calcularMes } from "@/lib/sobres"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
@@ -190,10 +193,7 @@ export function Presupuestos() {
     setAnio(d.getFullYear())
     setMes(d.getMonth())
   }
-  const etiquetaMes = new Date(anio, mes, 1).toLocaleDateString("es-AR", {
-    month: "long",
-    year: "numeric",
-  })
+  const etiquetaMes = mesAnio(anio, mes)
 
   // Agrupacion: padre es hoja y grupo. Raiz = parent_id ?? id.
   const raices = useMemo(() => {
@@ -242,13 +242,21 @@ export function Presupuestos() {
         <Button variant="ghost" size="icon" onClick={() => cambiarMes(-1)} aria-label="Mes anterior">
           <ChevronLeft className="h-5 w-5" />
         </Button>
-        <span className="min-w-40 text-center text-sm font-medium capitalize">{etiquetaMes}</span>
+        <span className="min-w-40 text-center text-sm font-medium">{etiquetaMes}</span>
         <Button variant="ghost" size="icon" onClick={() => cambiarMes(1)} aria-label="Mes siguiente">
           <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
 
-      {agregando ? (
+      <Button
+        variant="outline"
+        className="w-full"
+        onClick={() => setAgregando(true)}
+        disabled={noSobres.length === 0}
+      >
+        <Plus className="h-4 w-4" /> Agregar sobre
+      </Button>
+      <Hoja abierta={agregando} onOpenChange={setAgregando} titulo="Agregar sobre">
         <FormAgregar
           candidatas={noSobres}
           catById={catById}
@@ -259,16 +267,7 @@ export function Presupuestos() {
             setAgregando(false)
           }}
         />
-      ) : (
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={() => setAgregando(true)}
-          disabled={noSobres.length === 0}
-        >
-          <Plus className="h-4 w-4" /> Agregar sobre
-        </Button>
-      )}
+      </Hoja>
 
       {sobreCats.length === 0 ? (
         <p className="p-8 text-center text-sm text-muted-foreground">
@@ -341,6 +340,12 @@ export function Presupuestos() {
   )
 }
 
+// El input de asignado muestra el monto formateado (miles) cuando no se edita,
+// y crudo al enfocar; aCentavos hace el round-trip ("10.000,00" -> centavos).
+const fmtAsignado = (cent: number) => (cent > 0 ? formatearCentavos(cent) : "0")
+const editableAsignado = (cent: number) =>
+  cent > 0 ? (cent / 100).toString().replace(".", ",") : ""
+
 function FilaSobre({
   cat,
   nombre,
@@ -364,8 +369,17 @@ function FilaSobre({
   onAhorro: (catId: string, rollover: boolean) => void
   onToggleAuto: (catId: string, on: boolean) => void
 }) {
-  const [texto, setTexto] = useState((asignadoSel / 100).toString().replace(".", ","))
+  const [texto, setTexto] = useState(fmtAsignado(asignadoSel))
   const [abierto, setAbierto] = useState(false)
+  const [confirmarQuitar, setConfirmarQuitar] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  // Resincroniza el input si la asignacion cambia por fuera (recurrente, otra
+  // pestaña) y no lo estoy editando ahora mismo.
+  useEffect(() => {
+    if (document.activeElement !== inputRef.current) {
+      setTexto(fmtAsignado(asignadoSel))
+    }
+  }, [asignadoSel])
   const balance = saldo?.balance ?? 0
   const gastado = saldo?.spent ?? 0
   const pct = asignadoSel > 0 ? Math.min((gastado / asignadoSel) * 100, 100) : 0
@@ -378,17 +392,35 @@ function FilaSobre({
         onClick={() => setAbierto((a) => !a)}
       >
         <span className="truncate font-medium">{nombre ?? cat.name}</span>
-        {cat.rollover === 1 && <PiggyBank className="h-3.5 w-3.5 shrink-0 text-income" />}
-        {autoOn && <Repeat className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+        {cat.rollover === 1 && (
+          <PiggyBank
+            className="h-3.5 w-3.5 shrink-0 text-income"
+            role="img"
+            aria-label="Sobre de ahorro"
+          />
+        )}
+        {autoOn && (
+          <Repeat
+            className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+            role="img"
+            aria-label="Asignación automática cada mes"
+          />
+        )}
       </button>
 
       <div className="mt-2 grid grid-cols-3 items-end gap-2">
         <div>
           <p className="mb-0.5 text-xs text-muted-foreground">Asignado</p>
           <Input
+            ref={inputRef}
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            onBlur={() => onAsignar(cat.id, Math.max(0, aCentavos(texto) ?? 0))}
+            onFocus={() => setTexto(editableAsignado(asignadoSel))}
+            onBlur={() => {
+              const c = Math.max(0, aCentavos(texto) ?? 0)
+              onAsignar(cat.id, c)
+              setTexto(fmtAsignado(c))
+            }}
             onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
             inputMode="decimal"
             className="h-8 tabular text-right"
@@ -419,41 +451,58 @@ function FilaSobre({
         />
       </div>
 
-      {abierto && (
-        <div className="mt-2 space-y-2 border-t border-border pt-2 text-sm">
-          <div className="flex items-center justify-between">
+      {/* Acordeon: grid-rows 0fr->1fr anima el alto sin medir (DESIGN.md 8). */}
+      <div
+        className={cn(
+          "grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-salida",
+          abierto ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="overflow-hidden">
+          <div className="mt-2 space-y-2 border-t border-border pt-2 text-sm">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={cat.rollover === 1}
+                  onChange={(e) => onAhorro(cat.id, e.target.checked)}
+                />
+                Ahorro (acumula)
+              </label>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-expense"
+                onClick={() => setConfirmarQuitar(true)}
+              >
+                <Trash2 className="h-4 w-4" /> Quitar
+              </Button>
+            </div>
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={cat.rollover === 1}
-                onChange={(e) => onAhorro(cat.id, e.target.checked)}
+                checked={autoOn}
+                onChange={(e) => onToggleAuto(cat.id, e.target.checked)}
               />
-              Ahorro (acumula)
+              Asignar automáticamente cada mes
             </label>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-expense"
-              onClick={() => onQuitar(cat.id)}
-            >
-              <Trash2 className="h-4 w-4" /> Quitar
-            </Button>
+            {autoOn && (
+              <p className="pl-6 text-xs text-muted-foreground">
+                Cada mes se asigna solo el monto de arriba (editalo y la regla se actualiza).
+              </p>
+            )}
           </div>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={autoOn}
-              onChange={(e) => onToggleAuto(cat.id, e.target.checked)}
-            />
-            Asignar automáticamente cada mes
-          </label>
-          {autoOn && (
-            <p className="pl-6 text-xs text-muted-foreground">
-              Cada mes se asigna solo el monto de arriba (editalo y la regla se actualiza).
-            </p>
-          )}
         </div>
-      )}
+      </div>
+
+      <ConfirmarDestructivo
+        abierta={confirmarQuitar}
+        onOpenChange={setConfirmarQuitar}
+        titulo="Quitar sobre"
+        detalle={`"${nombre ?? cat.name}" deja de ser un sobre. No borra movimientos.`}
+        etiqueta="Quitar"
+        onConfirmar={() => onQuitar(cat.id)}
+      />
     </div>
   )
 }
@@ -479,7 +528,7 @@ function FormAgregar({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+    <div className="space-y-3">
       <Campo etiqueta="Categoría">
         <Select value={catId} onChange={(e) => setCatId(e.target.value)}>
           <option value="">Elegí una categoría</option>

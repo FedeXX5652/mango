@@ -75,6 +75,18 @@ async def test_other_user_404(api: SimpleNamespace) -> None:
     assert (await api.client.get(f"/api/v1/budget-rules/{uuid.uuid4()}")).status_code == 404
 
 
+async def test_large_amount_no_precision_loss(api: SimpleNamespace) -> None:
+    # Montos en centavos como BIGINT: sin float ni perdida de precision.
+    cat = await _category(api)
+    grande = 9_007_199_254_740_993  # > 2^53, rompe si alguien usa float
+    created = (
+        await api.client.post("/api/v1/budget-rules", json=_payload(cat, amount=grande))
+    ).json()
+    assert created["amount"] == grande
+    fetched = (await api.client.get(f"/api/v1/budget-rules/{created['id']}")).json()
+    assert fetched["amount"] == grande
+
+
 async def test_run_applies_rule_once(api: SimpleNamespace) -> None:
     cat = await _category(api)
     await api.client.post("/api/v1/budget-rules", json=_payload(cat, amount=80000))

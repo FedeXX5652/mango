@@ -5,7 +5,9 @@ import { useNavigate } from "react-router-dom"
 
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
+import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
+import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
@@ -49,17 +51,16 @@ export function MediosPago() {
         <h1 className="text-xl font-semibold">Medios de pago</h1>
       </header>
 
-      {mostrarForm ? (
+      <Button className="w-full" onClick={() => setMostrarForm(true)}>
+        Nuevo medio
+      </Button>
+      <Hoja abierta={mostrarForm} onOpenChange={setMostrarForm} titulo="Nuevo medio">
         <FormularioMedio onCerrar={() => setMostrarForm(false)} />
-      ) : (
-        <Button className="w-full" onClick={() => setMostrarForm(true)}>
-          Nuevo medio
-        </Button>
-      )}
+      </Hoja>
 
-      <ul className="divide-y divide-border">
+      <ListaInset>
         {medios.map((m) => (
-          <li key={m.id} className="flex items-center justify-between gap-3 py-3">
+          <FilaInset key={m.id}>
             <div className="min-w-0">
               <p className={cn("truncate font-medium", m.archived && "text-muted-foreground")}>
                 {m.name}
@@ -73,9 +74,9 @@ export function MediosPago() {
             <Button variant="ghost" size="sm" onClick={() => archivar(m, m.archived ? 0 : 1)}>
               {m.archived ? "Desarchivar" : "Archivar"}
             </Button>
-          </li>
+          </FilaInset>
         ))}
-      </ul>
+      </ListaInset>
     </div>
   )
 }
@@ -90,15 +91,19 @@ function FormularioMedio({ onCerrar }: { onCerrar: () => void }) {
 
   async function guardar() {
     if (!name.trim()) return setError("Poné un nombre")
-    await db.execute(
-      "INSERT INTO payment_methods (id, name, kind, last4, brand, archived) VALUES (?, ?, ?, ?, ?, 0)",
-      [uuidv4(), name.trim(), kind, last4.trim() || null, brand.trim() || null],
-    )
-    onCerrar()
+    try {
+      await db.execute(
+        "INSERT INTO payment_methods (id, name, kind, last4, brand, archived) VALUES (?, ?, ?, ?, ?, 0)",
+        [uuidv4(), name.trim(), kind, last4.trim() || null, brand.trim() || null],
+      )
+      onCerrar()
+    } catch {
+      setError("No se pudo guardar")
+    }
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+    <div className="space-y-3">
       <Campo etiqueta="Nombre">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Débito 8027" />
       </Campo>

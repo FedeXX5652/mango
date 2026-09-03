@@ -1,13 +1,20 @@
 import { Plus } from "lucide-react"
-import { Link, NavLink, Outlet } from "react-router-dom"
+import { useState } from "react"
+import { NavLink, Outlet, useNavigate } from "react-router-dom"
 
 import { DESTINOS } from "@/componentes/navegacion"
 import { botonVariants } from "@/componentes/ui/button"
+import { Hoja } from "@/componentes/ui/hoja"
+import { FormularioMovimiento } from "@/pantallas/Alta"
 import { cn } from "@/lib/utils"
 
 // Layout escritorio: barra lateral fija con todos los destinos y accion
-// principal en la barra superior (DESIGN.md 2).
+// principal en la barra superior (DESIGN.md 2). El alta se abre como modal
+// sobre el dashboard (en movil, en cambio, es una pantalla focal).
 export function LayoutEscritorio() {
+  const navigate = useNavigate()
+  const [nuevoAbierto, setNuevoAbierto] = useState(false)
+
   return (
     <div className="grid h-full grid-cols-[240px_1fr]">
       <aside className="flex flex-col gap-1 border-r border-border bg-card p-4">
@@ -38,15 +45,28 @@ export function LayoutEscritorio() {
       <div className="flex min-w-0 flex-col">
         <header className="flex h-14 items-center justify-between border-b border-border px-6">
           <span className="text-sm text-muted-foreground">Finanzas</span>
-          <Link to="/nuevo" className={cn(botonVariants({ size: "sm" }))}>
+          <button
+            type="button"
+            className={cn(botonVariants({ size: "sm" }))}
+            onClick={() => setNuevoAbierto(true)}
+          >
             <Plus className="h-4 w-4" />
             Nuevo movimiento
-          </Link>
+          </button>
         </header>
         <main className="flex-1 overflow-auto">
           <Outlet />
         </main>
       </div>
+
+      <Hoja abierta={nuevoAbierto} onOpenChange={setNuevoAbierto} titulo="Nuevo movimiento">
+        <FormularioMovimiento
+          onGuardado={() => {
+            setNuevoAbierto(false)
+            navigate("/movimientos")
+          }}
+        />
+      </Hoja>
     </div>
   )
 }

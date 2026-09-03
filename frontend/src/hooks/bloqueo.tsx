@@ -48,7 +48,12 @@ export function ProveedorBloqueo({ children }: { children: React.ReactNode }) {
     )
   }
 
-  return <Ctx.Provider value={{ bloquear: () => setEstado("bloqueado") }}>{children}</Ctx.Provider>
+  return (
+    <Ctx.Provider value={{ bloquear: () => setEstado("bloqueado") }}>
+      {/* Fundido al desbloquear: suaviza el salto del lock a la app (§8). */}
+      <div className="h-full motion-safe:animate-fundir">{children}</div>
+    </Ctx.Provider>
+  )
 }
 
 export function useBloqueo(): BloqueoCtx {

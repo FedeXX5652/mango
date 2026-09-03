@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
 import { Button } from "@/componentes/ui/button"
+import { Segmentado } from "@/componentes/ui/segmentado"
 import { TEMAS } from "@/config/temas"
 import { type ColorScheme, useTema } from "@/hooks/tema"
 import { useBloqueo } from "@/hooks/bloqueo"
@@ -96,17 +97,7 @@ export function Ajustes() {
       </Seccion>
 
       <Seccion titulo="Apariencia">
-        <div className="grid grid-cols-3 gap-3">
-          {MODOS.map((m) => (
-            <Button
-              key={m.valor}
-              variant={colorScheme === m.valor ? "default" : "outline"}
-              onClick={() => setColorScheme(m.valor)}
-            >
-              {m.etiqueta}
-            </Button>
-          ))}
-        </div>
+        <Segmentado opciones={MODOS} valor={colorScheme} onCambio={setColorScheme} />
       </Seccion>
 
       <Seccion titulo="Seguridad">

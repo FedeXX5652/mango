@@ -7,11 +7,11 @@ import { Calculadora } from "@/componentes/Calculadora"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
+import { Segmentado } from "@/componentes/ui/segmentado"
 import { Select } from "@/componentes/ui/select"
 import type { TipoMovimiento } from "@/lib/api"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { uuidv4 } from "@/lib/uuid"
-import { cn } from "@/lib/utils"
 
 interface CuentaLocal {
   id: string
@@ -52,12 +52,18 @@ function ahoraLocal(): string {
   return local.toISOString().slice(0, 16)
 }
 
-export function Alta() {
-  const navigate = useNavigate()
-  const location = useLocation()
+// Cuerpo del alta, reutilizable: en movil va en la pantalla focal /nuevo; en
+// escritorio, dentro de un modal (Hoja) sobre el dashboard. `onGuardado` decide
+// que pasa al guardar (navegar vs cerrar el modal).
+export function FormularioMovimiento({
+  plantillaId,
+  onGuardado,
+}: {
+  plantillaId?: string
+  onGuardado: () => void
+}) {
   const db = usePowerSync()
 
-  // Todo se lee de la base local (funciona sin conexion).
   const { data: cuentas, isLoading } = useQuery<CuentaLocal>(
     "SELECT id, name, currency FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
   )
@@ -94,10 +100,7 @@ export function Alta() {
   const cuentaSel = cuentas.find((c) => c.id === cuentaId)
   const moneda = cuentaSel?.currency ?? "ARS"
 
-  const nombrePorId = useMemo(
-    () => new Map(categorias.map((c) => [c.id, c.name])),
-    [categorias],
-  )
+  const nombrePorId = useMemo(() => new Map(categorias.map((c) => [c.id, c.name])), [categorias])
   const categoriasDelTipo = useMemo(
     () =>
       ordenarJerarquico(categorias).filter(
@@ -113,6 +116,7 @@ export function Alta() {
   const aplicarPlantilla = useCallback((t: PlantillaLocal) => {
     setTipo(t.kind as TipoMovimiento)
     if (t.account_id) setCuentaId(t.account_id)
+    setCuentaDestinoId("")
     setCategoriaId(t.category_id ?? "")
     setMedioId(t.payment_method_id ?? "")
     setComercio(t.payee ?? "")
@@ -123,19 +127,16 @@ export function Alta() {
     }
   }, [])
 
-  // Llegada desde la pantalla de Plantillas ("Usar"): aplica una sola vez,
-  // cuando las plantillas ya cargaron de la base local.
+  // Prefill al llegar con una plantilla ("Usar"): una sola vez, ya cargadas.
   const aplicada = useRef(false)
   useEffect(() => {
-    if (aplicada.current) return
-    const id = (location.state as { plantillaId?: string } | null)?.plantillaId
-    if (!id) return
-    const t = plantillas.find((p) => p.id === id)
+    if (aplicada.current || !plantillaId) return
+    const t = plantillas.find((p) => p.id === plantillaId)
     if (t) {
       aplicada.current = true
       aplicarPlantilla(t)
     }
-  }, [location.state, plantillas, aplicarPlantilla])
+  }, [plantillaId, plantillas, aplicarPlantilla])
 
   async function guardar() {
     setError("")
@@ -168,7 +169,7 @@ export function Alta() {
           notas || null,
         ],
       )
-      navigate("/movimientos")
+      onGuardado()
     } catch {
       setError("No se pudo guardar")
       setGuardando(false)
@@ -180,30 +181,8 @@ export function Alta() {
   }
 
   return (
-    <div className="mx-auto max-w-md space-y-5 p-4 pb-24">
-      <header className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Nuevo movimiento</h1>
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Cerrar">
-          <X className="h-5 w-5" />
-        </Button>
-      </header>
-
-      <div className="grid grid-cols-3 gap-2">
-        {TIPOS.map((t) => (
-          <button
-            key={t.valor}
-            onClick={() => setTipo(t.valor)}
-            className={cn(
-              "rounded-md border px-2 py-2 text-sm font-medium transition-colors",
-              tipo === t.valor
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-muted-foreground hover:bg-muted",
-            )}
-          >
-            {t.etiqueta}
-          </button>
-        ))}
-      </div>
+    <div className="space-y-5">
+      <Segmentado opciones={TIPOS} valor={tipo} onCambio={setTipo} />
 
       {plantillas.length > 0 && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
@@ -211,7 +190,7 @@ export function Alta() {
             <button
               key={t.id}
               onClick={() => aplicarPlantilla(t)}
-              className="shrink-0 rounded-full border border-border bg-card px-3 py-1 text-sm hover:bg-muted"
+              className="shrink-0 rounded-full border border-border bg-card px-3 py-1 text-sm transition-colors hover:bg-muted"
             >
               {t.name}
             </button>
@@ -223,8 +202,7 @@ export function Alta() {
 
       {cuentas.length === 0 ? (
         <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-          No tenés cuentas todavía (o están sincronizando). La gestión de cuentas llega en el Inc
-          14; por ahora se crean por la API.
+          No tenés cuentas todavía (o están sincronizando). Creá una en Ajustes → Cuentas.
         </p>
       ) : (
         <div className="space-y-4">
@@ -293,24 +271,43 @@ export function Alta() {
           </Campo>
 
           <Campo etiqueta="Fecha y hora">
-            <Input
-              type="datetime-local"
-              value={cuando}
-              onChange={(e) => setCuando(e.target.value)}
-            />
+            <Input type="datetime-local" value={cuando} onChange={(e) => setCuando(e.target.value)} />
           </Campo>
 
           <Campo etiqueta="Notas (opcional)">
             <Input value={notas} onChange={(e) => setNotas(e.target.value)} />
           </Campo>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <Button className="w-full" disabled={guardando} onClick={guardar}>
-            {guardando ? "Guardando…" : "Guardar"}
-          </Button>
+          {/* CTA fija: en un form largo el boton queda a mano sin scrollear. */}
+          <div className="sticky bottom-0 z-10 -mx-4 mt-2 border-t border-border bg-background px-4 py-3">
+            {error && <p className="mb-2 text-center text-sm text-destructive">{error}</p>}
+            <Button className="w-full" disabled={guardando} onClick={guardar}>
+              {guardando ? "Guardando…" : "Guardar"}
+            </Button>
+          </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// Ruta /nuevo: en movil es la pantalla focal (sin barra ni FAB, sube al entrar).
+// En escritorio el alta se abre como modal desde el boton "Nuevo movimiento"
+// (ver LayoutEscritorio); esta ruta queda de fallback (p. ej. "Usar plantilla").
+export function Alta() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const plantillaId = (location.state as { plantillaId?: string } | null)?.plantillaId
+
+  return (
+    <div className="mx-auto max-w-md space-y-5 p-4 pb-4 motion-safe:animate-subir">
+      <header className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Nuevo movimiento</h1>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Cerrar">
+          <X className="h-5 w-5" />
+        </Button>
+      </header>
+      <FormularioMovimiento plantillaId={plantillaId} onGuardado={() => navigate("/movimientos")} />
     </div>
   )
 }

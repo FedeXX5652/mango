@@ -8,9 +8,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      // Sirve manifest + SW tambien en `npm run dev`, para verificar
-      // instalabilidad en DevTools sin tener que hacer build/preview.
-      devOptions: { enabled: true, type: "module" },
+      // SW APAGADO en dev: cacheaba y hacia ver cambios viejos (HMR limpio sin
+      // el). Para probar la PWA instalable de verdad: `npm run build && preview`.
+      devOptions: { enabled: false },
       // Los WASM de wa-sqlite (SQLite en el navegador) superan los 2 MB.
       workbox: { maximumFileSizeToCacheInBytes: 6 * 1024 * 1024 },
       includeAssets: [

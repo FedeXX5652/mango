@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom"
 
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
+import { ConfirmarDestructivo } from "@/componentes/ui/confirmar"
+import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { ordenarJerarquico } from "@/lib/categorias"
@@ -42,6 +44,7 @@ export function Plantillas() {
     "SELECT id, name, kind, amount FROM templates WHERE deleted_at IS NULL ORDER BY sort_order, name",
   )
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [aBorrar, setABorrar] = useState<Plantilla | null>(null)
 
   async function borrar(t: Plantilla) {
     await db.execute("DELETE FROM templates WHERE id = ?", [t.id])
@@ -60,13 +63,12 @@ export function Plantillas() {
         Gastos o ingresos frecuentes precargados. Tocá una para cargarla de un toque.
       </p>
 
-      {mostrarForm ? (
+      <Button className="w-full" onClick={() => setMostrarForm(true)}>
+        Nueva plantilla
+      </Button>
+      <Hoja abierta={mostrarForm} onOpenChange={setMostrarForm} titulo="Nueva plantilla">
         <FormPlantilla onCerrar={() => setMostrarForm(false)} />
-      ) : (
-        <Button className="w-full" onClick={() => setMostrarForm(true)}>
-          Nueva plantilla
-        </Button>
-      )}
+      </Hoja>
 
       {plantillas.length === 0 ? (
         <p className="p-8 text-center text-sm text-muted-foreground">
@@ -90,7 +92,7 @@ export function Plantillas() {
                 variant="ghost"
                 size="sm"
                 className="text-expense"
-                onClick={() => borrar(t)}
+                onClick={() => setABorrar(t)}
                 aria-label="Borrar plantilla"
               >
                 <Trash2 className="h-4 w-4" />
@@ -99,6 +101,17 @@ export function Plantillas() {
           ))}
         </ul>
       )}
+
+      <ConfirmarDestructivo
+        abierta={aBorrar !== null}
+        onOpenChange={(v) => {
+          if (!v) setABorrar(null)
+        }}
+        titulo="Borrar plantilla"
+        detalle={aBorrar ? `Se elimina "${aBorrar.name}".` : undefined}
+        etiqueta="Borrar"
+        onConfirmar={() => aBorrar && borrar(aBorrar)}
+      />
     </div>
   )
 }
@@ -140,28 +153,32 @@ function FormPlantilla({ onCerrar }: { onCerrar: () => void }) {
     const centavos = aCentavos(monto)
     const importe = centavos && centavos > 0 ? centavos : null
     const moneda = importe != null ? (cuentas.find((c) => c.id === cuentaId)?.currency ?? "ARS") : null
-    await db.execute(
-      `INSERT INTO templates
-         (id, name, kind, account_id, category_id, payment_method_id, amount, currency, payee, notes, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-      [
-        uuidv4(),
-        name.trim(),
-        kind,
-        cuentaId || null,
-        kind === "transfer" ? null : categoriaId || null,
-        medioId || null,
-        importe,
-        moneda,
-        payee.trim() || null,
-        notas.trim() || null,
-      ],
-    )
-    onCerrar()
+    try {
+      await db.execute(
+        `INSERT INTO templates
+           (id, name, kind, account_id, category_id, payment_method_id, amount, currency, payee, notes, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+        [
+          uuidv4(),
+          name.trim(),
+          kind,
+          cuentaId || null,
+          kind === "transfer" ? null : categoriaId || null,
+          medioId || null,
+          importe,
+          moneda,
+          payee.trim() || null,
+          notas.trim() || null,
+        ],
+      )
+      onCerrar()
+    } catch {
+      setError("No se pudo guardar")
+    }
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+    <div className="space-y-3">
       <Campo etiqueta="Nombre">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Alquiler, Súper…" />
       </Campo>

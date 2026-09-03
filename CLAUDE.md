@@ -36,6 +36,8 @@ esta decidido ahi.**
 - **Preguntar ante ambiguedad** en vez de asumir. Las decisiones de producto
   las toma el humano.
 - **No agregar dependencias** sin justificarlo primero.
+- **Seguir las skills del proyecto.** Ante un cambio de esquema, usar
+  `nueva-migracion`; al crear una ruta nueva en la API, usar `nuevo-endpoint`.
 
 ## Estructura
 

@@ -5,8 +5,11 @@ import { useNavigate } from "react-router-dom"
 
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
+import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
+import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
+import { iconoCuenta } from "@/lib/cuentas"
 import { aCentavos, formatearSaldo } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
@@ -52,40 +55,56 @@ export function Cuentas() {
         <h1 className="text-xl font-semibold">Cuentas</h1>
       </header>
 
-      {editando ? (
-        <FormularioCuenta
-          inicial={editando === "nuevo" ? null : editando}
-          onCerrar={() => setEditando(null)}
-        />
-      ) : (
-        <Button className="w-full" onClick={() => setEditando("nuevo")}>
-          Nueva cuenta
-        </Button>
-      )}
+      <Button className="w-full" onClick={() => setEditando("nuevo")}>
+        Nueva cuenta
+      </Button>
+      <Hoja
+        abierta={editando !== null}
+        onOpenChange={(v) => {
+          if (!v) setEditando(null)
+        }}
+        titulo={editando === "nuevo" ? "Nueva cuenta" : "Editar cuenta"}
+      >
+        {editando && (
+          <FormularioCuenta
+            inicial={editando === "nuevo" ? null : editando}
+            onCerrar={() => setEditando(null)}
+          />
+        )}
+      </Hoja>
 
-      <ul className="divide-y divide-border">
-        {cuentas.map((c) => (
-          <li key={c.id} className="flex items-center justify-between gap-3 py-3">
-            <div className="min-w-0">
-              <p className={cn("truncate font-medium", c.archived && "text-muted-foreground")}>
-                {c.name}
-                {c.archived === 1 && " · archivada"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {TIPOS[c.type] ?? c.type} · {c.currency} · {formatearSaldo(c.opening_balance, c.currency)} inicial
-              </p>
-            </div>
-            <div className="flex shrink-0 gap-1">
-              <Button variant="ghost" size="sm" onClick={() => setEditando(c)}>
-                Editar
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => archivar(c, c.archived ? 0 : 1)}>
-                {c.archived ? "Desarchivar" : "Archivar"}
-              </Button>
-            </div>
-          </li>
-        ))}
-      </ul>
+      <ListaInset>
+        {cuentas.map((c) => {
+          const Icono = iconoCuenta(c.type)
+          return (
+            <FilaInset key={c.id}>
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <Icono className="h-4 w-4" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <p className={cn("truncate font-medium", c.archived && "text-muted-foreground")}>
+                    {c.name}
+                    {c.archived === 1 && " · archivada"}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {TIPOS[c.type] ?? c.type} · {c.currency} ·{" "}
+                    {formatearSaldo(c.opening_balance, c.currency)} inicial
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 gap-1">
+                <Button variant="ghost" size="sm" onClick={() => setEditando(c)}>
+                  Editar
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => archivar(c, c.archived ? 0 : 1)}>
+                  {c.archived ? "Desarchivar" : "Archivar"}
+                </Button>
+              </div>
+            </FilaInset>
+          )
+        })}
+      </ListaInset>
     </div>
   )
 }
@@ -107,23 +126,27 @@ function FormularioCuenta({ inicial, onCerrar }: { inicial: Cuenta | null; onCer
     const opening = apertura.trim() ? (aCentavos(apertura) ?? 0) : 0
     const cur = currency.toUpperCase()
 
-    if (inicial) {
-      await db.execute(
-        "UPDATE accounts SET name = ?, type = ?, currency = ?, opening_balance = ?, off_budget = ? WHERE id = ?",
-        [name.trim(), type, cur, opening, offBudget ? 1 : 0, inicial.id],
-      )
-    } else {
-      await db.execute(
-        `INSERT INTO accounts (id, name, type, currency, opening_balance, off_budget, visibility, archived, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, 'private', 0, 0)`,
-        [uuidv4(), name.trim(), type, cur, opening, offBudget ? 1 : 0],
-      )
+    try {
+      if (inicial) {
+        await db.execute(
+          "UPDATE accounts SET name = ?, type = ?, currency = ?, opening_balance = ?, off_budget = ? WHERE id = ?",
+          [name.trim(), type, cur, opening, offBudget ? 1 : 0, inicial.id],
+        )
+      } else {
+        await db.execute(
+          `INSERT INTO accounts (id, name, type, currency, opening_balance, off_budget, visibility, archived, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, 'private', 0, 0)`,
+          [uuidv4(), name.trim(), type, cur, opening, offBudget ? 1 : 0],
+        )
+      }
+      onCerrar()
+    } catch {
+      setError("No se pudo guardar")
     }
-    onCerrar()
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+    <div className="space-y-3">
       <Campo etiqueta="Nombre">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Caja de ahorro" />
       </Campo>

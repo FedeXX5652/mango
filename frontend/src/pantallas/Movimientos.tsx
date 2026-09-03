@@ -1,14 +1,16 @@
 import { useQuery, useStatus } from "@powersync/react"
-import { CalendarDays, ChevronLeft, ChevronRight, List } from "lucide-react"
+import { CalendarDays, ChevronLeft, ChevronRight, List, Receipt } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { Calendario } from "@/componentes/Calendario"
+import { Vacio } from "@/componentes/Vacio"
 import { Button } from "@/componentes/ui/button"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { type Direccion, formatearMonto } from "@/lib/dinero"
+import { mesAnio } from "@/lib/fecha"
 import { cn } from "@/lib/utils"
 
 interface Fila {
@@ -131,10 +133,7 @@ export function Movimientos() {
     setDiaSel(null)
   }
 
-  const etiquetaMes = new Date(anio, mes, 1).toLocaleDateString("es-AR", {
-    month: "long",
-    year: "numeric",
-  })
+  const etiquetaMes = mesAnio(anio, mes)
 
   return (
     <div className="mx-auto max-w-2xl space-y-3 p-4">
@@ -153,7 +152,7 @@ export function Movimientos() {
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <span className="min-w-40 text-center text-sm font-medium capitalize">{etiquetaMes}</span>
+          <span className="min-w-40 text-center text-sm font-medium">{etiquetaMes}</span>
           <Button
             variant="ghost"
             size="icon"
@@ -231,7 +230,12 @@ export function Movimientos() {
             </button>
           )}
           {lista.length === 0 ? (
-            <p className="p-8 text-center text-sm text-muted-foreground">Sin movimientos.</p>
+            <Vacio
+              icono={Receipt}
+              titulo="Sin movimientos"
+              detalle="No hay movimientos con estos filtros."
+              accion={{ to: "/nuevo", etiqueta: "Nuevo movimiento" }}
+            />
           ) : (
             <ul className="divide-y divide-border">
               {lista.map((f) => (

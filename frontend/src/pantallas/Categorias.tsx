@@ -5,7 +5,9 @@ import { useNavigate } from "react-router-dom"
 
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
+import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
+import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
@@ -42,13 +44,12 @@ export function Categorias() {
         <h1 className="text-xl font-semibold">Categorías</h1>
       </header>
 
-      {mostrarForm ? (
+      <Button className="w-full" onClick={() => setMostrarForm(true)}>
+        Nueva categoría
+      </Button>
+      <Hoja abierta={mostrarForm} onOpenChange={setMostrarForm} titulo="Nueva categoría">
         <FormularioCategoria principales={principales} onCerrar={() => setMostrarForm(false)} />
-      ) : (
-        <Button className="w-full" onClick={() => setMostrarForm(true)}>
-          Nueva categoría
-        </Button>
-      )}
+      </Hoja>
 
       <div className="space-y-4">
         {(["expense", "income"] as const).map((kind) => (
@@ -56,20 +57,16 @@ export function Categorias() {
             <h2 className="mb-1 text-sm font-semibold text-muted-foreground">
               {kind === "expense" ? "Gasto" : "Ingreso"}
             </h2>
-            <ul className="divide-y divide-border">
+            <ListaInset>
               {principales
                 .filter((c) => c.kind === kind)
-                .map((p) => (
-                  <li key={p.id} className="py-2">
-                    <Fila c={p} onArchivar={archivar} />
-                    {hijasDe(p.id).map((h) => (
-                      <div key={h.id} className="pl-6">
-                        <Fila c={h} onArchivar={archivar} />
-                      </div>
-                    ))}
-                  </li>
-                ))}
-            </ul>
+                .flatMap((p) => [
+                  <Fila key={p.id} c={p} onArchivar={archivar} />,
+                  ...hijasDe(p.id).map((h) => (
+                    <Fila key={h.id} c={h} sangria onArchivar={archivar} />
+                  )),
+                ])}
+            </ListaInset>
           </section>
         ))}
       </div>
@@ -79,20 +76,28 @@ export function Categorias() {
 
 function Fila({
   c,
+  sangria,
   onArchivar,
 }: {
   c: Categoria
+  sangria?: boolean
   onArchivar: (c: Categoria, valor: number) => void
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 py-1">
-      <span className={cn("truncate", c.archived && "text-muted-foreground line-through")}>
+    <FilaInset>
+      <span
+        className={cn(
+          "truncate",
+          sangria && "pl-6 text-sm",
+          c.archived && "text-muted-foreground line-through",
+        )}
+      >
         {c.name}
       </span>
       <Button variant="ghost" size="sm" onClick={() => onArchivar(c, c.archived ? 0 : 1)}>
         {c.archived ? "Desarchivar" : "Archivar"}
       </Button>
-    </div>
+    </FilaInset>
   )
 }
 
@@ -117,15 +122,19 @@ function FormularioCategoria({
 
   async function guardar() {
     if (!name.trim()) return setError("Poné un nombre")
-    await db.execute(
-      "INSERT INTO categories (id, name, kind, parent_id, archived, sort_order) VALUES (?, ?, ?, ?, 0, 0)",
-      [uuidv4(), name.trim(), kind, parentId || null],
-    )
-    onCerrar()
+    try {
+      await db.execute(
+        "INSERT INTO categories (id, name, kind, parent_id, archived, sort_order) VALUES (?, ?, ?, ?, 0, 0)",
+        [uuidv4(), name.trim(), kind, parentId || null],
+      )
+      onCerrar()
+    } catch {
+      setError("No se pudo guardar")
+    }
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+    <div className="space-y-3">
       <Campo etiqueta="Nombre">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Transporte" />
       </Campo>

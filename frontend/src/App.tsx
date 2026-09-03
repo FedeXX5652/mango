@@ -26,6 +26,8 @@ function Rutas() {
   const Layout = layout === "movil" ? LayoutMovil : LayoutEscritorio
   return (
     <Routes>
+      {/* Alta: pantalla focal (sin barra ni FAB), se llega por el + o el boton. */}
+      <Route path="nuevo" element={<Alta />} />
       <Route element={<Layout />}>
         <Route index element={<Inicio />} />
         <Route path="movimientos" element={<Movimientos />} />
@@ -38,7 +40,6 @@ function Rutas() {
         <Route path="plantillas" element={<Plantillas />} />
         <Route path="recurrentes" element={<Recurrentes />} />
         <Route path="presupuestos" element={<Presupuestos />} />
-        <Route path="nuevo" element={<Alta />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

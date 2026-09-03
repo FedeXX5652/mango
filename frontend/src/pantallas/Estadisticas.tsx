@@ -19,6 +19,7 @@ import {
 import { Button } from "@/componentes/ui/button"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { formatearCentavos, formatearMonto } from "@/lib/dinero"
+import { mesAnio } from "@/lib/fecha"
 
 interface CatRow {
   id: string
@@ -110,10 +111,7 @@ export function Estadisticas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evoRows])
 
-  const etiquetaMes = new Date(anio, mes, 1).toLocaleDateString("es-AR", {
-    month: "long",
-    year: "numeric",
-  })
+  const etiquetaMes = mesAnio(anio, mes)
   const ejeY = (v: number) => `$${Math.round(v / 100).toLocaleString("es-AR")}`
   const tip = (v: number) => formatearMonto(v)
 
@@ -139,7 +137,7 @@ export function Estadisticas() {
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <span className="min-w-32 text-center text-sm capitalize">{etiquetaMes}</span>
+            <span className="min-w-32 text-center text-sm">{etiquetaMes}</span>
             <Button
               variant="ghost"
               size="icon"
