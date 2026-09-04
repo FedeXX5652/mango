@@ -12,7 +12,12 @@ export default defineConfig({
       // el). Para probar la PWA instalable de verdad: `npm run build && preview`.
       devOptions: { enabled: false },
       // Los WASM de wa-sqlite (SQLite en el navegador) superan los 2 MB.
-      workbox: { maximumFileSizeToCacheInBytes: 6 * 1024 * 1024 },
+      workbox: {
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        // El patron por defecto deja afuera las fuentes: sin esto la tipografia
+        // no esta disponible sin conexion y la app cae a la del sistema.
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,wasm}"],
+      },
       includeAssets: [
         "icons/favicon.ico",
         "icons/svg/mango.svg",

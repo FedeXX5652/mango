@@ -127,6 +127,16 @@ que se eligio mal el contenedor.
 
 ### Tipografia
 
+**Inter**, auto-hospedada. Se instala con `@fontsource-variable/inter` y se
+importa en `main.tsx` (solo el eje de peso, sin italicas): la app tiene que
+funcionar sin conexion, asi que **no se pide a un CDN de fuentes**. El service
+worker la precachea (por eso `woff2` esta en `globPatterns` de workbox en
+`vite.config.ts`; el patron por defecto de vite-plugin-pwa lo deja afuera).
+
+La familia declarada es `Inter Variable`, con `Inter`, `system-ui` y `sans-serif`
+detras como red de contencion. Es una fuente variable: un solo archivo cubre
+todos los pesos de la tabla.
+
 | Rol | Tamano | Peso |
 |---|---|---|
 | Monto destacado | 32 px | 600, tabular |

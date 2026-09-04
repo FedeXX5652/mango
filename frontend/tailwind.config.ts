@@ -37,7 +37,9 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        // "Inter Variable" es el nombre que declara @fontsource-variable/inter
+        // (ver main.tsx). El resto es red de contencion si la fuente no cargo.
+        sans: ["Inter Variable", "Inter", "system-ui", "sans-serif"],
       },
       // Motion (DESIGN.md 8): solo para comunicar un cambio de estado. Un unico
       // ease-out compartido y las duraciones del presupuesto de §8. Se aplican
