@@ -106,6 +106,29 @@ const budget_rules = new Table({
   deleted_at: column.text,
 })
 
+// Etiqueta: dimension aparte de la categoria (proyecto/viaje). Ver 3.5.1.
+const tags = new Table({
+  owner_id: column.text,
+  name: column.text,
+  color: column.text,
+  archived: column.integer,
+  created_at: column.text,
+  updated_at: column.text,
+  deleted_at: column.text,
+})
+
+// Asociacion N a N: un movimiento puede tener varias etiquetas o ninguna.
+const transaction_tags = new Table(
+  {
+    transaction_id: column.text,
+    tag_id: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
+  },
+  { indexes: { por_movimiento: ["transaction_id"], por_etiqueta: ["tag_id"] } },
+)
+
 const templates = new Table({
   owner_id: column.text,
   name: column.text,
@@ -155,6 +178,8 @@ export const AppSchema = new Schema({
   transactions,
   budgets,
   budget_rules,
+  tags,
+  transaction_tags,
   templates,
   recurring_rules,
 })

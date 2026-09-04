@@ -12,8 +12,8 @@ bucket_definitions:
     data:
       # Solo las tablas que el cliente materializa en su esquema local
       # (frontend/src/lib/powersync/esquema.ts). Al construir el front de
-      # etiquetas/splits/reglas, re-agregar aca: category_rules,
-      # transaction_splits, tags, transaction_tags. Los datos siguen en Postgres.
+      # splits/reglas de ingesta, re-agregar aca: category_rules,
+      # transaction_splits. Los datos siguen en Postgres.
       - SELECT * FROM accounts
       - SELECT * FROM categories
       - SELECT * FROM payment_methods
@@ -23,3 +23,5 @@ bucket_definitions:
       - SELECT * FROM budget_rules
       - SELECT * FROM recurring_rules
       - SELECT * FROM templates
+      - SELECT * FROM tags
+      - SELECT * FROM transaction_tags

@@ -20,6 +20,8 @@ const RUTA: Record<string, string> = {
   payment_methods: "/payment-methods",
   budgets: "/budgets",
   budget_rules: "/budget-rules",
+  tags: "/tags",
+  transaction_tags: "/transaction-tags",
   templates: "/templates",
   recurring_rules: "/recurring",
 }
