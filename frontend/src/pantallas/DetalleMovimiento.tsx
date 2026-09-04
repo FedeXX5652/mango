@@ -1,14 +1,16 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { ArrowLeft, Trash2 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 
+import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, formatearCentavos } from "@/lib/dinero"
+import { uuidv4 } from "@/lib/uuid"
 
 interface Tx {
   id: string
@@ -52,6 +54,17 @@ export function DetalleMovimiento() {
   )
   const nombreCat = useMemo(() => new Map(categorias.map((c) => [c.id, c.name])), [categorias])
 
+  // Etiquetas ya asociadas a este movimiento (ver 3.5.1).
+  const { data: etiquetasActuales } = useQuery<{ tag_id: string }>(
+    "SELECT tag_id FROM transaction_tags WHERE transaction_id = ? AND deleted_at IS NULL",
+    [id ?? ""],
+  )
+  const idsActuales = useMemo(
+    () => etiquetasActuales.map((r) => r.tag_id),
+    [etiquetasActuales],
+  )
+
+  const [etiquetas, setEtiquetas] = useState<string[]>([])
   const [monto, setMonto] = useState("")
   const [cuentaId, setCuentaId] = useState("")
   const [destinoId, setDestinoId] = useState("")
@@ -73,6 +86,14 @@ export function DetalleMovimiento() {
     setCuando(isoALocal(tx.occurred_at))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tx?.id])
+
+  // Las asociaciones llegan por su propia consulta: se siembran aparte.
+  const etiquetasSembradas = useRef(false)
+  useEffect(() => {
+    if (etiquetasSembradas.current || idsActuales.length === 0) return
+    etiquetasSembradas.current = true
+    setEtiquetas(idsActuales)
+  }, [idsActuales])
 
   if (!tx) {
     return <div className="p-6 text-sm text-muted-foreground">Cargando…</div>
@@ -106,6 +127,21 @@ export function DetalleMovimiento() {
         tx!.id,
       ],
     )
+
+    // Diff de etiquetas: solo lo que cambio (el unico parcial no admite
+    // duplicados, asi que no se re-inserta lo que ya estaba).
+    for (const tagId of etiquetas.filter((t) => !idsActuales.includes(t))) {
+      await db.execute(
+        "INSERT INTO transaction_tags (id, transaction_id, tag_id) VALUES (?, ?, ?)",
+        [uuidv4(), tx!.id, tagId],
+      )
+    }
+    for (const tagId of idsActuales.filter((t) => !etiquetas.includes(t))) {
+      await db.execute(
+        "DELETE FROM transaction_tags WHERE transaction_id = ? AND tag_id = ?",
+        [tx!.id, tagId],
+      )
+    }
     navigate(-1)
   }
 
@@ -184,6 +220,10 @@ export function DetalleMovimiento() {
 
       <Campo etiqueta="Notas">
         <Input value={notas} onChange={(e) => setNotas(e.target.value)} />
+      </Campo>
+
+      <Campo etiqueta="Etiquetas">
+        <SelectorEtiquetas seleccionadas={etiquetas} onCambio={setEtiquetas} />
       </Campo>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

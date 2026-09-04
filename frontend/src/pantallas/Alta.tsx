@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 
 import { Calculadora } from "@/componentes/Calculadora"
+import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
@@ -90,6 +91,7 @@ export function FormularioMovimiento({
   const [comercio, setComercio] = useState("")
   const [notas, setNotas] = useState("")
   const [cuando, setCuando] = useState(ahoraLocal)
+  const [etiquetas, setEtiquetas] = useState<string[]>([])
   const [error, setError] = useState("")
   const [guardando, setGuardando] = useState(false)
   // Monto sembrado al aplicar una plantilla. `calcKey` remonta la calculadora
@@ -149,6 +151,8 @@ export function FormularioMovimiento({
 
     setGuardando(true)
     try {
+      // El id se genera aca porque las etiquetas lo necesitan para asociarse.
+      const idTx = uuidv4()
       // Escritura LOCAL: PowerSync la encola y la sube por la API en segundo plano.
       await db.execute(
         `INSERT INTO transactions
@@ -156,7 +160,7 @@ export function FormularioMovimiento({
             category_id, payment_method_id, payee, notes)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          uuidv4(),
+          idTx,
           tipo,
           new Date(cuando).toISOString(),
           centavos,
@@ -169,6 +173,13 @@ export function FormularioMovimiento({
           notas || null,
         ],
       )
+      // Una fila por etiqueta elegida (ver 3.5.1).
+      for (const tagId of etiquetas) {
+        await db.execute(
+          "INSERT INTO transaction_tags (id, transaction_id, tag_id) VALUES (?, ?, ?)",
+          [uuidv4(), idTx, tagId],
+        )
+      }
       onGuardado()
     } catch {
       setError("No se pudo guardar")
@@ -276,6 +287,10 @@ export function FormularioMovimiento({
 
           <Campo etiqueta="Notas (opcional)">
             <Input value={notas} onChange={(e) => setNotas(e.target.value)} />
+          </Campo>
+
+          <Campo etiqueta="Etiquetas (opcional)">
+            <SelectorEtiquetas seleccionadas={etiquetas} onCambio={setEtiquetas} />
           </Campo>
 
           {/* CTA fija: en un form largo el boton queda a mano sin scrollear. */}

@@ -106,6 +106,7 @@ export function Movimientos() {
   const [cuentaId, setCuentaId] = useState("")
   const [categoriaId, setCategoriaId] = useState("")
   const [texto, setTexto] = useState("")
+  const [etiquetaId, setEtiquetaId] = useState("")
   const [diaSel, setDiaSel] = useState<number | null>(null)
 
   const { data: cuentas } = useQuery<Opcion>(
@@ -115,6 +116,13 @@ export function Movimientos() {
     "SELECT id, name, kind, parent_id FROM categories WHERE deleted_at IS NULL ORDER BY name",
   )
   const nombreCat = useMemo(() => new Map(categorias.map((c) => [c.id, c.name])), [categorias])
+  const { data: etiquetas } = useQuery<Opcion>(
+    "SELECT id, name FROM tags WHERE deleted_at IS NULL AND archived = 0",
+  )
+  const etiquetasOrden = useMemo(
+    () => [...etiquetas].sort((a, b) => a.name.localeCompare(b.name, "es")),
+    [etiquetas],
+  )
 
   // Consulta del mes con los filtros (menos el dia, que se aplica en JS para
   // compartir los datos entre la lista y el calendario).
@@ -135,6 +143,14 @@ export function Movimientos() {
       cond.push("t.category_id = ?")
       p.push(categoriaId)
     }
+    if (etiquetaId) {
+      // EXISTS y no JOIN: un movimiento con varias etiquetas no debe duplicarse.
+      cond.push(
+        `EXISTS (SELECT 1 FROM transaction_tags tt
+                 WHERE tt.transaction_id = t.id AND tt.tag_id = ? AND tt.deleted_at IS NULL)`,
+      )
+      p.push(etiquetaId)
+    }
     if (texto.trim()) {
       cond.push("(t.payee LIKE ? OR t.notes LIKE ?)")
       p.push(`%${texto.trim()}%`, `%${texto.trim()}%`)
@@ -149,7 +165,7 @@ export function Movimientos() {
             ORDER BY t.occurred_at DESC`,
       params: p,
     }
-  }, [anio, mes, tipo, cuentaId, categoriaId, texto])
+  }, [anio, mes, tipo, cuentaId, categoriaId, etiquetaId, texto])
 
   const { data: mesMovs } = useQuery<Fila>(sql, params)
 
@@ -250,6 +266,16 @@ export function Movimientos() {
             </option>
           ))}
         </Select>
+        {etiquetasOrden.length > 0 && (
+          <Select value={etiquetaId} onChange={(e) => setEtiquetaId(e.target.value)}>
+            <option value="">Toda etiqueta</option>
+            {etiquetasOrden.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </Select>
+        )}
         <Input
           placeholder="Buscar comercio…"
           value={texto}
