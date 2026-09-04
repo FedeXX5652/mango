@@ -360,6 +360,18 @@ conexion, los cambios suben y bajan los de otros dispositivos.
 Consecuencia de diseno: **los identificadores los genera el cliente**, no el
 servidor. Si no, no se podria crear nada sin conexion.
 
+**Lo que si necesita conexion**, y por que:
+
+- **Exportar a CSV**: el archivo lo arma el servidor
+  (`GET /transactions/export`). Se podria generar desde la base local, pero eso
+  duplicaria el formato del CSV en dos lugares y se desincronizarian solos: se
+  prefiere **una sola fuente de verdad** y avisar cuando no hay conexion.
+- **Ejecutar recurrentes** (`POST /recurring/run`): genera movimientos y
+  asignaciones en el servidor.
+
+Todo lo demas —cargar, editar, borrar, presupuestar, ver informes— funciona sin
+conexion contra la base local.
+
 ### 3.12 Estrategia multidispositivo
  
 Mango funciona en telefono y en computadora, y **no son la misma interfaz

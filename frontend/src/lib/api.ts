@@ -128,5 +128,13 @@ export const api = {
   // Genera las transacciones de las reglas recurrentes vencidas. Idempotente
   // por fecha (avanza next_run_date), asi que es seguro llamarlo al abrir la app.
   runRecurring: () => pedir<ResultadoRecurrentes>("/recurring/run", { method: "POST" }),
+  // Export CSV: lo arma el servidor (una sola fuente de verdad del formato),
+  // asi que necesita conexion. Devuelve el texto crudo, no JSON.
+  exportarCsv: async (params: Record<string, string>): Promise<string> => {
+    const qs = new URLSearchParams(params).toString()
+    const resp = await fetch(`${BASE}/api/v1/transactions/export${qs ? `?${qs}` : ""}`)
+    if (!resp.ok) throw new ApiError(resp.status, `Error ${resp.status}`)
+    return await resp.text()
+  },
 }
 
