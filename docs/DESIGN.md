@@ -348,9 +348,37 @@ detalle completo.
 | Ultimos movimientos (Inicio) | 5 | fecha desc | "Ver todos" -> Movimientos |
 | Cuentas (Inicio) | 4, en bloque 2x2 | `sort_order` de Ajustes | "Ver todas (N)" -> Cuentas |
 | Gasto por categoria (Estadisticas) | 5 | monto desc | "Ver todas (N)" -> dialogo con la lista completa |
+| Gasto por etiqueta (Estadisticas) | 6 | monto desc | "Ver todas (N)" -> dialogo con la lista completa |
 
 El tope se declara como constante con nombre (`MAX_RECIENTES`, `MAX_CUENTAS`,
-`MAX_CATEGORIAS`), no como numero suelto en el JSX.
+`MAX_CATEGORIAS`, `MAX_ETIQUETAS`), no como numero suelto en el JSX.
+
+### Desglose de una fila de resumen
+
+Una fila de resumen que **agrega cosas distintas** se puede desplegar para ver
+de que esta hecha, con el chevron tenue de "lo expandible se anuncia". Reglas:
+
+- Solo es desplegable si adentro hay **mas de una parte**: con una sola, el
+  desglose repite la fila.
+- El desglose va en **texto mas chico y tenue**, indentado con un filete a la
+  izquierda: es detalle, no un segundo nivel de importancia.
+- El porcentaje de cada parte se calcula **sobre la fila padre**, no sobre el
+  total de la pantalla: la pregunta que se contesta es "de este gasto, cuanto
+  fue cada cosa".
+- El gasto cargado directo en la categoria padre (no en una hija) se llama
+  **General**. Sin nombre propio nadie entiende de donde sale esa diferencia.
+
+Es el caso de Gasto por categoria en Estadisticas: la fila suma las
+subcategorias y el despliegue las separa.
+
+### Barras por entidad con su color propio
+
+Cuando lo comparado son entidades que **el usuario pinto** (etiquetas), la barra
+usa el color de la entidad, no un indice de `PALETA`. La barra se mide contra la
+**entidad mas grande** de la lista, no contra el total: en informes donde un
+movimiento puede contar en varias filas (una etiqueta por proyecto), un
+porcentaje del total mentiria. En ese caso va una nota al pie explicando que la
+suma puede superar el gasto del periodo y que lo no etiquetado no aparece.
 
 ### Variacion contra el periodo anterior
 
@@ -362,9 +390,10 @@ dice `nuevo`. Si la variacion redondea a cero, `sin cambio`.
 ### Lo expandible se anuncia
 
 Una tarjeta o fila que se despliega lleva un **chevron tenue** (`muted-foreground`
-al 50%) arriba a la derecha, que **rota 180 grados al abrir**. El disparador
-expone `aria-expanded`. Sin esa marca, nadie descubre que la tarjeta esconde
-algo: es el caso de la tarjeta de sobre en Presupuesto.
+al 40-50%) que **rota 180 grados al abrir**: arriba a la derecha en una tarjeta,
+al final de la linea en una fila. El disparador expone `aria-expanded`. Sin esa
+marca, nadie descubre que la tarjeta esconde algo: es el caso de la tarjeta de
+sobre en Presupuesto y de la fila de categoria en Estadisticas.
 
 ### Confirmaciones: `Confirmar` y `Aviso`
 

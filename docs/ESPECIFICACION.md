@@ -234,7 +234,24 @@ El sobre de ahorro del viaje (`Ahorro / Viaje 2027`, con arrastre) es donde se
 aparta plata mes a mes; el costo real del viaje sale sumando por etiqueta.
 
 Las tablas `tags` y `transaction_tags` estan en el esquema desde ahora; la
-interfaz de etiquetas llega mas adelante (mismo criterio que 5.4/5.6).
+gestion de etiquetas vive en Ajustes, con las mismas reglas que el resto de las
+listas (orden alfabetico, archivar como regla, borrar solo si no se uso).
+
+**El informe que las justifica.** En Estadisticas, "Gasto por etiqueta" suma el
+gasto confirmado de cada etiqueta. El alcance por defecto es el **acumulado**,
+no el mes: un proyecto cruza meses y lo que se quiere saber es cuanto costo el
+viaje entero; un selector permite acotarlo al mes que se esta viendo.
+
+Dos advertencias que el informe declara en pantalla, porque cambian como se lee:
+
+1. Un movimiento con varias etiquetas **suma en todas**, asi que el total del
+   informe puede superar el gasto del periodo. Por eso no se muestran
+   porcentajes sobre el total.
+2. El gasto **sin etiquetar** no aparece. La etiqueta es opcional; el informe no
+   pretende explicar todo el gasto, cosa que si hace el informe por categoria.
+
+Una etiqueta archivada sigue apareciendo si tiene gasto: el proyecto termino,
+pero lo que costo no cambia.
 
 ### 3.6 Presupuesto por sobres
 

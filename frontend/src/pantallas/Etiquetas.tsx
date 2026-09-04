@@ -10,6 +10,7 @@ import { Aviso, Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
+import { PALETA, SIN_COLOR } from "@/lib/paleta"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 
@@ -19,19 +20,6 @@ interface Etiqueta {
   color: string | null
   archived: number
 }
-
-// Paleta fija: el color es una ayuda visual para el informe por etiqueta, no
-// un dato libre. Misma familia que la de Estadisticas.
-const COLORES = [
-  "#FDBE02",
-  "#0F766E",
-  "#4F46E5",
-  "#C62828",
-  "#00795B",
-  "#1F5FBF",
-  "#6D45C7",
-  "#D97706",
-]
 
 export function Etiquetas() {
   const navigate = useNavigate()
@@ -87,7 +75,7 @@ export function Etiquetas() {
         <div className="flex min-w-0 items-center gap-3">
           <span
             className="h-3 w-3 shrink-0 rounded-full"
-            style={{ backgroundColor: e.color ?? "#9CA3AF" }}
+            style={{ backgroundColor: e.color ?? SIN_COLOR }}
             aria-hidden
           />
           <div className="min-w-0">
@@ -221,7 +209,7 @@ function FormEtiqueta({
 }) {
   const db = usePowerSync()
   const [name, setName] = useState(inicial?.name ?? "")
-  const [color, setColor] = useState(inicial?.color ?? COLORES[0])
+  const [color, setColor] = useState(inicial?.color ?? PALETA[0])
   const [error, setError] = useState("")
 
   async function guardar() {
@@ -266,7 +254,7 @@ function FormEtiqueta({
       </Campo>
       <Campo etiqueta="Color">
         <div className="flex flex-wrap gap-2">
-          {COLORES.map((c) => (
+          {PALETA.map((c) => (
             <button
               key={c}
               type="button"

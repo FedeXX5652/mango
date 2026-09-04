@@ -1,5 +1,5 @@
 import { useQuery } from "@powersync/react"
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { useMemo, useState } from "react"
 import {
   Area,
@@ -16,9 +16,17 @@ import {
 
 import { Button } from "@/componentes/ui/button"
 import { Hoja } from "@/componentes/ui/hoja"
+import { Segmentado } from "@/componentes/ui/segmentado"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { formatearCentavos, formatearMonto, formatearSaldo } from "@/lib/dinero"
+import {
+  type EtiquetaInfo,
+  type GastoEtiqueta,
+  type GastoEtiquetaRow,
+  agruparPorEtiqueta,
+} from "@/lib/etiquetas"
 import { mesAnio } from "@/lib/fecha"
+import { PALETA } from "@/lib/paleta"
 import { cn } from "@/lib/utils"
 
 interface CatRow {
@@ -38,13 +46,44 @@ interface EvoRow {
 
 // Nota: en fase 1 (una sola moneda) se agregan todos los montos juntos. Con
 // multimoneda (fase 4) habra que convertir a la moneda base.
-const PALETA = [
-  "#FDBE02", "#0F766E", "#4F46E5", "#C62828", "#00795B",
-  "#1F5FBF", "#6D45C7", "#D97706", "#0891B2", "#DB2777",
-]
 
 // La leyenda muestra las mas representativas; el resto va en un dialogo.
 const MAX_CATEGORIAS = 5
+const MAX_ETIQUETAS = 6
+
+// Barra de una etiqueta, con el color propio de la etiqueta. El ancho se mide
+// contra la etiqueta mas grande, no contra el gasto total: un movimiento con
+// varias etiquetas suma en todas y un porcentaje del total mentiria.
+function FilaEtiqueta({ e, tope }: { e: GastoEtiqueta; tope: number }) {
+  const pct = Math.min((e.total / tope) * 100, 100)
+  return (
+    <li className="space-y-1.5">
+      <div className="flex items-baseline justify-between gap-3 text-sm">
+        <span className="flex min-w-0 items-center gap-2">
+          <span
+            className="h-2.5 w-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: e.color }}
+            aria-hidden
+          />
+          <span className="truncate">{e.name}</span>
+          {e.archived && <span className="shrink-0 text-xs text-muted-foreground">archivada</span>}
+        </span>
+        <span className="tabular shrink-0 font-medium">$ {formatearCentavos(e.total)}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${pct}%`, backgroundColor: e.color }}
+          />
+        </div>
+        <span className="tabular shrink-0 text-xs text-muted-foreground">
+          {e.n} mov{e.n === 1 ? "." : "s."}
+        </span>
+      </div>
+    </li>
+  )
+}
 
 // Variacion contra el periodo anterior. En un gasto, subir es malo: flecha
 // arriba + token expense. Nunca se comunica solo por color (va la flecha y el
@@ -159,6 +198,24 @@ export function Estadisticas() {
     }
     const actual = agrupar(gastoRows)
     const anterior = agrupar(gastoAnteriorRows)
+
+    // Desglose: que hay adentro de cada categoria principal. El gasto cargado
+    // directo en el padre (no en una hija) se llama "General", que es como se
+    // lee en un resumen: el resto son las hijas con nombre propio.
+    const desglose = new Map<string, { id: string; name: string; value: number }[]>()
+    for (const r of gastoRows) {
+      const cat = r.category_id ? catById.get(r.category_id) : undefined
+      const padre = cat?.parent_id ? catById.get(cat.parent_id) : cat
+      const key = padre?.id ?? "sin"
+      const lista = desglose.get(key) ?? []
+      lista.push({
+        id: cat?.id ?? "sin",
+        name: cat?.parent_id ? cat.name : "General",
+        value: r.total,
+      })
+      desglose.set(key, lista)
+    }
+
     return [...actual.entries()]
       .map(([key, v]) => {
         const previo = anterior.get(key)?.value ?? 0
@@ -168,6 +225,7 @@ export function Estadisticas() {
           name: v.name,
           value: v.value,
           variacion: previo > 0 ? ((v.value - previo) / previo) * 100 : null,
+          desglose: (desglose.get(key) ?? []).sort((a, b) => b.value - a.value),
         }
       })
       .sort((a, b) => b.value - a.value)
@@ -175,10 +233,20 @@ export function Estadisticas() {
 
   const totalMes = torta.reduce((s, t) => s + t.value, 0)
   const [verTodas, setVerTodas] = useState(false)
+  const [expandidas, setExpandidas] = useState<string[]>([])
+
+  function alternarCategoria(key: string) {
+    setExpandidas((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]))
+  }
 
   function filaCategoria(t: (typeof torta)[number], i: number) {
-    return (
-      <li key={t.key} className="flex items-center justify-between gap-3">
+    // Solo se puede desplegar lo que tiene mas de una parte adentro: con una
+    // sola, el desglose repetiria la fila.
+    const expandible = t.desglose.length > 1
+    const abierta = expandidas.includes(t.key)
+
+    const cuerpo = (
+      <>
         <span className="flex min-w-0 items-center gap-2">
           <span
             className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -186,18 +254,88 @@ export function Estadisticas() {
           />
           <span className="truncate text-sm">{t.name}</span>
         </span>
-        <div className="shrink-0 text-right">
-          <p className="tabular text-sm">
-            $ {formatearCentavos(t.value)}
-            <span className="ml-2 text-xs text-muted-foreground">
-              {Math.round((t.value / totalMes) * 100)}%
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="text-right">
+            <span className="tabular block text-sm">
+              $ {formatearCentavos(t.value)}
+              <span className="ml-2 text-xs text-muted-foreground">
+                {Math.round((t.value / totalMes) * 100)}%
+              </span>
             </span>
-          </p>
-          <Variacion pct={t.variacion} />
-        </div>
+            <Variacion pct={t.variacion} />
+          </span>
+          {expandible && (
+            <ChevronDown
+              aria-hidden
+              className={cn(
+                "h-4 w-4 shrink-0 text-muted-foreground/40 motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-salida",
+                abierta && "rotate-180",
+              )}
+            />
+          )}
+        </span>
+      </>
+    )
+
+    return (
+      <li key={t.key}>
+        {expandible ? (
+          <button
+            type="button"
+            onClick={() => alternarCategoria(t.key)}
+            aria-expanded={abierta}
+            className="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-lg px-2 py-1 text-left transition-colors hover:bg-muted/60"
+          >
+            {cuerpo}
+          </button>
+        ) : (
+          <div className="flex items-center justify-between gap-3">{cuerpo}</div>
+        )}
+        {expandible && abierta && (
+          <ul className="ml-1 mt-2 space-y-1.5 border-l border-border pl-4 motion-safe:animate-fundir">
+            {t.desglose.map((d) => (
+              <li key={d.id} className="flex items-baseline justify-between gap-3 text-xs">
+                <span className="truncate text-muted-foreground">{d.name}</span>
+                <span className="tabular shrink-0 text-muted-foreground">
+                  $ {formatearCentavos(d.value)}
+                  <span className="ml-2">{Math.round((d.value / t.value) * 100)}%</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </li>
     )
   }
+
+  // Gasto por etiqueta. Un proyecto (un viaje, una refaccion) cruza meses, asi
+  // que el default es el acumulado; el selector permite acotarlo al mes que se
+  // esta viendo arriba. Los limites se pasan siempre como parametros para no
+  // tener dos consultas condicionales.
+  const [alcanceEtiquetas, setAlcanceEtiquetas] = useState<"todo" | "mes">("todo")
+  const desdeTags = alcanceEtiquetas === "mes" ? inicioMes : "0000-01-01T00:00:00.000Z"
+  const hastaTags = alcanceEtiquetas === "mes" ? finMes : "9999-12-31T00:00:00.000Z"
+
+  // Se traen tambien las archivadas: un movimiento viejo puede llevar una
+  // etiqueta ya archivada y ese gasto igual cuenta.
+  const { data: todasEtiquetas } = useQuery<EtiquetaInfo>(
+    "SELECT id, name, color, archived FROM tags WHERE deleted_at IS NULL",
+  )
+  const { data: gastoEtiquetaRows } = useQuery<GastoEtiquetaRow>(
+    `SELECT tt.tag_id AS id, SUM(t.amount) AS total, COUNT(*) AS n
+     FROM transaction_tags tt JOIN transactions t ON t.id = tt.transaction_id
+     WHERE tt.deleted_at IS NULL AND t.deleted_at IS NULL
+       AND t.kind='expense' AND t.status='confirmed'
+       AND t.occurred_at >= ? AND t.occurred_at < ?
+     GROUP BY tt.tag_id`,
+    [desdeTags, hastaTags],
+  )
+  const porEtiqueta = useMemo(
+    () => agruparPorEtiqueta(gastoEtiquetaRows, todasEtiquetas),
+    [gastoEtiquetaRows, todasEtiquetas],
+  )
+  const topeEtiquetas = Math.max(...porEtiqueta.map((e) => e.total), 1)
+  const [verTodasEtiquetas, setVerTodasEtiquetas] = useState(false)
 
   // Evolucion: ultimos 6 meses.
   const inicioEvo = new Date(hoy.getFullYear(), hoy.getMonth() - 5, 1).toISOString()
@@ -292,7 +430,9 @@ export function Estadisticas() {
               </ResponsiveContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-xs text-muted-foreground">Gasto del mes</span>
-                <span className="tabular text-xl font-semibold">$ {formatearCentavos(totalMes)}</span>
+                <span className="tabular text-xl font-semibold">
+                  $ {formatearCentavos(totalMes)}
+                </span>
               </div>
             </div>
             <ul className="space-y-2">
@@ -309,6 +449,62 @@ export function Estadisticas() {
           </>
         )}
       </section>
+
+      {todasEtiquetas.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-muted-foreground">Gasto por etiqueta</h2>
+            <Segmentado
+              opciones={[
+                { valor: "todo", etiqueta: "Acumulado" },
+                { valor: "mes", etiqueta: etiquetaMes },
+              ]}
+              valor={alcanceEtiquetas}
+              onCambio={setAlcanceEtiquetas}
+            />
+          </div>
+
+          {porEtiqueta.length === 0 ? (
+            <p className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+              {alcanceEtiquetas === "mes"
+                ? "Sin gastos etiquetados en este mes."
+                : "Sin gastos etiquetados todavía."}
+            </p>
+          ) : (
+            <>
+              <ul className="space-y-3 rounded-xl border border-border bg-card p-4">
+                {porEtiqueta.slice(0, MAX_ETIQUETAS).map((e) => (
+                  <FilaEtiqueta key={e.id} e={e} tope={topeEtiquetas} />
+                ))}
+              </ul>
+              {porEtiqueta.length > MAX_ETIQUETAS && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setVerTodasEtiquetas(true)}
+                >
+                  Ver todas ({porEtiqueta.length})
+                </Button>
+              )}
+              <Hoja
+                abierta={verTodasEtiquetas}
+                onOpenChange={setVerTodasEtiquetas}
+                titulo="Gasto por etiqueta"
+              >
+                <ul className="space-y-3">
+                  {porEtiqueta.map((e) => (
+                    <FilaEtiqueta key={e.id} e={e} tope={topeEtiquetas} />
+                  ))}
+                </ul>
+              </Hoja>
+              <p className="px-1 text-xs text-muted-foreground">
+                Un movimiento con varias etiquetas suma en todas, así que el total de acá puede
+                superar el gasto del período. El gasto sin etiquetar no aparece.
+              </p>
+            </>
+          )}
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">Ingresos y egresos del mes</h2>
@@ -406,10 +602,7 @@ export function Estadisticas() {
               <Tooltip formatter={(v) => tip(Number(v))} />
               <Bar dataKey="neto" name="Resultado" radius={6}>
                 {evolucion.map((m) => (
-                  <Cell
-                    key={m.clave}
-                    fill={m.neto < 0 ? colores.expense : colores.income}
-                  />
+                  <Cell key={m.clave} fill={m.neto < 0 ? colores.expense : colores.income} />
                 ))}
               </Bar>
             </BarChart>
