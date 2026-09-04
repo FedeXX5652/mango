@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom"
 
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
-import { ConfirmarDestructivo } from "@/componentes/ui/confirmar"
+import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
@@ -102,7 +102,8 @@ export function Plantillas() {
         </ul>
       )}
 
-      <ConfirmarDestructivo
+      <Confirmar
+        destructivo
         abierta={aBorrar !== null}
         onOpenChange={(v) => {
           if (!v) setABorrar(null)

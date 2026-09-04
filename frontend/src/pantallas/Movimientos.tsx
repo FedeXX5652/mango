@@ -1,10 +1,21 @@
 import { useQuery, useStatus } from "@powersync/react"
-import { CalendarDays, ChevronLeft, ChevronRight, List, Receipt } from "lucide-react"
+import {
+  ArrowDownLeft,
+  ArrowLeftRight,
+  ArrowUpRight,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  List,
+  type LucideIcon,
+  Receipt,
+} from "lucide-react"
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { Calendario } from "@/componentes/Calendario"
 import { Vacio } from "@/componentes/Vacio"
+import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Button } from "@/componentes/ui/button"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
@@ -41,14 +52,34 @@ const COLOR: Record<Fila["kind"], string> = {
   income: "text-income",
   transfer: "text-transfer",
 }
+const ICONO_MOV: Record<Fila["kind"], LucideIcon> = {
+  expense: ArrowDownLeft,
+  income: ArrowUpRight,
+  transfer: ArrowLeftRight,
+}
 
-function fechaHora(iso: string): string {
-  return new Date(iso).toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+// La lista se agrupa por dia (DESIGN.md 7): clave local, encabezado legible y
+// hora corta a la derecha de cada fila.
+function claveDia(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+function etiquetaDia(iso: string): string {
+  const d = new Date(iso)
+  const hoy = new Date()
+  const ayer = new Date(hoy)
+  ayer.setDate(hoy.getDate() - 1)
+  const mismoDia = (a: Date, b: Date) => a.toDateString() === b.toDateString()
+  if (mismoDia(d, hoy)) return "Hoy"
+  if (mismoDia(d, ayer)) return "Ayer"
+  const opciones: Intl.DateTimeFormatOptions = { day: "numeric", month: "long" }
+  if (d.getFullYear() !== hoy.getFullYear()) opciones.year = "numeric"
+  return d.toLocaleDateString("es-AR", opciones)
+}
+
+function horaCorta(iso: string): string {
+  return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
 }
 
 function EstadoSync() {
@@ -122,9 +153,23 @@ export function Movimientos() {
 
   const { data: mesMovs } = useQuery<Fila>(sql, params)
 
-  const lista = diaSel
-    ? mesMovs.filter((f) => new Date(f.occurred_at).getDate() === diaSel)
-    : mesMovs
+  const lista = useMemo(
+    () =>
+      diaSel ? mesMovs.filter((f) => new Date(f.occurred_at).getDate() === diaSel) : mesMovs,
+    [mesMovs, diaSel],
+  )
+
+  // Grupos por dia, en el orden que ya trae la consulta (occurred_at DESC).
+  const grupos = useMemo(() => {
+    const m = new Map<string, Fila[]>()
+    for (const f of lista) {
+      const k = claveDia(f.occurred_at)
+      const g = m.get(k)
+      if (g) g.push(f)
+      else m.set(k, [f])
+    }
+    return [...m.entries()]
+  }, [lista])
 
   function cambiarMes(delta: number) {
     const d = new Date(anio, mes + delta, 1)
@@ -237,32 +282,52 @@ export function Movimientos() {
               accion={{ to: "/nuevo", etiqueta: "Nuevo movimiento" }}
             />
           ) : (
-            <ul className="divide-y divide-border">
-              {lista.map((f) => (
-                <li key={f.id}>
-                  <button
-                    onClick={() => navigate(`/movimientos/${f.id}`)}
-                    className="flex w-full items-center justify-between gap-3 py-3 text-left hover:bg-muted"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">
-                        {f.payee || f.categoria || (f.kind === "transfer" ? "Transferencia" : "—")}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {f.cuenta} · {fechaHora(f.occurred_at)}
-                        {f.status === "pending" && " · pendiente"}
-                      </p>
-                    </div>
-                    <span className={cn("tabular font-medium", COLOR[f.kind])}>
-                      {formatearMonto(f.amount, {
-                        moneda: f.currency,
-                        direccion: DIRECCION[f.kind],
-                      })}
-                    </span>
-                  </button>
-                </li>
+            <div className="space-y-4">
+              {grupos.map(([clave, filas]) => (
+                <section key={clave}>
+                  <h3 className="mb-2 px-1 text-xs font-medium text-muted-foreground">
+                    {etiquetaDia(filas[0].occurred_at)}
+                  </h3>
+                  <ListaInset>
+                    {filas.map((f) => {
+                      const Icono = ICONO_MOV[f.kind]
+                      const titulo =
+                        f.payee || f.categoria || (f.kind === "transfer" ? "Transferencia" : "—")
+                      const sub = [f.payee ? f.categoria : null, f.cuenta].filter(Boolean)
+                      if (f.status === "pending") sub.push("pendiente")
+                      return (
+                        <FilaInset key={f.id} onClick={() => navigate(`/movimientos/${f.id}`)}>
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
+                              <Icono className={cn("h-4 w-4", COLOR[f.kind])} />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{titulo}</p>
+                              {sub.length > 0 && (
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {sub.join(" · ")}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className={cn("tabular font-medium", COLOR[f.kind])}>
+                              {formatearMonto(f.amount, {
+                                moneda: f.currency,
+                                direccion: DIRECCION[f.kind],
+                              })}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {horaCorta(f.occurred_at)}
+                            </p>
+                          </div>
+                        </FilaInset>
+                      )
+                    })}
+                  </ListaInset>
+                </section>
               ))}
-            </ul>
+            </div>
           )}
         </>
       )}

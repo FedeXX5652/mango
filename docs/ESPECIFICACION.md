@@ -146,6 +146,39 @@ cuenta local por defecto y a una cuenta internacional para compras en el
 exterior. Y es lo que le permite al sistema automatico deducir de que cuenta
 salio cada compra importada.
 
+#### Orden elegido por la persona
+
+Cuentas y medios de pago tienen `sort_order`: la persona decide en que orden se
+listan (en Ajustes, modo "Ordenar", flechas arriba/abajo). Mover un item
+**renumera toda la lista de 0 a n-1**, asi los valores quedan compactos aunque
+vinieran todos en 0.
+
+Ese orden **no es del dispositivo, es del usuario**: vive en la tabla y por lo
+tanto **se sincroniza** (5.4 y 3.11). El resumen de Inicio muestra las primeras
+cuatro cuentas segun ese orden, asi que cambiarlo en la computadora cambia lo
+que se ve en el telefono.
+
+Lo unico que queda **local al dispositivo a proposito** es el codigo de acceso
+(PIN) y la biometria: nunca salen del dispositivo (5.1 del PIN en DESIGN, y la
+decision de fase 1 de no mandarlo al servidor).
+
+#### Archivar es la regla; eliminar es la excepcion
+
+Vale para **cuentas, categorias y medios de pago**: las tres se **archivan**.
+Archivar las saca de los selectores pero **conserva la referencia**, asi los
+movimientos historicos siguen mostrando de donde salio la plata y con que se
+pago. Es reversible.
+
+**Eliminar solo se ofrece si la entidad no esta en uso.** "En uso" significa que
+algo la referencia: movimientos, presupuestos (o sus reglas), plantillas,
+recurrentes, medios asociados o subcategorias. Si esta en uso, la interfaz no
+permite borrarla y explica por que (ver DESIGN.md 7). Si no lo esta —el caso
+real: la creaste mal— se elimina con confirmacion.
+
+Eliminar tampoco es fisico: marca `deleted_at` (regla 3 de CLAUDE.md). El
+chequeo de "en uso" corre sobre la base local; las tablas que no se sincronizan
+al cliente (por ejemplo `category_rules`, de la ingesta) no se verifican ahi.
+
 ### 3.4 Categoria y comercio son cosas distintas
 
 Es la distincion que mas confusion genera, asi que se explicita:

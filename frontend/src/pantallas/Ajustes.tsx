@@ -1,4 +1,4 @@
-import { Check, ChevronRight } from "lucide-react"
+import { Check, CreditCard, Files, Landmark, Repeat, Tags } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
@@ -54,21 +54,23 @@ export function Ajustes() {
       <h1 className="text-2xl font-semibold">Ajustes</h1>
 
       <Seccion titulo="Gestión">
-        <div className="overflow-hidden rounded-lg border border-border">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {[
-            { to: "/cuentas", etiqueta: "Cuentas" },
-            { to: "/categorias", etiqueta: "Categorías" },
-            { to: "/medios", etiqueta: "Medios de pago" },
-            { to: "/plantillas", etiqueta: "Plantillas" },
-            { to: "/recurrentes", etiqueta: "Recurrentes" },
+            { to: "/cuentas", etiqueta: "Cuentas", icono: Landmark },
+            { to: "/categorias", etiqueta: "Categorías", icono: Tags },
+            { to: "/medios", etiqueta: "Medios de pago", icono: CreditCard },
+            { to: "/plantillas", etiqueta: "Plantillas", icono: Files },
+            { to: "/recurrentes", etiqueta: "Recurrentes", icono: Repeat },
           ].map((i) => (
             <Link
               key={i.to}
               to={i.to}
-              className="flex items-center justify-between border-b border-border bg-card px-4 py-3 text-sm last:border-b-0 hover:bg-muted"
+              className="flex flex-col items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted"
             >
-              {i.etiqueta}
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-primary">
+                <i.icono className="h-5 w-5" />
+              </span>
+              <span className="text-sm font-medium">{i.etiqueta}</span>
             </Link>
           ))}
         </div>

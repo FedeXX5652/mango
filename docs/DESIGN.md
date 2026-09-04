@@ -49,10 +49,10 @@ componente de layout movil importa algo de layout escritorio, algo se hizo mal.
 
 | | Movil | Escritorio |
 |---|---|---|
-| Navegacion | Barra inferior, 5 destinos | Barra lateral fija, todos los destinos |
-| Accion principal | Boton flotante abajo a la derecha | Boton en la barra superior |
-| Alta de movimiento | Pantalla completa | Panel lateral derecho |
-| Lista de movimientos | Tarjetas apiladas, una columna | Tabla densa con columnas ordenables |
+| Navegacion | Barra inferior: 4 destinos + boton **+** elevado al centro. Ajustes vive en el header de Inicio | Barra lateral fija con todos los destinos (Ajustes incluido) |
+| Accion principal | El **+** central de la barra inferior (no hay boton flotante) | Boton "Nuevo movimiento" en la barra superior |
+| Alta de movimiento | Pantalla focal (ruta `/nuevo`, entra deslizando desde abajo) | Modal centrado sobre el dashboard (mismo formulario: `FormularioMovimiento`) |
+| Lista de movimientos | Agrupada por dia, una tarjeta por grupo (ver 7) | La misma lista, en columna acotada |
 | Detalle de movimiento | Pantalla completa | Panel lateral, la lista queda visible |
 | Graficos | Uno por pantalla, apilados | Grilla de dos o tres por fila |
 | Filtros | Hoja inferior desplegable | Barra de filtros siempre visible |
@@ -247,6 +247,12 @@ Siempre con separador de miles y dos decimales. El simbolo de moneda va antes
 del signo solo si la moneda no es la base del usuario; si es la base, se puede
 omitir en listas densas.
 
+**Excepcion: tarjetas de resumen chicas.** Cuando el espacio no alcanza (los
+tres datos del mes en Inicio), se usa `formatearCompacto` (`$ 1,2 M`,
+`$ 150 k`) en vez de truncar el numero, y **el monto exacto va en el `title`**
+del elemento. Por debajo de mil no se abrevia. Nunca se abrevia en un detalle,
+un formulario o una fila de movimiento: ahi el monto va completo.
+
 ### Transacciones pendientes
 
 Se distinguen con el token `pending` y un icono, **no solo por color**. En la
@@ -269,6 +275,114 @@ Cuando no hay conexion con el servidor, un indicador discreto y permanente lo
 informa. **La aplicacion sigue funcionando con normalidad**: no se bloquean
 acciones ni se muestran errores. Si hay cambios sin sincronizar, se indica
 cuantos.
+
+### Lista de movimientos
+
+**Agrupada por dia.** Cada dia es un grupo con encabezado propio (texto chico,
+`muted-foreground`) y una **tarjeta** (`ListaInset`) con sus filas. El encabezado
+dice `Hoy`, `Ayer` o la fecha (`2 de septiembre`; agrega el ano si no es el
+corriente).
+
+Cada fila tiene tres zonas:
+
+1. **Avatar**: cuadrado redondeado con fondo `muted` y el icono del tipo de
+   movimiento (gasto, ingreso, transferencia) pintado con su token de color.
+2. **Identidad**: titulo en negrita (comercio; si no hay, la categoria) y
+   subtitulo `muted` con categoria, cuenta y `pendiente` si aplica, separados
+   por `·`.
+3. **Importe y hora**, alineados a la derecha y apilados: el monto con su token
+   de color y signo, y debajo la hora en `muted`.
+
+Es la **misma lista en movil y escritorio** (solo cambia el ancho): mantener una
+sola presentacion evita dos verdades sobre el mismo dato.
+
+### Presentacion modal: `Hoja`
+
+Un unico componente decide la presentacion segun el layout (nunca se copia y
+pega una variante):
+
+- **Movil**: hoja inferior (bottom sheet) con manija, esquinas superiores
+  redondeadas, fondo oscurecido y cierre arrastrando hacia abajo.
+- **Escritorio**: modal centrado con fondo oscurecido, cierre con `Esc` o click
+  afuera.
+
+Se usa para **todos** los formularios de alta/edicion y para el alta de
+movimiento en escritorio.
+
+### Listas agrupadas: `ListaInset` / `FilaInset`
+
+Grupo redondeado con borde, fondo `card` y separadores internos de una linea.
+Es la presentacion por defecto de cualquier lista de gestion (cuentas,
+categorias, medios) y de los grupos de movimientos.
+
+**Las archivadas van en una seccion aparte, al final**, con su propio
+encabezado. Nunca mezcladas con las activas.
+
+### Acciones de fila
+
+Iconos, no texto, y **siempre con `aria-label`**: editar (lapiz), archivar
+(caja) / desarchivar (caja con flecha), eliminar (tacho).
+
+El tacho **nunca desaparece**: si la entidad esta en uso se muestra en gris
+(`aria-disabled`) y al tocarlo explica por que no se puede borrar y cuantos
+movimientos tiene. Ver la regla de archivar vs eliminar en ESPECIFICACION.
+
+### Resumenes con tope
+
+Una lista de resumen nunca crece sin limite: muestra las **mas representativas**
+(ordenadas por relevancia, no alfabeticamente) y ofrece una salida explicita al
+detalle completo.
+
+| Resumen | Tope | Orden | Salida |
+|---|---|---|---|
+| Ultimos movimientos (Inicio) | 5 | fecha desc | "Ver todos" -> Movimientos |
+| Cuentas (Inicio) | 4, en bloque 2x2 | `sort_order` de Ajustes | "Ver todas (N)" -> Cuentas |
+| Gasto por categoria (Estadisticas) | 5 | monto desc | "Ver todas (N)" -> dialogo con la lista completa |
+
+El tope se declara como constante con nombre (`MAX_RECIENTES`, `MAX_CUENTAS`,
+`MAX_CATEGORIAS`), no como numero suelto en el JSX.
+
+### Variacion contra el periodo anterior
+
+En un gasto **subir es malo**: flecha hacia arriba y token `expense`; bajar,
+flecha hacia abajo y token `income`. Siempre con **flecha y signo**, nunca solo
+color. Si no habia gasto previo en esa categoria no se inventa un porcentaje:
+dice `nuevo`. Si la variacion redondea a cero, `sin cambio`.
+
+### Lo expandible se anuncia
+
+Una tarjeta o fila que se despliega lleva un **chevron tenue** (`muted-foreground`
+al 50%) arriba a la derecha, que **rota 180 grados al abrir**. El disparador
+expone `aria-expanded`. Sin esa marca, nadie descubre que la tarjeta esconde
+algo: es el caso de la tarjeta de sobre en Presupuesto.
+
+### Confirmaciones: `Confirmar` y `Aviso`
+
+Toda accion que archiva o elimina pide confirmacion (confirmar / cancelar) sobre
+`Hoja`. `Confirmar` pinta el boton principal en rojo solo cuando es destructivo;
+archivar no es destructivo. `Aviso` es informativo, con una sola accion.
+
+Desarchivar no pide confirmacion: es reversible y no destruye nada.
+
+### Control segmentado: `Segmentado`
+
+Pista con pildora deslizante para elegir entre pocas opciones excluyentes (tipo
+de movimiento, apariencia). El desplazamiento de la pildora es `motion-safe`.
+
+### Estados vacios: `Vacio`
+
+Icono tenue, titulo, detalle y **accion** cuando hay una obvia ("Crear cuenta").
+Un estado vacio sin salida es un callejon.
+
+### Graficos
+
+- **Series en el tiempo**: area con curva suave y **degradado** que se desvanece
+  hacia abajo, sin ejes pesados ni grilla; una serie por token de color.
+- **Composicion**: dona (no torta) con el **total en el centro** y leyenda
+  aparte con punto de color, monto y porcentaje.
+- **Progreso**: anillo con el porcentaje al centro.
+
+Los datos que el usuario lee no se animan al montar (ver 8).
 
 ---
 

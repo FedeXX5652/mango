@@ -65,7 +65,7 @@ async def list_payment_methods(
     )
     if not include_archived:
         stmt = stmt.where(PaymentMethod.archived.is_(False))
-    stmt = stmt.order_by(PaymentMethod.created_at)
+    stmt = stmt.order_by(PaymentMethod.sort_order, PaymentMethod.created_at)
     return list((await session.execute(stmt)).scalars().all())
 
 

@@ -21,6 +21,7 @@ class PaymentMethodCreate(BaseModel):
     due_day: int | None = Field(default=None, ge=1, le=31)
     # Cuenta que se debita si no hay match por moneda.
     default_account_id: uuid.UUID | None = None
+    sort_order: int = 0
 
 
 class PaymentMethodUpdate(BaseModel):
@@ -30,6 +31,7 @@ class PaymentMethodUpdate(BaseModel):
     closing_day: int | None = Field(default=None, ge=1, le=31)
     due_day: int | None = Field(default=None, ge=1, le=31)
     default_account_id: uuid.UUID | None = None
+    sort_order: int | None = None
     archived: bool | None = None
 
 
@@ -44,6 +46,7 @@ class PaymentMethodRead(BaseModel):
     closing_day: int | None
     due_day: int | None
     default_account_id: uuid.UUID | None
+    sort_order: int
     archived: bool
     created_at: datetime
     updated_at: datetime

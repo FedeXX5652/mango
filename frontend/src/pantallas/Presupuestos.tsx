@@ -1,13 +1,23 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ChevronLeft, ChevronRight, PiggyBank, Plus, Repeat, Trash2 } from "lucide-react"
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  PiggyBank,
+  Plus,
+  Repeat,
+  Trash2,
+} from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts"
 
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
+import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
-import { ConfirmarDestructivo } from "@/componentes/ui/confirmar"
+import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, formatearCentavos, formatearSaldo } from "@/lib/dinero"
 import { mesAnio } from "@/lib/fecha"
@@ -139,6 +149,14 @@ export function Presupuestos() {
   const totalDisponible = resultado.sobres.reduce((s, e) => s + e.balance, 0)
   const pctGastado = totalAsignado > 0 ? Math.min((totalGastado / totalAsignado) * 100, 100) : 0
   const excedido = totalGastado > totalAsignado
+  const colores = useColoresTokens()
+  const donut =
+    totalAsignado > 0
+      ? [
+          { name: "Gastado", value: Math.min(totalGastado, totalAsignado) },
+          { name: "Resto", value: Math.max(0, totalAsignado - totalGastado) },
+        ]
+      : [{ name: "vacío", value: 1 }]
 
   function asignadoSel(catId: string): number {
     return asignado.get(`${catId}|${mesKey}`) ?? 0
@@ -214,27 +232,58 @@ export function Presupuestos() {
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
       <div className="rounded-xl bg-card p-5">
-        <p className="text-sm font-medium text-muted-foreground">Por asignar</p>
-        <p
-          className={cn(
-            "tabular text-3xl font-semibold",
-            resultado.porAsignar < 0 && "text-expense",
-          )}
-        >
-          {formatearSaldo(resultado.porAsignar)}
-        </p>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-          <div
-            className={cn("h-full rounded-full", excedido ? "bg-expense" : "bg-primary")}
-            style={{ width: `${pctGastado}%` }}
-          />
-        </div>
-        <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-          <span>Asignado $ {formatearCentavos(totalAsignado)}</span>
-          <span>Gastado $ {formatearCentavos(totalGastado)}</span>
-          <span className={cn(totalDisponible < 0 && "text-expense")}>
-            Disponible {formatearSaldo(totalDisponible)}
-          </span>
+        <div className="flex items-center gap-5">
+          <div className="relative h-28 w-28 shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={donut}
+                  dataKey="value"
+                  innerRadius={40}
+                  outerRadius={54}
+                  startAngle={90}
+                  endAngle={-270}
+                  paddingAngle={totalAsignado > 0 ? 2 : 0}
+                  cornerRadius={4}
+                  stroke="none"
+                >
+                  <Cell fill={excedido ? colores.expense : colores.primary} />
+                  <Cell fill={colores.muted} />
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="tabular text-lg font-semibold">{Math.round(pctGastado)}%</span>
+              <span className="text-[10px] text-muted-foreground">gastado</span>
+            </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-muted-foreground">Por asignar</p>
+            <p
+              className={cn(
+                "tabular text-2xl font-semibold",
+                resultado.porAsignar < 0 && "text-expense",
+              )}
+            >
+              {formatearSaldo(resultado.porAsignar)}
+            </p>
+            <dl className="mt-2 space-y-0.5 text-xs">
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Asignado</dt>
+                <dd className="tabular">$ {formatearCentavos(totalAsignado)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Gastado</dt>
+                <dd className="tabular">$ {formatearCentavos(totalGastado)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Disponible</dt>
+                <dd className={cn("tabular", totalDisponible < 0 && "text-expense")}>
+                  {formatearSaldo(totalDisponible)}
+                </dd>
+              </div>
+            </dl>
+          </div>
         </div>
       </div>
 
@@ -390,6 +439,7 @@ function FilaSobre({
       <button
         className="flex w-full items-center gap-1 text-left"
         onClick={() => setAbierto((a) => !a)}
+        aria-expanded={abierto}
       >
         <span className="truncate font-medium">{nombre ?? cat.name}</span>
         {cat.rollover === 1 && (
@@ -406,6 +456,14 @@ function FilaSobre({
             aria-label="Asignación automática cada mes"
           />
         )}
+        {/* Afordancia: el sobre se despliega. Rota al abrir. */}
+        <ChevronDown
+          aria-hidden
+          className={cn(
+            "ml-auto h-4 w-4 shrink-0 self-start text-muted-foreground/50 motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-salida",
+            abierto && "rotate-180",
+          )}
+        />
       </button>
 
       <div className="mt-2 grid grid-cols-3 items-end gap-2">
@@ -495,7 +553,8 @@ function FilaSobre({
         </div>
       </div>
 
-      <ConfirmarDestructivo
+      <Confirmar
+        destructivo
         abierta={confirmarQuitar}
         onOpenChange={setConfirmarQuitar}
         titulo="Quitar sobre"

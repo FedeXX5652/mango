@@ -121,6 +121,8 @@ CREATE TABLE payment_methods (
     due_day         SMALLINT,
     -- Cuenta que se debita si no hay match por moneda
     default_account_id UUID REFERENCES accounts(id),
+    -- Orden elegido por la persona (igual que accounts.sort_order)
+    sort_order      INTEGER NOT NULL DEFAULT 0,
     archived        BOOLEAN NOT NULL DEFAULT false,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),

@@ -43,6 +43,7 @@ const payment_methods = new Table({
   last4: column.text,
   brand: column.text,
   default_account_id: column.text,
+  sort_order: column.integer,
   archived: column.integer,
   created_at: column.text,
   updated_at: column.text,

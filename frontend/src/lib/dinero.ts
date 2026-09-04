@@ -31,6 +31,26 @@ export function formatearSaldo(centavos: number, moneda?: string): string {
   return `${centavos < 0 ? "-" : ""}${simbolo}${formatearCentavos(centavos)}`
 }
 
+// Version compacta para tarjetas chicas de resumen ($ 1,2 M, $ 150 mil): en
+// esos espacios el monto completo se corta. La division por 100 es solo para
+// mostrar, no es una operacion monetaria. El monto exacto va en el `title`.
+const compacto = new Intl.NumberFormat("es-AR", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+})
+
+export function formatearCompacto(centavos: number, moneda?: string): string {
+  const simbolo = moneda && moneda !== "ARS" ? `${moneda} ` : "$ "
+  const abs = Math.abs(centavos)
+  // Por debajo de mil no vale abreviar: se muestra completo. Intl separa con
+  // espacio no-separable (U+00A0); se normaliza para que el texto sea estable.
+  const cuerpo =
+    abs < 100_000
+      ? formatearCentavos(abs)
+      : compacto.format(Math.trunc(abs / 100)).replace(/ /g, " ")
+  return `${centavos < 0 ? "-" : ""}${simbolo}${cuerpo}`
+}
+
 // Formatea la entrada de la calculadora (string en curso) con separador de
 // miles, conservando la coma decimal tal como se tipea (incluida la coma sola).
 export function formatearEntrada(entrada: string): string {

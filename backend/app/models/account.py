@@ -56,6 +56,9 @@ class PaymentMethod(Base, IdMixin, TimestampMixin):
     closing_day: Mapped[int | None] = mapped_column(SmallInteger)
     due_day: Mapped[int | None] = mapped_column(SmallInteger)
     default_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    # Orden elegido por la persona (mismo criterio que accounts.sort_order): lo
+    # usa la interfaz para listar y para elegir los primeros en el resumen.
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     archived: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
 
     __table_args__ = (

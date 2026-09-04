@@ -1,10 +1,11 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft } from "lucide-react"
+import { Archive, ArchiveRestore, ArrowLeft, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
+import { Aviso, Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
@@ -27,12 +28,77 @@ export function Categorias() {
     "SELECT id, name, kind, parent_id, archived FROM categories WHERE deleted_at IS NULL ORDER BY sort_order, name",
   )
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; c: Categoria } | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
 
   const principales = categorias.filter((c) => !c.parent_id)
-  const hijasDe = (id: string) => categorias.filter((c) => c.parent_id === id)
+
+  // Categorias referenciadas (movimientos, presupuestos, reglas, plantillas) o
+  // con subcategorias: no se pueden eliminar, solo archivar.
+  const { data: enUsoRows } = useQuery<{ id: string }>(
+    // Nota: category_rules (ingesta) no se sincroniza al cliente, no se chequea aca.
+    `SELECT category_id AS id FROM transactions WHERE deleted_at IS NULL AND category_id IS NOT NULL
+     UNION SELECT category_id FROM budgets WHERE deleted_at IS NULL AND category_id IS NOT NULL
+     UNION SELECT category_id FROM budget_rules WHERE deleted_at IS NULL AND category_id IS NOT NULL
+     UNION SELECT category_id FROM templates WHERE deleted_at IS NULL AND category_id IS NOT NULL
+     UNION SELECT category_id FROM recurring_rules WHERE deleted_at IS NULL AND category_id IS NOT NULL
+     UNION SELECT parent_id FROM categories WHERE deleted_at IS NULL AND parent_id IS NOT NULL`,
+  )
+  const enUso = useMemo(() => new Set(enUsoRows.map((r) => r.id)), [enUsoRows])
+  const { data: movsRows } = useQuery<{ id: string; n: number }>(
+    "SELECT category_id AS id, COUNT(*) AS n FROM transactions WHERE deleted_at IS NULL AND category_id IS NOT NULL GROUP BY category_id",
+  )
+  const movs = useMemo(() => new Map(movsRows.map((r) => [r.id, r.n])), [movsRows])
 
   async function archivar(c: Categoria, valor: number) {
     await db.execute("UPDATE categories SET archived = ? WHERE id = ?", [valor, c.id])
+  }
+  async function borrar(c: Categoria) {
+    await db.execute("DELETE FROM categories WHERE id = ?", [c.id])
+  }
+
+  function alTacho(c: Categoria) {
+    if (!enUso.has(c.id)) {
+      setAccion({ tipo: "eliminar", c })
+      return
+    }
+    const n = movs.get(c.id) ?? 0
+    setAviso(
+      n > 0
+        ? `No se puede eliminar: tiene ${n} movimiento${n === 1 ? "" : "s"} asociado${n === 1 ? "" : "s"}. Archivala en su lugar.`
+        : "No se puede eliminar: está en uso (presupuestos, plantillas, recurrentes o subcategorías). Archivala en su lugar.",
+    )
+  }
+  function alArchivar(c: Categoria) {
+    if (c.archived) archivar(c, 0) // desarchivar es reversible: directo
+    else setAccion({ tipo: "archivar", c })
+  }
+
+  const activas = categorias.filter((c) => !c.archived)
+  const archivadas = categorias.filter((c) => c.archived)
+  const idsPadresActivos = new Set(activas.filter((c) => !c.parent_id).map((c) => c.id))
+  const hijasActivasDe = (id: string) => activas.filter((c) => c.parent_id === id)
+
+  const fila = (c: Categoria, sangria?: boolean) => (
+    <Fila
+      key={c.id}
+      c={c}
+      sangria={sangria}
+      eliminable={!enUso.has(c.id)}
+      onArchivar={alArchivar}
+      onEliminar={alTacho}
+    />
+  )
+
+  function filasActivas(kind: string) {
+    const padres = activas.filter((c) => !c.parent_id && c.kind === kind)
+    const huerfanas = activas.filter(
+      (c) => c.parent_id && c.kind === kind && !idsPadresActivos.has(c.parent_id),
+    )
+    return [
+      ...padres.flatMap((p) => [fila(p), ...hijasActivasDe(p.id).map((h) => fila(h, true))]),
+      ...huerfanas.map((h) => fila(h)),
+    ]
   }
 
   return (
@@ -52,24 +118,56 @@ export function Categorias() {
       </Hoja>
 
       <div className="space-y-4">
-        {(["expense", "income"] as const).map((kind) => (
-          <section key={kind}>
-            <h2 className="mb-1 text-sm font-semibold text-muted-foreground">
-              {kind === "expense" ? "Gasto" : "Ingreso"}
-            </h2>
-            <ListaInset>
-              {principales
-                .filter((c) => c.kind === kind)
-                .flatMap((p) => [
-                  <Fila key={p.id} c={p} onArchivar={archivar} />,
-                  ...hijasDe(p.id).map((h) => (
-                    <Fila key={h.id} c={h} sangria onArchivar={archivar} />
-                  )),
-                ])}
-            </ListaInset>
+        {(["expense", "income"] as const).map((kind) => {
+          const filas = filasActivas(kind)
+          if (filas.length === 0) return null
+          return (
+            <section key={kind}>
+              <h2 className="mb-1 text-sm font-semibold text-muted-foreground">
+                {kind === "expense" ? "Gasto" : "Ingreso"}
+              </h2>
+              <ListaInset>{filas}</ListaInset>
+            </section>
+          )
+        })}
+
+        {archivadas.length > 0 && (
+          <section className="pt-2">
+            <h2 className="mb-1 text-sm font-semibold text-muted-foreground">Archivadas</h2>
+            <ListaInset>{archivadas.map((c) => fila(c, !!c.parent_id))}</ListaInset>
           </section>
-        ))}
+        )}
       </div>
+
+      <Confirmar
+        abierta={accion !== null}
+        onOpenChange={(v) => {
+          if (!v) setAccion(null)
+        }}
+        titulo={accion?.tipo === "eliminar" ? "Eliminar categoría" : "Archivar categoría"}
+        detalle={
+          accion?.tipo === "eliminar"
+            ? `Se elimina "${accion.c.name}". No está en uso.`
+            : accion
+              ? `"${accion.c.name}" se oculta de los selectores. Podés desarchivarla cuando quieras.`
+              : undefined
+        }
+        etiqueta={accion?.tipo === "eliminar" ? "Eliminar" : "Archivar"}
+        destructivo={accion?.tipo === "eliminar"}
+        onConfirmar={() => {
+          if (!accion) return
+          if (accion.tipo === "eliminar") borrar(accion.c)
+          else archivar(accion.c, 1)
+        }}
+      />
+      <Aviso
+        abierta={aviso !== null}
+        onOpenChange={(v) => {
+          if (!v) setAviso(null)
+        }}
+        titulo="No se puede eliminar"
+        detalle={aviso ?? ""}
+      />
     </div>
   )
 }
@@ -77,11 +175,15 @@ export function Categorias() {
 function Fila({
   c,
   sangria,
+  eliminable,
   onArchivar,
+  onEliminar,
 }: {
   c: Categoria
   sangria?: boolean
-  onArchivar: (c: Categoria, valor: number) => void
+  eliminable?: boolean
+  onArchivar: (c: Categoria) => void
+  onEliminar: (c: Categoria) => void
 }) {
   return (
     <FilaInset>
@@ -94,9 +196,26 @@ function Fila({
       >
         {c.name}
       </span>
-      <Button variant="ghost" size="sm" onClick={() => onArchivar(c, c.archived ? 0 : 1)}>
-        {c.archived ? "Desarchivar" : "Archivar"}
-      </Button>
+      <div className="flex shrink-0 items-center gap-0.5">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={c.archived ? "Desarchivar" : "Archivar"}
+          onClick={() => onArchivar(c)}
+        >
+          {c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Eliminar"
+          aria-disabled={!eliminable}
+          className={eliminable ? "text-expense" : "text-muted-foreground/40"}
+          onClick={() => onEliminar(c)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
     </FilaInset>
   )
 }

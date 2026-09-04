@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   aCentavos,
   formatearCentavos,
+  formatearCompacto,
   formatearEntrada,
   formatearMonto,
   formatearSaldo,
@@ -54,6 +55,19 @@ describe("formatearMonto", () => {
   })
   it("otra moneda antepone el codigo", () => {
     expect(formatearMonto(1000, { moneda: "USD" })).toBe("USD 10,00")
+  })
+})
+
+describe("formatearCompacto", () => {
+  it("abrevia los montos grandes (tarjetas chicas)", () => {
+    expect(formatearCompacto(100_000_000)).toBe("$ 1 M")
+    expect(formatearCompacto(-100_000_000)).toBe("-$ 1 M")
+  })
+  it("no abrevia por debajo de mil: monto completo", () => {
+    expect(formatearCompacto(85_000)).toBe("$ 850,00")
+  })
+  it("respeta la moneda", () => {
+    expect(formatearCompacto(100_000_000, "USD")).toBe("USD 1 M")
   })
 })
 

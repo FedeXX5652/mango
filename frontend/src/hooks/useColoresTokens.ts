@@ -3,7 +3,16 @@ import { useEffect, useState } from "react"
 // Lee los colores de los tokens CSS (resueltos por el tema activo) para pasarlos
 // a Recharts, que necesita colores concretos. Se re-leen cuando cambia el tema
 // o el modo (observando class/data-tema en <html>).
-const TOKENS = ["income", "expense", "transfer", "foreground", "muted-foreground", "border"] as const
+const TOKENS = [
+  "income",
+  "expense",
+  "transfer",
+  "foreground",
+  "muted-foreground",
+  "border",
+  "primary",
+  "muted",
+] as const
 type Token = (typeof TOKENS)[number]
 
 function leer(): Record<Token, string> {

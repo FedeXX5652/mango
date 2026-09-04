@@ -58,7 +58,9 @@ export function PantallaBloqueo({ modo, onListo }: Props) {
         return
       }
       await definirPin(pin)
-      if (bioDisponible) await activarBiometria() // best-effort
+      // Alta de biometria best-effort y SIN bloquear: navigator.credentials
+      // .create espera al usuario (hasta 60 s) y no debe demorar el desbloqueo.
+      if (bioDisponible) void activarBiometria().catch(() => {})
       onListo()
     } else if (await verificarPin(pin)) {
       onListo()
