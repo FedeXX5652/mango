@@ -1,5 +1,5 @@
 import { useQuery } from "@powersync/react"
-import { Check, CreditCard, Download, Files, Landmark, Repeat, Tags } from "lucide-react"
+import { Check, CreditCard, Download, Files, Landmark, Repeat, Tag, Tags } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 
@@ -74,6 +74,7 @@ export function Ajustes() {
             { to: "/cuentas", etiqueta: "Cuentas", icono: Landmark },
             { to: "/categorias", etiqueta: "Categorías", icono: Tags },
             { to: "/medios", etiqueta: "Medios de pago", icono: CreditCard },
+            { to: "/etiquetas", etiqueta: "Etiquetas", icono: Tag },
             { to: "/plantillas", etiqueta: "Plantillas", icono: Files },
             { to: "/recurrentes", etiqueta: "Recurrentes", icono: Repeat },
           ].map((i) => (

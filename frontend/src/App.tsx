@@ -14,6 +14,7 @@ import { Categorias } from "@/pantallas/Categorias"
 import { Cuentas } from "@/pantallas/Cuentas"
 import { DetalleMovimiento } from "@/pantallas/DetalleMovimiento"
 import { Estadisticas } from "@/pantallas/Estadisticas"
+import { Etiquetas } from "@/pantallas/Etiquetas"
 import { Inicio } from "@/pantallas/Inicio"
 import { MediosPago } from "@/pantallas/MediosPago"
 import { Movimientos } from "@/pantallas/Movimientos"
@@ -37,6 +38,7 @@ function Rutas() {
         <Route path="cuentas" element={<Cuentas />} />
         <Route path="categorias" element={<Categorias />} />
         <Route path="medios" element={<MediosPago />} />
+        <Route path="etiquetas" element={<Etiquetas />} />
         <Route path="plantillas" element={<Plantillas />} />
         <Route path="recurrentes" element={<Recurrentes />} />
         <Route path="presupuestos" element={<Presupuestos />} />
