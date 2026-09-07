@@ -4,6 +4,13 @@
 perder digitos. Al volver de la base trae la escala de la columna
 (`NUMERIC(20,10)`), asi que "1735.10" vuelve como "1735.1000000000": las pruebas
 comparan `Decimal`, no strings.
+
+OJO con el aislamiento: la tabla **no tiene `owner_id`** (una cotizacion es un
+dato de mercado, no del usuario), asi que el truco del fixture —un usuario
+fresco por prueba— no la aisla. Las filas ya commiteadas de la base de dev se
+ven. Por eso ninguna prueba asume la tabla vacia: filtra por su propio par y
+rango, o verifica una propiedad del contrato (el orden) en vez de una lista
+exacta.
 """
 
 import uuid
@@ -156,14 +163,14 @@ async def test_listado_filtra_por_par_y_rango(api):
     fechas = [r["rate_date"] for r in resp.json()]
     assert fechas == ["2026-09-04"]
 
-    # Sin filtro salen las cuatro, de la mas nueva a la mas vieja.
-    resp = await api.client.get("/api/v1/exchange-rates")
-    assert [r["rate_date"] for r in resp.json()] == [
-        "2026-09-06",
-        "2026-09-04",
-        "2026-09-04",
-        "2026-09-01",
-    ]
+    # Y el listado viene de la fecha mas nueva a la mas vieja, con las dos del
+    # mismo dia conviviendo (pares distintos).
+    resp = await api.client.get(
+        "/api/v1/exchange-rates", params={"desde": "2026-09-01", "hasta": "2026-09-06"}
+    )
+    fechas = [r["rate_date"] for r in resp.json()]
+    assert fechas == sorted(fechas, reverse=True)
+    assert fechas.count("2026-09-04") >= 2
 
 
 async def test_inexistente_da_404(api):

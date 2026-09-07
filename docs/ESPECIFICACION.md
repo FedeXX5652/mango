@@ -301,6 +301,35 @@ sobre; mientras esta activa, editar el monto del mes actualiza la regla.
 `por_asignar = saldo de cuentas presupuestables - suma de lo asignado`. Un ingreso
 suma a "por asignar", no a un sobre: vos decidis como repartirlo.
 
+#### Un presupuesto por moneda
+
+**El sobre es categoria + moneda + mes** (decision 0005). Una misma categoria
+puede tener sobre en pesos y en dolares: `Viaje 2027` en pesos para lo local, en
+dolares para los pasajes. El arbol de categorias es uno solo, compartido entre
+monedas.
+
+Cada moneda tiene su propio "por asignar" y el invariante se cumple **por
+moneda**, cada una por separado:
+
+```
+por_asignar(moneda) = saldo de cuentas presupuestables EN esa moneda
+                      - suma de lo asignado a sobres EN esa moneda
+```
+
+**Un movimiento consume del sobre de su categoria exacta, en su moneda.** No hay
+conversion en ninguna parte del presupuesto: un sobre es un compromiso concreto
+y tiene que ser exacto, no una estimacion que cambia cuando cambia el dolar. Por
+eso tampoco se convierte para presupuestar (se evaluo y se descarto en 0005).
+
+**Comprar dolares es una transferencia entre dos cuentas presupuestables**: no
+consume ningun sobre, baja "por asignar" en pesos y sube en dolares. Si esa
+plata estaba comprometida a sobres, "por asignar" en pesos queda en negativo y
+avisa, que es informacion correcta.
+
+La asignacion recurrente tambien es por moneda: un sobre puede tener "$X todos
+los meses" en pesos y "US$ Y todos los meses" en dolares, y el sistema crea una
+fila por moneda.
+
 **Cuentas dentro y fuera del presupuesto (`off_budget`).** Las cuentas dentro
 (caja de ahorro, efectivo, tarjeta de credito) suman a "por asignar". Las de fuera
 (inversiones, plazo fijo, terceros) cuentan para el patrimonio pero no para lo

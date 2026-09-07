@@ -55,12 +55,15 @@ async def create_rule(
                 BudgetRule.owner_id == owner_id,
                 BudgetRule.group_id.is_(None),
                 BudgetRule.category_id == data.category_id,
+                # Un sobre por moneda: la recurrente en pesos y la en dolares
+                # son dos reglas distintas (ver 0005).
+                BudgetRule.currency == data.currency,
                 BudgetRule.deleted_at.is_(None),
             )
         )
     ).scalar_one_or_none()
     if dup is not None:
-        raise DomainError("Ya hay una asignacion recurrente para ese sobre")
+        raise DomainError("Ya hay una asignacion recurrente para ese sobre y moneda")
 
     rule = BudgetRule(owner_id=owner_id, **data.model_dump())
     session.add(rule)
@@ -111,6 +114,8 @@ async def apply_due(session: AsyncSession, owner_id: uuid.UUID, as_of: date) -> 
                     Budget.owner_id == owner_id,
                     Budget.group_id.is_(None),
                     Budget.category_id == rule.category_id,
+                    # Cada moneda tiene su propia fila del mes.
+                    Budget.currency == rule.currency,
                     Budget.period_start == period_start,
                     Budget.deleted_at.is_(None),
                 )

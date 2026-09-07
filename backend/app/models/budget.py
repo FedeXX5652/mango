@@ -34,13 +34,17 @@ class Budget(Base, IdMixin, TimestampMixin):
 
     __table_args__ = (
         # Unico parcial (respeta borrado logico, ver 0003) y NULLS NOT DISTINCT:
-        # con group_id NULL (fase 1) un unique comun no deduplicaria. Una
-        # asignacion por (sobre, mes).
+        # con group_id NULL (fase 1) un unique comun no deduplicaria.
+        #
+        # `currency` es parte de la clave: el sobre es categoria + moneda + mes
+        # (ver 0005). `Viaje 2027` puede tener sobre en pesos para lo local y en
+        # dolares para los pasajes, y son dos sobres distintos.
         Index(
             "budgets_uniq",
             "owner_id",
             "group_id",
             "category_id",
+            "currency",
             "period_start",
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
@@ -65,13 +69,16 @@ class BudgetRule(Base, IdMixin, TimestampMixin):
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
 
     __table_args__ = (
-        # Una regla activa por (sobre) — unico parcial que respeta el borrado
-        # logico y NULLS NOT DISTINCT por el group_id NULL de fase 1 (ver 0003).
+        # Una regla por (sobre) y el sobre incluye la moneda (ver 0005): un mismo
+        # sobre puede tener asignacion recurrente en pesos y en dolares. Unico
+        # parcial que respeta el borrado logico y NULLS NOT DISTINCT por el
+        # group_id NULL de fase 1 (ver 0003).
         Index(
             "budget_rules_uniq",
             "owner_id",
             "group_id",
             "category_id",
+            "currency",
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
             postgresql_nulls_not_distinct=True,

@@ -124,3 +124,61 @@ async def test_run_respects_manual_assignment(api: SimpleNamespace) -> None:
     sept = [b for b in budgets if b["category_id"] == cat and b["period_start"] == "2026-09-01"]
     assert len(sept) == 1
     assert sept[0]["amount"] == 123456
+
+
+async def test_dos_reglas_para_el_mismo_sobre_en_monedas_distintas(api: SimpleNamespace) -> None:
+    # Un sobre por moneda (ver 0005): la recurrente en pesos y la en dolares
+    # son dos reglas.
+    cat = await _category(api)
+    assert (
+        await api.client.post("/api/v1/budget-rules", json=_payload(cat, currency="ARS"))
+    ).status_code == 201
+    assert (
+        await api.client.post(
+            "/api/v1/budget-rules", json=_payload(cat, currency="USD", amount=20000)
+        )
+    ).status_code == 201
+
+    # La misma moneda dos veces sigue siendo duplicado.
+    resp = await api.client.post("/api/v1/budget-rules", json=_payload(cat, currency="USD"))
+    assert resp.status_code == 422
+    assert "moneda" in resp.json()["detail"]
+
+
+async def test_run_crea_una_asignacion_por_moneda(api: SimpleNamespace) -> None:
+    cat = await _category(api)
+    await api.client.post("/api/v1/budget-rules", json=_payload(cat, currency="ARS", amount=80000))
+    await api.client.post("/api/v1/budget-rules", json=_payload(cat, currency="USD", amount=20000))
+
+    r1 = await api.client.post("/api/v1/recurring/run?as_of=2026-08-15")
+    assert r1.status_code == 200, r1.text
+    assert r1.json()["budgets_created"] == 2
+
+    budgets = (await api.client.get("/api/v1/budgets")).json()
+    delmes = [b for b in budgets if b["category_id"] == cat and b["period_start"] == "2026-08-01"]
+    assert {(b["currency"], b["amount"]) for b in delmes} == {("ARS", 80000), ("USD", 20000)}
+
+    # Idempotente por moneda: correr de nuevo no duplica ninguna de las dos.
+    r2 = await api.client.post("/api/v1/recurring/run?as_of=2026-08-20")
+    assert r2.json()["budgets_created"] == 0
+
+
+async def test_run_no_pisa_la_asignacion_manual_de_otra_moneda(api: SimpleNamespace) -> None:
+    # La manual en dolares no debe frenar la creacion de la de pesos: son
+    # sobres distintos.
+    cat = await _category(api)
+    await api.client.post("/api/v1/budget-rules", json=_payload(cat, currency="ARS", amount=80000))
+    manual = {
+        "id": str(uuid.uuid4()),
+        "category_id": cat,
+        "period_start": "2026-09-01",
+        "amount": 4444,
+        "currency": "USD",
+    }
+    assert (await api.client.post("/api/v1/budgets", json=manual)).status_code == 201
+
+    r = await api.client.post("/api/v1/recurring/run?as_of=2026-09-10")
+    assert r.json()["budgets_created"] == 1
+    budgets = (await api.client.get("/api/v1/budgets")).json()
+    delmes = [b for b in budgets if b["category_id"] == cat and b["period_start"] == "2026-09-01"]
+    assert {(b["currency"], b["amount"]) for b in delmes} == {("ARS", 80000), ("USD", 4444)}

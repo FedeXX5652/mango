@@ -402,10 +402,13 @@ CREATE TABLE budgets (
 );
 
 -- Unico parcial (respeta borrado logico) con NULLS NOT DISTINCT: con group_id
--- NULL (presupuesto personal) un unique comun no deduplicaria. Una asignacion
--- por (sobre, mes). Ver 0003.
+-- NULL (presupuesto personal) un unique comun no deduplicaria. Ver 0003.
+--
+-- La moneda es parte de la clave porque el sobre es categoria + moneda + mes
+-- (ver 0005): `Viaje 2027` puede tener sobre en pesos y en dolares a la vez, y
+-- cada uno tiene su propio "por asignar".
 CREATE UNIQUE INDEX budgets_uniq
-    ON budgets (owner_id, group_id, category_id, period_start)
+    ON budgets (owner_id, group_id, category_id, currency, period_start)
     NULLS NOT DISTINCT
     WHERE deleted_at IS NULL;
 
@@ -425,9 +428,10 @@ CREATE TABLE budget_rules (
     deleted_at      TIMESTAMPTZ
 );
 
--- Una regla por sobre (unico parcial que respeta el borrado logico, ver 0003).
+-- Una regla por sobre, y el sobre incluye la moneda (ver 0005). Unico parcial
+-- que respeta el borrado logico (ver 0003).
 CREATE UNIQUE INDEX budget_rules_uniq
-    ON budget_rules (owner_id, group_id, category_id)
+    ON budget_rules (owner_id, group_id, category_id, currency)
     NULLS NOT DISTINCT
     WHERE deleted_at IS NULL;
 

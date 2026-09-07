@@ -51,13 +51,15 @@ async def create_budget(session: AsyncSession, owner_id: uuid.UUID, data: Budget
                 Budget.owner_id == owner_id,
                 Budget.group_id.is_(None),
                 Budget.category_id == data.category_id,
+                # La moneda es parte de la identidad del sobre (ver 0005).
+                Budget.currency == data.currency,
                 Budget.period_start == data.period_start,
                 Budget.deleted_at.is_(None),
             )
         )
     ).scalar_one_or_none()
     if dup is not None:
-        raise DomainError("Ya hay una asignacion para ese sobre y mes")
+        raise DomainError("Ya hay una asignacion para ese sobre, moneda y mes")
 
     budget = Budget(owner_id=owner_id, **data.model_dump())
     session.add(budget)

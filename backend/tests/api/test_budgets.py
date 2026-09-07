@@ -71,3 +71,20 @@ async def test_soft_delete_frees_slot(api: SimpleNamespace) -> None:
 
 async def test_other_user_404(api: SimpleNamespace) -> None:
     assert (await api.client.get(f"/api/v1/budgets/{uuid.uuid4()}")).status_code == 404
+
+
+async def test_dos_monedas_para_el_mismo_sobre_y_mes(api: SimpleNamespace) -> None:
+    # El sobre es categoria + moneda + mes (ver 0005): `Viaje 2027` en pesos
+    # para lo local y en dolares para los pasajes son dos sobres distintos.
+    cat = await _category(api)
+    assert (
+        await api.client.post("/api/v1/budgets", json=_payload(cat, currency="ARS"))
+    ).status_code == 201
+    assert (
+        await api.client.post("/api/v1/budgets", json=_payload(cat, currency="USD", amount=50000))
+    ).status_code == 201
+
+    # Pero la misma moneda dos veces sigue siendo un duplicado.
+    resp = await api.client.post("/api/v1/budgets", json=_payload(cat, currency="USD"))
+    assert resp.status_code == 422
+    assert "moneda" in resp.json()["detail"]
