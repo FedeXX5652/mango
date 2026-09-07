@@ -37,9 +37,14 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        // "Inter Variable" es el nombre que declara @fontsource-variable/inter
-        // (ver main.tsx). El resto es red de contencion si la fuente no cargo.
-        sans: ["Inter Variable", "Inter", "system-ui", "sans-serif"],
+        // Los nombres con "Variable" son los que declaran los paquetes de
+        // @fontsource-variable (ver main.tsx). El resto es red de contencion si
+        // la fuente no cargo.
+        sans: ["Plus Jakarta Sans Variable", "Plus Jakarta Sans", "system-ui", "sans-serif"],
+        // Mono solo para lo tecnico (calculadora, dias del calendario, horas):
+        // NO para montos, porque monoespacia el punto y la coma de miles y el
+        // monto queda aireado (DESIGN.md 3).
+        mono: ["Geist Mono Variable", "ui-monospace", "monospace"],
       },
       // Motion (DESIGN.md 8): solo para comunicar un cambio de estado. Un unico
       // ease-out compartido y las duraciones del presupuesto de §8. Se aplican

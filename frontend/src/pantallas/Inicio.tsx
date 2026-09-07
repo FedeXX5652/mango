@@ -3,14 +3,10 @@ import { Settings, Wallet } from "lucide-react"
 import { useMemo } from "react"
 import { Link } from "react-router-dom"
 
+import { Monto } from "@/componentes/Monto"
 import { Vacio } from "@/componentes/Vacio"
 import { iconoCuenta } from "@/lib/cuentas"
-import {
-  type Direccion,
-  formatearCompacto,
-  formatearMonto,
-  formatearSaldo,
-} from "@/lib/dinero"
+import { type Direccion, formatearCompacto, formatearSaldo } from "@/lib/dinero"
 import { cn } from "@/lib/utils"
 
 interface SaldoCuenta {
@@ -89,12 +85,19 @@ function Dato({
   centavos: number
   clase: string
 }) {
+  // Estos tres van SIN abreviar: son el resumen del mes y el numero exacto es
+  // el dato. Por eso en movil van como tres filas de una tarjeta (un monto
+  // completo no entra en un tercio de 390 px) y en escritorio como tres
+  // tarjetas en fila, donde sobra ancho.
   return (
-    <div className="rounded-xl border border-border bg-card p-3" title={formatearSaldo(centavos)}>
+    <div
+      className={cn(
+        "flex items-baseline justify-between gap-3 border-b border-border px-3 py-2.5 last:border-b-0",
+        "lg:flex-col lg:items-start lg:gap-0 lg:rounded-xl lg:border lg:bg-card lg:p-3",
+      )}
+    >
       <p className="text-xs text-muted-foreground">{etiqueta}</p>
-      <p className={cn("tabular mt-0.5 truncate text-base font-semibold", clase)}>
-        {formatearCompacto(centavos)}
-      </p>
+      <Monto centavos={centavos} className={cn("text-base font-semibold", clase)} />
     </div>
   )
 }
@@ -168,7 +171,7 @@ export function Inicio() {
           </section>
 
           {/* Tres datos del mes en curso, cada uno con su token de color. */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="overflow-hidden rounded-xl border border-border bg-card lg:grid lg:grid-cols-3 lg:gap-3 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
             <Dato etiqueta="Ingresos" centavos={ingresos} clase="text-income" />
             <Dato etiqueta="Egresos" centavos={egresos} clase="text-expense" />
             <Dato
@@ -254,7 +257,12 @@ export function Inicio() {
                               : "text-foreground",
                         )}
                       >
-                        {formatearMonto(m.amount, { moneda: m.currency, direccion: DIR[m.kind] })}
+                        <Monto
+                          centavos={m.amount}
+                          moneda={m.currency}
+                          direccion={DIR[m.kind]}
+                          variante="lista"
+                        />
                       </span>
                     </Link>
                   </li>

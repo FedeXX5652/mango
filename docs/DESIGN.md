@@ -127,15 +127,23 @@ que se eligio mal el contenedor.
 
 ### Tipografia
 
-**Inter**, auto-hospedada. Se instala con `@fontsource-variable/inter` y se
-importa en `main.tsx` (solo el eje de peso, sin italicas): la app tiene que
+**Plus Jakarta Sans** para todo, auto-hospedada (`@fontsource-variable/plus-jakarta-sans`,
+importada en `main.tsx`, solo el eje de peso y sin italicas): la app tiene que
 funcionar sin conexion, asi que **no se pide a un CDN de fuentes**. El service
 worker la precachea (por eso `woff2` esta en `globPatterns` de workbox en
 `vite.config.ts`; el patron por defecto de vite-plugin-pwa lo deja afuera).
 
-La familia declarada es `Inter Variable`, con `Inter`, `system-ui` y `sans-serif`
-detras como red de contencion. Es una fuente variable: un solo archivo cubre
-todos los pesos de la tabla.
+Es geometrica y algo redondeada: da caracter sin perder legibilidad a 13 px, y
+sus cifras tabulares son compactas. La familia declarada es
+`Plus Jakarta Sans Variable`, con `system-ui` y `sans-serif` detras como red de
+contencion. Un solo archivo cubre todos los pesos de la tabla.
+
+**Geist Mono** (`font-mono`) solo para lo **tecnico**: el teclado de la
+calculadora, el numero de dia del calendario y la hora en la fila de
+movimiento. Nunca para montos: la monoespaciada le da una celda entera al punto
+y a la coma de miles, y `$ 1 . 000 . 000 , 00` se lee peor que con las cifras
+tabulares de la familia principal. Por la misma razon se descarto Schibsted
+Grotesk como familia, y DM Sans porque no tiene `tabular-nums`.
 
 | Rol | Tamano | Peso |
 |---|---|---|
@@ -253,15 +261,50 @@ Ingreso      +$ 150.000,00   token income, signo mas
 Transferencia $ 50.000,00    token transfer, sin signo
 ```
 
-Siempre con separador de miles y dos decimales. El simbolo de moneda va antes
-del signo solo si la moneda no es la base del usuario; si es la base, se puede
-omitir en listas densas.
+Siempre con separador de miles. La cantidad de decimales **la decide la
+moneda**, no el codigo: dos en ARS o USD, cero en JPY o CLP. De eso se ocupa
+`Intl` (ver abajo).
 
-**Excepcion: tarjetas de resumen chicas.** Cuando el espacio no alcanza (los
-tres datos del mes en Inicio), se usa `formatearCompacto` (`$ 1,2 M`,
-`$ 150 k`) en vez de truncar el numero, y **el monto exacto va en el `title`**
-del elemento. Por debajo de mil no se abrevia. Nunca se abrevia en un detalle,
-un formulario o una fila de movimiento: ahi el monto va completo.
+### Como se muestra la moneda
+
+Tres reglas, para que el codigo de moneda no sea intrusivo:
+
+**En la moneda base no se muestra el codigo.** `$ 2.302,72` alcanza. El codigo o
+el simbolo largo aparece solo cuando la moneda **no** es la base: `US$ 45,00`.
+Esta sola regla saca casi todo el ruido, porque casi todo esta en la base.
+
+**El simbolo va atenuado**, `muted-foreground` y un punto mas chico que el
+numero: el ojo tiene que leer el numero primero. **El signo no se atenua**: es
+lo que comunica gasto o ingreso cuando el color no se percibe.
+
+**En una lista, el simbolo va en columna aparte de ancho fijo.** `$`, `US$` y
+`R$` no miden lo mismo; si comparten caja con el numero, la columna de montos
+queda dentada. De eso se ocupa `<Monto variante="lista">`; el monto que no
+comparte columna con otros usa `variante="suelto"`.
+
+**El simbolo lo resuelve `Intl.NumberFormat`, nunca una tabla propia.** Una
+tabla de simbolos se desactualiza y no sabe la posicion ni los separadores de
+cada locale. La moneda base se pide con `currencyDisplay: "narrowSymbol"` (su
+simbolo corto) y las demas con `"symbol"`, que en `es-AR` convierte USD en
+`US$`, la convencion local para distinguirlo del peso. Si las dos monedas
+comparten simbolo igual (base USD y la otra ARS: las dos usan `$`), se cae al
+codigo ISO.
+
+Los codigos son **ISO 4217, tres letras** (ARS, USD, EUR, BRL). Los de dos
+letras son codigos de pais y no coinciden.
+
+**Excepcion: tarjetas de resumen chicas.** Cuando el espacio no alcanza (las
+tarjetas de cuenta del bloque 2x2 en Inicio), se usa `formatearCompacto`
+(`$ 1,2 M`, `$ 150 k`, como los abrevia `Intl` en es-AR) en vez de truncar el
+numero, y **el monto exacto va en el `title`** del elemento. Por debajo de mil
+no se abrevia. Nunca se abrevia en un detalle, un formulario ni una fila de
+movimiento: ahi el monto va completo.
+
+**Los tres datos del mes en Inicio (ingresos, egresos, resultado) van completos**,
+sin abreviar: son el resumen del mes y el numero exacto es el dato. Por eso
+cambian de forma segun el ancho — tres filas de una tarjeta en movil, donde un
+monto completo no entra en un tercio de 390 px, y tres tarjetas en fila en
+escritorio, donde sobra ancho.
 
 ### Transacciones pendientes
 

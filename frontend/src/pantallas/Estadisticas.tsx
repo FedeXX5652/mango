@@ -14,11 +14,12 @@ import {
   XAxis,
 } from "recharts"
 
+import { Monto } from "@/componentes/Monto"
 import { Button } from "@/componentes/ui/button"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
-import { formatearCentavos, formatearMonto, formatearSaldo } from "@/lib/dinero"
+import { formatearMonto, formatearSaldo } from "@/lib/dinero"
 import {
   type EtiquetaInfo,
   type GastoEtiqueta,
@@ -44,8 +45,9 @@ interface EvoRow {
   occurred_at: string
 }
 
-// Nota: en fase 1 (una sola moneda) se agregan todos los montos juntos. Con
-// multimoneda (fase 4) habra que convertir a la moneda base.
+// OJO: estos agregados todavia suman monedas distintas. Se filtran por moneda
+// en el incremento siguiente (informes por moneda); hasta entonces el numero es
+// correcto solo si hay una sola moneda con datos.
 
 // La leyenda muestra las mas representativas; el resto va en un dialogo.
 const MAX_CATEGORIAS = 5
@@ -68,7 +70,7 @@ function FilaEtiqueta({ e, tope }: { e: GastoEtiqueta; tope: number }) {
           <span className="truncate">{e.name}</span>
           {e.archived && <span className="shrink-0 text-xs text-muted-foreground">archivada</span>}
         </span>
-        <span className="tabular shrink-0 font-medium">$ {formatearCentavos(e.total)}</span>
+        <Monto centavos={e.total} variante="lista" className="shrink-0 font-medium" />
       </div>
       <div className="flex items-center gap-2">
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
@@ -127,7 +129,7 @@ function BarraMes({
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="mb-2 flex items-center justify-between text-sm">
         <span className="text-muted-foreground">{etiqueta}</span>
-        <span className={cn("tabular font-semibold", texto)}>$ {formatearCentavos(valor)}</span>
+        <Monto centavos={valor} className={cn("font-semibold", texto)} />
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
         <div className={cn("h-full rounded-full", barra)} style={{ width: `${pct}%` }} />
@@ -256,8 +258,8 @@ export function Estadisticas() {
         </span>
         <span className="flex shrink-0 items-center gap-2">
           <span className="text-right">
-            <span className="tabular block text-sm">
-              $ {formatearCentavos(t.value)}
+            <span className="block text-sm">
+              <Monto centavos={t.value} variante="lista" />
               <span className="ml-2 text-xs text-muted-foreground">
                 {Math.round((t.value / totalMes) * 100)}%
               </span>
@@ -296,8 +298,8 @@ export function Estadisticas() {
             {t.desglose.map((d) => (
               <li key={d.id} className="flex items-baseline justify-between gap-3 text-xs">
                 <span className="truncate text-muted-foreground">{d.name}</span>
-                <span className="tabular shrink-0 text-muted-foreground">
-                  $ {formatearCentavos(d.value)}
+                <span className="shrink-0 text-muted-foreground">
+                  <Monto centavos={d.value} variante="lista" />
                   <span className="ml-2">{Math.round((d.value / t.value) * 100)}%</span>
                 </span>
               </li>
@@ -430,9 +432,7 @@ export function Estadisticas() {
               </ResponsiveContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-xs text-muted-foreground">Gasto del mes</span>
-                <span className="tabular text-xl font-semibold">
-                  $ {formatearCentavos(totalMes)}
-                </span>
+                <Monto centavos={totalMes} className="text-xl font-semibold" />
               </div>
             </div>
             <ul className="space-y-2">

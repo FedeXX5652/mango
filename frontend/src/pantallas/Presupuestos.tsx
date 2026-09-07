@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts"
 
+import { Monto } from "@/componentes/Monto"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
@@ -19,7 +20,7 @@ import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { ordenarJerarquico } from "@/lib/categorias"
-import { aCentavos, formatearCentavos, formatearSaldo } from "@/lib/dinero"
+import { aCentavos, formatearCentavos, formatearMonto, formatearSaldo } from "@/lib/dinero"
 import { mesAnio } from "@/lib/fecha"
 import { type EntradaSobre, type SaldoSobre, calcularMes } from "@/lib/sobres"
 import { uuidv4 } from "@/lib/uuid"
@@ -270,11 +271,15 @@ export function Presupuestos() {
             <dl className="mt-2 space-y-0.5 text-xs">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Asignado</dt>
-                <dd className="tabular">$ {formatearCentavos(totalAsignado)}</dd>
+                <dd>
+                  <Monto centavos={totalAsignado} variante="lista" />
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Gastado</dt>
-                <dd className="tabular">$ {formatearCentavos(totalGastado)}</dd>
+                <dd>
+                  <Monto centavos={totalGastado} variante="lista" />
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Disponible</dt>
@@ -349,8 +354,8 @@ export function Presupuestos() {
               <div key={rootId} className="space-y-1">
                 <div className="flex items-center justify-between px-1 text-sm font-semibold">
                   <span>{rootCat?.name ?? "—"}</span>
-                  <span className="tabular text-xs text-muted-foreground">
-                    $ {formatearCentavos(asigTot)} · $ {formatearCentavos(gastTot)} gast.
+                  <span className="text-xs text-muted-foreground">
+                    {formatearMonto(asigTot)} · {formatearMonto(gastTot)} gast.
                   </span>
                 </div>
                 {rootEsSobre && rootCat && (
@@ -487,7 +492,9 @@ function FilaSobre({
         </div>
         <div className="text-right">
           <p className="mb-0.5 text-xs text-muted-foreground">Gastado</p>
-          <p className="tabular h-8 leading-8">$ {formatearCentavos(gastado)}</p>
+          <p className="h-8 leading-8">
+            <Monto centavos={gastado} />
+          </p>
         </div>
         <div className="text-right">
           <p className="mb-0.5 text-xs text-muted-foreground">Disponible</p>

@@ -9,7 +9,7 @@ import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { ordenarJerarquico } from "@/lib/categorias"
-import { aCentavos, formatearCentavos } from "@/lib/dinero"
+import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
 
 interface Tx {
@@ -167,7 +167,7 @@ export function DetalleMovimiento() {
           className="tabular text-lg"
         />
         <span className="text-xs text-muted-foreground">
-          = $ {formatearCentavos(aCentavos(monto) ?? 0)}
+          = {formatearMonto(aCentavos(monto) ?? 0, { moneda: tx?.currency })}
         </span>
       </Campo>
 

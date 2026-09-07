@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 
 import { api } from "@/lib/api"
 import { ProveedorBloqueo } from "@/hooks/bloqueo"
+import { ProveedorMonedaBase } from "@/hooks/monedaBase"
 import { ProveedorTema } from "@/hooks/tema"
 import { useLayout } from "@/hooks/useLayout"
 import { ProveedorPowerSync } from "@/lib/powersync/proveedor"
@@ -62,12 +63,14 @@ export function App() {
   return (
     <BrowserRouter>
       <ProveedorTema>
-        <ProveedorBloqueo>
-          <ProveedorPowerSync>
-            <DisparadorRecurrentes />
-            <Rutas />
-          </ProveedorPowerSync>
-        </ProveedorBloqueo>
+        <ProveedorMonedaBase>
+          <ProveedorBloqueo>
+            <ProveedorPowerSync>
+              <DisparadorRecurrentes />
+              <Rutas />
+            </ProveedorPowerSync>
+          </ProveedorBloqueo>
+        </ProveedorMonedaBase>
       </ProveedorTema>
     </BrowserRouter>
   )

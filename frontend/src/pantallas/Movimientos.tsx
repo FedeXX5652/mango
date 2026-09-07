@@ -16,11 +16,12 @@ import { useNavigate } from "react-router-dom"
 import { Calendario } from "@/componentes/Calendario"
 import { Vacio } from "@/componentes/Vacio"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
+import { Monto } from "@/componentes/Monto"
 import { Button } from "@/componentes/ui/button"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { ordenarJerarquico } from "@/lib/categorias"
-import { type Direccion, formatearMonto } from "@/lib/dinero"
+import { type Direccion } from "@/lib/dinero"
 import { mesAnio } from "@/lib/fecha"
 import { cn } from "@/lib/utils"
 
@@ -78,8 +79,14 @@ function etiquetaDia(iso: string): string {
   return d.toLocaleDateString("es-AR", opciones)
 }
 
+// 24 horas, que es como se lee la hora en Argentina; el formato de 12 con
+// "a. m." tambien queda largo al lado del monto.
 function horaCorta(iso: string): string {
-  return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+  return new Date(iso).toLocaleTimeString("es-AR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
 }
 
 function EstadoSync() {
@@ -337,13 +344,14 @@ export function Movimientos() {
                             </div>
                           </div>
                           <div className="shrink-0 text-right">
-                            <p className={cn("tabular font-medium", COLOR[f.kind])}>
-                              {formatearMonto(f.amount, {
-                                moneda: f.currency,
-                                direccion: DIRECCION[f.kind],
-                              })}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
+                            <Monto
+                              centavos={f.amount}
+                              moneda={f.currency}
+                              direccion={DIRECCION[f.kind]}
+                              variante="lista"
+                              className={cn("font-medium", COLOR[f.kind])}
+                            />
+                            <p className="font-mono text-xs text-muted-foreground">
                               {horaCorta(f.occurred_at)}
                             </p>
                           </div>

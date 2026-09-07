@@ -57,7 +57,7 @@ export function Calendario({
               onClick={() => onDia(dia)}
               className="flex min-h-14 flex-col rounded-md border border-border bg-card p-1 text-left hover:bg-muted"
             >
-              <span className="text-xs text-muted-foreground">{dia}</span>
+              <span className="font-mono text-xs text-muted-foreground">{dia}</span>
               {neto !== undefined && neto !== 0 && (
                 <span
                   className={cn(

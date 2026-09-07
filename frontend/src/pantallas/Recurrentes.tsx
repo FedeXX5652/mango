@@ -11,7 +11,7 @@ import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { api } from "@/lib/api"
 import { ordenarJerarquico } from "@/lib/categorias"
-import { aCentavos, formatearCentavos } from "@/lib/dinero"
+import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 
@@ -20,6 +20,7 @@ interface Regla {
   name: string
   kind: string
   amount: number
+  currency: string
   frequency: string
   interval_count: number
   next_run_date: string
@@ -65,7 +66,8 @@ export function Recurrentes() {
   const navigate = useNavigate()
   const db = usePowerSync()
   const { data: reglas } = useQuery<Regla>(
-    "SELECT id, name, kind, amount, frequency, interval_count, next_run_date, active, auto_create FROM recurring_rules WHERE deleted_at IS NULL ORDER BY active DESC, next_run_date",
+    `SELECT id, name, kind, amount, currency, frequency, interval_count, next_run_date, active, auto_create
+     FROM recurring_rules WHERE deleted_at IS NULL ORDER BY active DESC, next_run_date`,
   )
   const [mostrarForm, setMostrarForm] = useState(false)
   const [corriendo, setCorriendo] = useState(false)
@@ -137,7 +139,7 @@ export function Recurrentes() {
                   {!r.active && " · pausada"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {etiquetaTipo(r.kind)} · $ {formatearCentavos(r.amount)} ·{" "}
+                  {etiquetaTipo(r.kind)} · {formatearMonto(r.amount, { moneda: r.currency })} ·{" "}
                   {etiquetaFrec(r.frequency, r.interval_count)} · próx. {fechaCorta(r.next_run_date)}
                 </p>
               </div>

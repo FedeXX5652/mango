@@ -12,7 +12,7 @@ import {
   operador,
   valorCentavos,
 } from "@/lib/calculadora"
-import { formatearEntrada } from "@/lib/dinero"
+import { formatearEntrada, partesMonto } from "@/lib/dinero"
 
 // Teclado de calculadora para el monto. El display muestra la entrada en curso;
 // el valor en centavos se comunica al padre en cada cambio. `inicial` (centavos)
@@ -60,7 +60,8 @@ export function Calculadora({
     return () => window.removeEventListener("keydown", alTecla)
   }, [])
 
-  const simbolo = moneda === "ARS" ? "$" : moneda
+  // El simbolo sale de Intl segun la moneda y cual es la base (ver dinero.ts).
+  const simbolo = partesMonto(0, { moneda }).simbolo
 
   return (
     <div className="space-y-3">
@@ -129,7 +130,7 @@ function Tecla({
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const variant = variante === "igual" ? "default" : variante === "op" ? "secondary" : "outline"
   return (
-    <Button type="button" variant={variant} className="h-12 w-full text-lg" onClick={onClick} {...props}>
+    <Button type="button" variant={variant} className="h-12 w-full font-mono text-lg" onClick={onClick} {...props}>
       {children}
     </Button>
   )
