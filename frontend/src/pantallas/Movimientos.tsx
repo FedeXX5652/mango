@@ -20,9 +20,11 @@ import { Monto } from "@/componentes/Monto"
 import { Button } from "@/componentes/ui/button"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
+import { useMonedaBase } from "@/hooks/monedaBase"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { type Direccion } from "@/lib/dinero"
 import { mesAnio } from "@/lib/fecha"
+import { monedaPorDefecto, ordenarMonedas } from "@/lib/monedas"
 import { cn } from "@/lib/utils"
 
 interface Fila {
@@ -114,6 +116,7 @@ export function Movimientos() {
   const [categoriaId, setCategoriaId] = useState("")
   const [texto, setTexto] = useState("")
   const [etiquetaId, setEtiquetaId] = useState("")
+  const [monedaFiltro, setMonedaFiltro] = useState("")
   const [diaSel, setDiaSel] = useState<number | null>(null)
 
   const { data: cuentas } = useQuery<Opcion>(
@@ -125,6 +128,14 @@ export function Movimientos() {
   const nombreCat = useMemo(() => new Map(categorias.map((c) => [c.id, c.name])), [categorias])
   const { data: etiquetas } = useQuery<Opcion>(
     "SELECT id, name FROM tags WHERE deleted_at IS NULL AND archived = 0",
+  )
+  const base = useMonedaBase()
+  const { data: monedaRows } = useQuery<{ currency: string }>(
+    "SELECT DISTINCT currency FROM transactions WHERE deleted_at IS NULL",
+  )
+  const monedas = useMemo(
+    () => ordenarMonedas(monedaRows.map((r) => r.currency), base),
+    [monedaRows, base],
   )
   const etiquetasOrden = useMemo(
     () => [...etiquetas].sort((a, b) => a.name.localeCompare(b.name, "es")),
@@ -150,6 +161,10 @@ export function Movimientos() {
       cond.push("t.category_id = ?")
       p.push(categoriaId)
     }
+    if (monedaFiltro) {
+      cond.push("t.currency = ?")
+      p.push(monedaFiltro)
+    }
     if (etiquetaId) {
       // EXISTS y no JOIN: un movimiento con varias etiquetas no debe duplicarse.
       cond.push(
@@ -172,7 +187,7 @@ export function Movimientos() {
             ORDER BY t.occurred_at DESC`,
       params: p,
     }
-  }, [anio, mes, tipo, cuentaId, categoriaId, etiquetaId, texto])
+  }, [anio, mes, tipo, cuentaId, categoriaId, etiquetaId, monedaFiltro, texto])
 
   const { data: mesMovs } = useQuery<Fila>(sql, params)
 
@@ -273,6 +288,16 @@ export function Movimientos() {
             </option>
           ))}
         </Select>
+        {monedas.length > 1 && (
+          <Select value={monedaFiltro} onChange={(e) => setMonedaFiltro(e.target.value)}>
+            <option value="">Toda moneda</option>
+            {monedas.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </Select>
+        )}
         {etiquetasOrden.length > 0 && (
           <Select value={etiquetaId} onChange={(e) => setEtiquetaId(e.target.value)}>
             <option value="">Toda etiqueta</option>
@@ -294,6 +319,7 @@ export function Movimientos() {
         <Calendario
           anio={anio}
           mes={mes}
+          moneda={monedaFiltro || monedaPorDefecto(monedas, base)}
           movimientos={mesMovs}
           onDia={(d) => {
             setDiaSel(d)

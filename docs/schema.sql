@@ -530,16 +530,34 @@ CREATE TABLE debts (
 -- Multimoneda
 -- ------------------------------------------------------------
 
+-- Cotizaciones. `rate` es cuantas unidades de `quote_currency` compra 1 de
+-- `base_currency`: el dolar oficial va base='USD', quote='ARS', rate=1735.10
+-- (ver 0005). NUMERIC y nunca float: la cotizacion multiplica montos.
+--
+-- Lleva updated_at/deleted_at porque una cotizacion se puede haber cargado mal
+-- y hay que poder corregirla o darla de baja, y nada se borra fisicamente.
 CREATE TABLE exchange_rates (
     id              UUID PRIMARY KEY,
     base_currency   CHAR(3) NOT NULL,
     quote_currency  CHAR(3) NOT NULL,
     rate            NUMERIC(20,10) NOT NULL,
     rate_date       DATE NOT NULL,
+    -- 'oficial', 'manual', 'mep'... en Argentina conviven varias y no siempre
+    -- aplica la misma.
     source          TEXT NOT NULL DEFAULT 'manual',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT fx_uniq UNIQUE (base_currency, quote_currency, rate_date, source)
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ
 );
+
+-- Una cotizacion por (par, fecha, fuente) entre las vigentes. Parcial para que
+-- borrar y volver a cargar no choque (ver 0003).
+CREATE UNIQUE INDEX fx_uniq
+    ON exchange_rates (base_currency, quote_currency, rate_date, source)
+    WHERE deleted_at IS NULL;
+
+-- La consulta caliente es "la ultima cotizacion conocida de este par".
+CREATE INDEX fx_par_fecha ON exchange_rates (base_currency, quote_currency, rate_date);
 
 
 -- ------------------------------------------------------------

@@ -5,8 +5,10 @@ import { Link } from "react-router-dom"
 
 import { Monto } from "@/componentes/Monto"
 import { Vacio } from "@/componentes/Vacio"
+import { useMonedaBase } from "@/hooks/monedaBase"
 import { iconoCuenta } from "@/lib/cuentas"
-import { type Direccion, formatearCompacto, formatearSaldo } from "@/lib/dinero"
+import { type Direccion } from "@/lib/dinero"
+import { ordenarMonedas } from "@/lib/monedas"
 import { cn } from "@/lib/utils"
 
 interface SaldoCuenta {
@@ -64,12 +66,22 @@ const SQL_RECIENTES = `
   LIMIT ${MAX_RECIENTES}
 `
 
-// Totales del mes en curso, para los tres datos de arriba.
+// Totales del mes en curso, para los tres datos de arriba. Se leen en UNA
+// moneda (la base): sumar monedas distintas da un numero que no significa nada
+// y convertir necesita cotizaciones (ver 0005). Lo que quede afuera se avisa.
 const SQL_MES = `
   SELECT kind, SUM(amount) AS total FROM transactions
   WHERE kind IN ('income','expense') AND status = 'confirmed' AND deleted_at IS NULL
-    AND occurred_at >= ? AND occurred_at < ?
+    AND currency = ? AND occurred_at >= ? AND occurred_at < ?
   GROUP BY kind
+`
+
+// Monedas distintas de la base con movimientos en el mes: no entran en los tres
+// datos y hay que decirlo.
+const SQL_OTRAS_MONEDAS = `
+  SELECT DISTINCT currency FROM transactions
+  WHERE kind IN ('income','expense') AND status = 'confirmed' AND deleted_at IS NULL
+    AND currency <> ? AND occurred_at >= ? AND occurred_at < ?
 `
 
 function fechaCorta(iso: string): string {
@@ -113,7 +125,19 @@ export function Inicio() {
       new Date(h.getFullYear(), h.getMonth() + 1, 1).toISOString(),
     ]
   }, [])
-  const { data: mesRows } = useQuery<{ kind: string; total: number }>(SQL_MES, rangoMes)
+  const base = useMonedaBase()
+  const { data: mesRows } = useQuery<{ kind: string; total: number }>(SQL_MES, [
+    base,
+    ...rangoMes,
+  ])
+  const { data: otrasRows } = useQuery<{ currency: string }>(SQL_OTRAS_MONEDAS, [
+    base,
+    ...rangoMes,
+  ])
+  const otrasMonedas = useMemo(
+    () => ordenarMonedas(otrasRows.map((r) => r.currency), base).filter((c) => c !== base),
+    [otrasRows, base],
+  )
   const ingresos = mesRows.find((r) => r.kind === "income")?.total ?? 0
   const egresos = mesRows.find((r) => r.kind === "expense")?.total ?? 0
   const resultado = ingresos - egresos
@@ -162,9 +186,12 @@ export function Inicio() {
             ) : (
               <div className="mt-1 space-y-1">
                 {patrimonio.map(([moneda, total]) => (
-                  <p key={moneda} className="tabular text-3xl font-semibold">
-                    {formatearSaldo(total, moneda)}
-                  </p>
+                  <Monto
+                    key={moneda}
+                    centavos={total}
+                    moneda={moneda}
+                    className="block text-3xl font-semibold"
+                  />
                 ))}
               </div>
             )}
@@ -180,6 +207,15 @@ export function Inicio() {
               clase={resultado < 0 ? "text-expense" : "text-income"}
             />
           </div>
+          {otrasMonedas.length > 0 && (
+            <p className="-mt-1 px-1 text-xs text-muted-foreground">
+              Solo en {base}. Este mes también hay movimientos en {otrasMonedas.join(", ")}:{" "}
+              <Link to="/estadisticas" className="text-primary underline-offset-2 hover:underline">
+                verlos en Estadísticas
+              </Link>
+              .
+            </p>
+          )}
 
           {/* Cuentas: bloque 2x2 con las primeras segun el orden de Ajustes. */}
           <section className="space-y-3">
@@ -202,15 +238,17 @@ export function Inicio() {
                       </span>
                       <span className="truncate text-sm text-muted-foreground">{c.name}</span>
                     </div>
-                    <p
+                    {/* Saldo completo, sin abreviar (ver 0006). En movil el
+                        monto largo baja un punto de tamano antes que perder
+                        digitos. */}
+                    <Monto
+                      centavos={c.balance}
+                      moneda={c.currency}
                       className={cn(
-                        "tabular truncate text-lg font-semibold",
+                        "block text-base font-semibold sm:text-lg",
                         c.balance < 0 && "text-expense",
                       )}
-                      title={formatearSaldo(c.balance, c.currency)}
-                    >
-                      {formatearCompacto(c.balance, c.currency)}
-                    </p>
+                    />
                   </div>
                 )
               })}

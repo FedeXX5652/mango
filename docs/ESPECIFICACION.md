@@ -326,6 +326,47 @@ banco -> tarjeta, no un gasto; registrarlo como gasto lo contaria dos veces.
 **Etiquetas (ver 3.5.1).** El costo total de un proyecto (un viaje) sale por
 etiqueta, sin ensuciar los informes por categoria.
 
+### 3.6.1 Informes en una moneda a la vez
+
+Sumar montos de monedas distintas da un numero que no significa nada: "Ingresos
+del mes" mostrando `$ 1.000.500` cuando son 1.000.000 de pesos **mas** 500
+dolares es un dato falso, no una aproximacion. Y convertir exige cotizaciones,
+que son otro problema (ver 3.6.2).
+
+Por eso, mientras no haya conversion, **todo informe se lee en una sola
+moneda**:
+
+- **Estadisticas** tiene un selector de moneda a nivel de pantalla, con las
+  monedas que tienen datos y la base por defecto. Todos los cuadros de la
+  pantalla —dona por categoria, ingresos y egresos, evolucion, gasto por
+  etiqueta— filtran por esa moneda, y la pantalla lo aclara.
+- **Los tres datos del mes en Inicio** van en la moneda base. Si el mes tiene
+  movimientos en otra moneda, lo avisa y ofrece verlos en Estadisticas: no los
+  suma ni los esconde.
+- **El neto por dia del calendario** es de una sola moneda, con el pie diciendo
+  cual. Los movimientos en otra moneda siguen apareciendo en la lista.
+
+El movimiento individual nunca se convierte: se muestra siempre en su moneda.
+
+### 3.6.2 Multimoneda
+
+El modelo completo esta en la decision 0005: un presupuesto por moneda con su
+propio "por asignar", patrimonio con cotizacion actual, informes historicos con
+la cotizacion del momento de cada movimiento, y el tipo de cambio real anotado
+por movimiento (con el monto debitado como fuente de verdad). Adelanta trabajo
+que estaba en fase 4.
+
+**Las cotizaciones se cargan en Ajustes > Cotizaciones**, una por moneda, fecha
+y fuente ('oficial', 'mep', 'tarjeta'...). La carga es local-first como todo lo
+demas: se puede cargar sin conexion y sube despues. La pantalla dice lo que
+importa: la cotizacion sirve para **ver** (convierte el patrimonio), y nunca
+cambia un movimiento ya cargado, que conserva la que se le aplico.
+
+Una cotizacion se puede corregir (un dedazo) o dar de baja; se corrige el valor
+y la fuente, no el par ni la fecha, porque eso ya es otra cotizacion. La
+automatizacion desde una fuente publica llega despues: con la carga manual el
+patrimonio unificado ya funciona.
+
 ### 3.7 Recurrentes y plantillas
 
 - **Recurrentes** (`recurring_rules`): sueldo, alquiler, seguros, servicios. Se
@@ -344,7 +385,7 @@ etiqueta, sin ensuciar los informes por categoria.
 ### 3.8 Visualizacion
 
 - Lista de movimientos con busqueda y filtros
-- Vista de calendario con total por dia
+- Vista de calendario con total por dia, en una sola moneda (ver 3.6.1)
 - Torta de gasto por categoria
 - Evolucion mensual de ingresos, gastos y saldo
 - Saldos por cuenta y patrimonio total
@@ -755,6 +796,10 @@ Registro, autenticacion, grupos familiares, visibilidad por transaccion,
 reportes del grupo, presupuestos compartidos.
 
 ### Fase 4 - Multimoneda y reparto
+
+**Parte ya se adelanto** (ver 3.6.1, 3.6.2 y decision 0005): apenas aparecio una
+cuenta en dolares, los informes que sumaban monedas distintas pasaron a ser un
+error de correctitud, no una funcion faltante.
 
 Tipos de cambio con historico, reportes convertidos a moneda base, division de
 gastos entre personas, liquidacion de saldos.

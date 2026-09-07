@@ -1,24 +1,29 @@
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import (
     CHAR,
-    TIMESTAMP,
     Date,
+    Index,
     Numeric,
     Text,
-    UniqueConstraint,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
-from app.models._base import IdMixin
+from app.models._base import IdMixin, TimestampMixin
 
 
-class ExchangeRate(Base, IdMixin):
-    """Solo lleva created_at: una cotizacion es un hecho inmutable, no se
-    edita ni se borra logicamente. Por eso no usa TimestampMixin."""
+class ExchangeRate(Base, IdMixin, TimestampMixin):
+    """Cotizacion de una moneda contra otra en una fecha, segun una fuente.
+
+    `rate` es cuantas unidades de `quote_currency` compra 1 de `base_currency`:
+    el dolar oficial se guarda base='USD', quote='ARS', rate=1735.10 (ver 0005).
+
+    Una cotizacion es un hecho, pero un hecho que se puede haber cargado mal:
+    lleva `updated_at` para poder corregirla y `deleted_at` porque nada se borra
+    fisicamente (regla 3). El unico es parcial por eso mismo (ver 0003)."""
 
     __tablename__ = "exchange_rates"
 
@@ -27,10 +32,19 @@ class ExchangeRate(Base, IdMixin):
     rate: Mapped[Decimal] = mapped_column(Numeric(20, 10), nullable=False)
     rate_date: Mapped[date] = mapped_column(Date, nullable=False)
     source: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'manual'"))
-    created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
-    )
 
     __table_args__ = (
-        UniqueConstraint("base_currency", "quote_currency", "rate_date", "source", name="fx_uniq"),
+        # Una cotizacion por (par, fecha, fuente) entre las vigentes. Parcial
+        # para que borrar y volver a cargar no choque (decision 0003).
+        Index(
+            "fx_uniq",
+            "base_currency",
+            "quote_currency",
+            "rate_date",
+            "source",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        # La consulta caliente es "la ultima cotizacion conocida de este par".
+        Index("fx_par_fecha", "base_currency", "quote_currency", "rate_date"),
     )

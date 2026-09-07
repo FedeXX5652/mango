@@ -20,7 +20,7 @@ import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { ordenarJerarquico } from "@/lib/categorias"
-import { aCentavos, formatearCentavos, formatearMonto, formatearSaldo } from "@/lib/dinero"
+import { aCentavos, formatearCentavos, formatearMonto } from "@/lib/dinero"
 import { mesAnio } from "@/lib/fecha"
 import { type EntradaSobre, type SaldoSobre, calcularMes } from "@/lib/sobres"
 import { uuidv4 } from "@/lib/uuid"
@@ -260,14 +260,13 @@ export function Presupuestos() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-muted-foreground">Por asignar</p>
-            <p
+            <Monto
+              centavos={resultado.porAsignar}
               className={cn(
-                "tabular text-2xl font-semibold",
+                "block text-2xl font-semibold",
                 resultado.porAsignar < 0 && "text-expense",
               )}
-            >
-              {formatearSaldo(resultado.porAsignar)}
-            </p>
+            />
             <dl className="mt-2 space-y-0.5 text-xs">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Asignado</dt>
@@ -283,8 +282,12 @@ export function Presupuestos() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Disponible</dt>
-                <dd className={cn("tabular", totalDisponible < 0 && "text-expense")}>
-                  {formatearSaldo(totalDisponible)}
+                <dd>
+                  <Monto
+                    centavos={totalDisponible}
+                    variante="lista"
+                    className={cn(totalDisponible < 0 && "text-expense")}
+                  />
                 </dd>
               </div>
             </dl>
@@ -498,13 +501,11 @@ function FilaSobre({
         </div>
         <div className="text-right">
           <p className="mb-0.5 text-xs text-muted-foreground">Disponible</p>
-          <p
-            className={cn(
-              "tabular h-8 font-medium leading-8",
-              balance < 0 ? "text-expense" : "text-income",
-            )}
-          >
-            {formatearSaldo(balance)}
+          <p className="h-8 leading-8">
+            <Monto
+              centavos={balance}
+              className={cn("font-medium", balance < 0 ? "text-expense" : "text-income")}
+            />
           </p>
         </div>
       </div>

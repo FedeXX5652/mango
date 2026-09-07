@@ -19,7 +19,8 @@ import { Button } from "@/componentes/ui/button"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
-import { formatearMonto, formatearSaldo } from "@/lib/dinero"
+import { useMonedaBase } from "@/hooks/monedaBase"
+import { formatearMonto } from "@/lib/dinero"
 import {
   type EtiquetaInfo,
   type GastoEtiqueta,
@@ -27,6 +28,7 @@ import {
   agruparPorEtiqueta,
 } from "@/lib/etiquetas"
 import { mesAnio } from "@/lib/fecha"
+import { monedaPorDefecto, ordenarMonedas } from "@/lib/monedas"
 import { PALETA } from "@/lib/paleta"
 import { cn } from "@/lib/utils"
 
@@ -45,9 +47,10 @@ interface EvoRow {
   occurred_at: string
 }
 
-// OJO: estos agregados todavia suman monedas distintas. Se filtran por moneda
-// en el incremento siguiente (informes por moneda); hasta entonces el numero es
-// correcto solo si hay una sola moneda con datos.
+// Toda la pantalla se lee en UNA moneda: cada consulta filtra por `moneda` y
+// los montos se formatean con ella. Sumar monedas distintas da un numero que no
+// significa nada, y convertir necesita cotizaciones (ver 0005). El selector
+// aparece solo si hay datos en mas de una moneda.
 
 // La leyenda muestra las mas representativas; el resto va en un dialogo.
 const MAX_CATEGORIAS = 5
@@ -56,7 +59,15 @@ const MAX_ETIQUETAS = 6
 // Barra de una etiqueta, con el color propio de la etiqueta. El ancho se mide
 // contra la etiqueta mas grande, no contra el gasto total: un movimiento con
 // varias etiquetas suma en todas y un porcentaje del total mentiria.
-function FilaEtiqueta({ e, tope }: { e: GastoEtiqueta; tope: number }) {
+function FilaEtiqueta({
+  e,
+  tope,
+  moneda,
+}: {
+  e: GastoEtiqueta
+  tope: number
+  moneda: string
+}) {
   const pct = Math.min((e.total / tope) * 100, 100)
   return (
     <li className="space-y-1.5">
@@ -70,7 +81,7 @@ function FilaEtiqueta({ e, tope }: { e: GastoEtiqueta; tope: number }) {
           <span className="truncate">{e.name}</span>
           {e.archived && <span className="shrink-0 text-xs text-muted-foreground">archivada</span>}
         </span>
-        <Monto centavos={e.total} variante="lista" className="shrink-0 font-medium" />
+        <Monto centavos={e.total} moneda={moneda} variante="lista" className="shrink-0 font-medium" />
       </div>
       <div className="flex items-center gap-2">
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
@@ -117,19 +128,21 @@ function BarraMes({
   tope,
   barra,
   texto,
+  moneda,
 }: {
   etiqueta: string
   valor: number
   tope: number
   barra: string
   texto: string
+  moneda: string
 }) {
   const pct = Math.min((valor / tope) * 100, 100)
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="mb-2 flex items-center justify-between text-sm">
         <span className="text-muted-foreground">{etiqueta}</span>
-        <Monto centavos={valor} className={cn("font-semibold", texto)} />
+        <Monto centavos={valor} moneda={moneda} className={cn("font-semibold", texto)} />
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
         <div className={cn("h-full rounded-full", barra)} style={{ width: `${pct}%` }} />
@@ -144,6 +157,18 @@ export function Estadisticas() {
   const [anio, setAnio] = useState(hoy.getFullYear())
   const [mes, setMes] = useState(hoy.getMonth())
 
+  // Monedas con datos, para el selector. La pantalla se abre en la base.
+  const base = useMonedaBase()
+  const { data: monedaRows } = useQuery<{ currency: string }>(
+    "SELECT DISTINCT currency FROM transactions WHERE deleted_at IS NULL AND status='confirmed'",
+  )
+  const monedas = useMemo(
+    () => ordenarMonedas(monedaRows.map((r) => r.currency), base),
+    [monedaRows, base],
+  )
+  const [monedaElegida, setMonedaElegida] = useState<string | null>(null)
+  const moneda = monedaElegida ?? monedaPorDefecto(monedas, base)
+
   const { data: categorias } = useQuery<CatRow>(
     "SELECT id, name, parent_id FROM categories WHERE deleted_at IS NULL",
   )
@@ -154,18 +179,18 @@ export function Estadisticas() {
   const { data: gastoRows } = useQuery<GastoRow>(
     `SELECT category_id, SUM(amount) AS total FROM transactions
      WHERE kind='expense' AND status='confirmed' AND deleted_at IS NULL
-       AND occurred_at >= ? AND occurred_at < ?
+       AND currency = ? AND occurred_at >= ? AND occurred_at < ?
      GROUP BY category_id`,
-    [inicioMes, finMes],
+    [moneda, inicioMes, finMes],
   )
 
   // Totales del mes elegido, para las barras de ingresos vs egresos.
   const { data: totalesMes } = useQuery<{ kind: string; total: number }>(
     `SELECT kind, SUM(amount) AS total FROM transactions
      WHERE kind IN ('income','expense') AND status='confirmed' AND deleted_at IS NULL
-       AND occurred_at >= ? AND occurred_at < ?
+       AND currency = ? AND occurred_at >= ? AND occurred_at < ?
      GROUP BY kind`,
-    [inicioMes, finMes],
+    [moneda, inicioMes, finMes],
   )
   const ingresosMes = totalesMes.find((r) => r.kind === "income")?.total ?? 0
   const egresosMes = totalesMes.find((r) => r.kind === "expense")?.total ?? 0
@@ -177,9 +202,9 @@ export function Estadisticas() {
   const { data: gastoAnteriorRows } = useQuery<GastoRow>(
     `SELECT category_id, SUM(amount) AS total FROM transactions
      WHERE kind='expense' AND status='confirmed' AND deleted_at IS NULL
-       AND occurred_at >= ? AND occurred_at < ?
+       AND currency = ? AND occurred_at >= ? AND occurred_at < ?
      GROUP BY category_id`,
-    [inicioMesAnterior, inicioMes],
+    [moneda, inicioMesAnterior, inicioMes],
   )
 
   // Gasto por categoria principal (las subcategorias suman al padre), ordenado
@@ -259,7 +284,7 @@ export function Estadisticas() {
         <span className="flex shrink-0 items-center gap-2">
           <span className="text-right">
             <span className="block text-sm">
-              <Monto centavos={t.value} variante="lista" />
+              <Monto centavos={t.value} moneda={moneda} variante="lista" />
               <span className="ml-2 text-xs text-muted-foreground">
                 {Math.round((t.value / totalMes) * 100)}%
               </span>
@@ -299,7 +324,7 @@ export function Estadisticas() {
               <li key={d.id} className="flex items-baseline justify-between gap-3 text-xs">
                 <span className="truncate text-muted-foreground">{d.name}</span>
                 <span className="shrink-0 text-muted-foreground">
-                  <Monto centavos={d.value} variante="lista" />
+                  <Monto centavos={d.value} moneda={moneda} variante="lista" />
                   <span className="ml-2">{Math.round((d.value / t.value) * 100)}%</span>
                 </span>
               </li>
@@ -328,9 +353,9 @@ export function Estadisticas() {
      FROM transaction_tags tt JOIN transactions t ON t.id = tt.transaction_id
      WHERE tt.deleted_at IS NULL AND t.deleted_at IS NULL
        AND t.kind='expense' AND t.status='confirmed'
-       AND t.occurred_at >= ? AND t.occurred_at < ?
+       AND t.currency = ? AND t.occurred_at >= ? AND t.occurred_at < ?
      GROUP BY tt.tag_id`,
-    [desdeTags, hastaTags],
+    [moneda, desdeTags, hastaTags],
   )
   const porEtiqueta = useMemo(
     () => agruparPorEtiqueta(gastoEtiquetaRows, todasEtiquetas),
@@ -344,8 +369,8 @@ export function Estadisticas() {
   const { data: evoRows } = useQuery<EvoRow>(
     `SELECT kind, amount, occurred_at FROM transactions
      WHERE kind IN ('income','expense') AND status='confirmed' AND deleted_at IS NULL
-       AND occurred_at >= ?`,
-    [inicioEvo],
+       AND currency = ? AND occurred_at >= ?`,
+    [moneda, inicioEvo],
   )
   const evolucion = useMemo(() => {
     const meses = Array.from({ length: 6 }, (_, i) => {
@@ -370,7 +395,7 @@ export function Estadisticas() {
   }, [evoRows])
 
   const etiquetaMes = mesAnio(anio, mes)
-  const tip = (v: number) => formatearMonto(v)
+  const tip = (v: number) => formatearMonto(v, { moneda })
 
   function cambiarMes(delta: number) {
     const d = new Date(anio, mes + delta, 1)
@@ -380,11 +405,31 @@ export function Estadisticas() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 p-4">
-      <h1 className="text-2xl font-semibold">Estadísticas</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Estadísticas</h1>
+        {/* Con una sola moneda no hay nada que elegir y el control seria ruido. */}
+        {monedas.length > 1 && (
+          <Segmentado
+            opciones={monedas.map((m) => ({ valor: m, etiqueta: m }))}
+            valor={moneda}
+            onCambio={setMonedaElegida}
+          />
+        )}
+      </div>
+      {monedas.length > 1 && (
+        <p className="-mt-6 text-xs text-muted-foreground">
+          Todo lo de abajo es solo en {moneda}. Los montos en otra moneda no se suman ni se
+          convierten.
+        </p>
+      )}
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-muted-foreground">Gasto por categoría</h2>
+        {/* flex-wrap + nowrap: si no entran en una linea, el selector de mes baja
+            entero en vez de partir el titulo al medio. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-2">
+          <h2 className="whitespace-nowrap text-sm font-semibold text-muted-foreground">
+            Gasto por categoría
+          </h2>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -394,7 +439,7 @@ export function Estadisticas() {
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <span className="min-w-32 text-center text-sm">{etiquetaMes}</span>
+            <span className="min-w-32 whitespace-nowrap text-center text-sm">{etiquetaMes}</span>
             <Button
               variant="ghost"
               size="icon"
@@ -432,7 +477,7 @@ export function Estadisticas() {
               </ResponsiveContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-xs text-muted-foreground">Gasto del mes</span>
-                <Monto centavos={totalMes} className="text-xl font-semibold" />
+                <Monto centavos={totalMes} moneda={moneda} className="text-xl font-semibold" />
               </div>
             </div>
             <ul className="space-y-2">
@@ -474,7 +519,7 @@ export function Estadisticas() {
             <>
               <ul className="space-y-3 rounded-xl border border-border bg-card p-4">
                 {porEtiqueta.slice(0, MAX_ETIQUETAS).map((e) => (
-                  <FilaEtiqueta key={e.id} e={e} tope={topeEtiquetas} />
+                  <FilaEtiqueta key={e.id} e={e} tope={topeEtiquetas} moneda={moneda} />
                 ))}
               </ul>
               {porEtiqueta.length > MAX_ETIQUETAS && (
@@ -493,7 +538,7 @@ export function Estadisticas() {
               >
                 <ul className="space-y-3">
                   {porEtiqueta.map((e) => (
-                    <FilaEtiqueta key={e.id} e={e} tope={topeEtiquetas} />
+                    <FilaEtiqueta key={e.id} e={e} tope={topeEtiquetas} moneda={moneda} />
                   ))}
                 </ul>
               </Hoja>
@@ -514,6 +559,7 @@ export function Estadisticas() {
           tope={topeMes}
           barra="bg-income"
           texto="text-income"
+          moneda={moneda}
         />
         <BarraMes
           etiqueta="Egresos"
@@ -521,17 +567,15 @@ export function Estadisticas() {
           tope={topeMes}
           barra="bg-expense"
           texto="text-expense"
+          moneda={moneda}
         />
         <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm">
           <span className="text-muted-foreground">Resultado</span>
-          <span
-            className={cn(
-              "tabular font-semibold",
-              resultadoMes < 0 ? "text-expense" : "text-income",
-            )}
-          >
-            {formatearSaldo(resultadoMes)}
-          </span>
+          <Monto
+            centavos={resultadoMes}
+            moneda={moneda}
+            className={cn("font-semibold", resultadoMes < 0 ? "text-expense" : "text-income")}
+          />
         </div>
       </section>
 

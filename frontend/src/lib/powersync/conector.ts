@@ -24,6 +24,7 @@ const RUTA: Record<string, string> = {
   transaction_tags: "/transaction-tags",
   templates: "/templates",
   recurring_rules: "/recurring",
+  exchange_rates: "/exchange-rates",
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" }

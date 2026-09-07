@@ -170,6 +170,23 @@ const recurring_rules = new Table({
   deleted_at: column.text,
 })
 
+// Cotizaciones. `rate` se guarda como TEXTO, no como real: es un NUMERIC(20,10)
+// y pasarlo por el float de SQLite le comeria digitos. Se convierte a numero
+// recien al multiplicar, y el resultado se redondea a centavos enteros.
+const exchange_rates = new Table(
+  {
+    base_currency: column.text,
+    quote_currency: column.text,
+    rate: column.text,
+    rate_date: column.text,
+    source: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
+  },
+  { indexes: { por_par: ["base_currency", "quote_currency", "rate_date"] } },
+)
+
 export const AppSchema = new Schema({
   accounts,
   categories,
@@ -182,6 +199,7 @@ export const AppSchema = new Schema({
   transaction_tags,
   templates,
   recurring_rules,
+  exchange_rates,
 })
 
 export type BaseDatos = (typeof AppSchema)["types"]

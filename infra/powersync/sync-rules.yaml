@@ -6,6 +6,11 @@
 # para que cada persona solo reciba lo suyo y lo compartido de su grupo.
 #
 # PowerSync usa la columna `id` (UUID) como identificador de cada fila.
+#
+# OJO: el servicio lee este archivo AL ARRANCAR. Si se agrega o se saca una
+# tabla hay que reiniciarlo (`docker compose restart powersync`), o el cliente
+# escribe local, sube bien y despues pierde su copia local cuando confirma el
+# checkpoint: para el servidor esa tabla no esta en ningun bucket.
 
 bucket_definitions:
   global:
@@ -25,3 +30,6 @@ bucket_definitions:
       - SELECT * FROM templates
       - SELECT * FROM tags
       - SELECT * FROM transaction_tags
+      # Cotizaciones: la copia local ES la cache que usa el patrimonio sin
+      # conexion (ver 0005). Sirve para estimar, nunca para registrar.
+      - SELECT * FROM exchange_rates

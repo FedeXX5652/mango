@@ -33,6 +33,20 @@ export function monedaBase(): string {
 
 export type Direccion = "gasto" | "ingreso" | "neutro"
 
+// Un monto partido en piezas, para que `<Monto>` pueda dibujar el simbolo
+// atenuado y los decimales mas chicos (DESIGN.md 7, decision 0006).
+export interface PartesMonto {
+  signo: string
+  simbolo: string
+  entero: string
+  // Separador decimal ("," en es-AR). Vacio en monedas sin decimales.
+  separador: string
+  // Decimales sin separador. Vacio en monedas sin decimales (JPY, CLP).
+  fraccion: string
+  // `entero + separador + fraccion`, para donde el monto va como texto plano.
+  numero: string
+}
+
 const agrupador = new Intl.NumberFormat(LOCALE)
 
 // Decimales de la moneda segun ISO 4217: 2 para ARS, USD o BRL; 0 para JPY o
@@ -89,22 +103,18 @@ function displayDe(moneda: string): "narrowSymbol" | "symbol" | "code" {
 
 const cacheFmt = new Map<string, Intl.NumberFormat>()
 
-function formateador(moneda: string, compacto: boolean): Intl.NumberFormat {
+function formateador(moneda: string): Intl.NumberFormat {
   const cur = moneda.toUpperCase()
-  const clave = `${cur}|${base}|${compacto ? "c" : "n"}`
+  const clave = `${cur}|${base}`
   const guardado = cacheFmt.get(clave)
   if (guardado) return guardado
-  const opciones: Intl.NumberFormatOptions = {
+  const fmt = new Intl.NumberFormat(LOCALE, {
     style: "currency",
     currency: cur,
     currencyDisplay: displayDe(cur),
     // El signo lo pone Mango, que usa "+" tambien en los ingresos.
     signDisplay: "never",
-  }
-  const fmt = new Intl.NumberFormat(
-    LOCALE,
-    compacto ? { ...opciones, notation: "compact", maximumFractionDigits: 1 } : opciones,
-  )
+  })
   cacheFmt.set(clave, fmt)
   return fmt
 }
@@ -125,33 +135,29 @@ export function formatearCentavos(centavos: number, moneda: string = base): stri
 }
 
 // Arma el texto desde las partes de Intl: `simbolo espacio numero`. Se arma a
-// mano porque la notacion compacta pega el simbolo al numero ("$1,2 M") y en la
-// normal lo separa, y las dos tienen que verse igual.
-function armar(centavos: number, moneda: string, direccion: Direccion, compacto: boolean): string {
-  const { signo, simbolo, numero } = descomponer(centavos, moneda, direccion, compacto)
+// mano para tener un unico espaciado en toda la app, sin depender de como lo
+// separe cada locale.
+function armar(centavos: number, moneda: string, direccion: Direccion): string {
+  const { signo, simbolo, numero } = descomponer(centavos, moneda, direccion)
   return `${signo}${simbolo} ${numero}`
 }
 
-function descomponer(
-  centavos: number,
-  moneda: string,
-  direccion: Direccion,
-  compacto: boolean,
-): { signo: string; simbolo: string; numero: string } {
-  const partes = formateador(moneda, compacto).formatToParts(
-    Math.abs(centavos) / factorDe(moneda),
-  )
-  const simbolo = partes
-    .filter((p) => p.type === "currency")
-    .map((p) => p.value)
-    .join("")
-  const numero = partes
-    .filter((p) => p.type !== "currency")
-    .map((p) => p.value)
-    .join("")
-    .replace(NBSP, " ")
-    .trim()
-  return { signo: signoDe(direccion), simbolo, numero }
+function descomponer(centavos: number, moneda: string, direccion: Direccion): PartesMonto {
+  const partes = formateador(moneda).formatToParts(Math.abs(centavos) / factorDe(moneda))
+  const tomar = (...tipos: Intl.NumberFormatPartTypes[]) =>
+    partes
+      .filter((p) => tipos.includes(p.type))
+      .map((p) => p.value)
+      .join("")
+      .replace(NBSP, " ")
+  const simbolo = tomar("currency").trim()
+  const entero = tomar("integer", "group").trim()
+  const fraccion = tomar("fraction")
+  // El separador viaja con los decimales: en `<Monto>` los decimales van mas
+  // chicos, y una coma sola pegada al numero grande parece un error de tipeo.
+  const separador = fraccion ? tomar("decimal") : ""
+  const numero = `${entero}${separador}${fraccion}`
+  return { signo: signoDe(direccion), simbolo, entero, separador, fraccion, numero }
 }
 
 export function formatearMonto(
@@ -159,7 +165,7 @@ export function formatearMonto(
   opciones: { moneda?: string; direccion?: Direccion } = {},
 ): string {
   const { moneda = base, direccion = "neutro" } = opciones
-  return armar(centavos, moneda, direccion, false)
+  return armar(centavos, moneda, direccion)
 }
 
 // Saldo: muestra el signo negativo cuando la cuenta esta en rojo (ej: deuda de
@@ -168,25 +174,15 @@ export function formatearSaldo(centavos: number, moneda: string = base): string 
   return formatearMonto(centavos, { moneda, direccion: centavos < 0 ? "gasto" : "neutro" })
 }
 
-// Version compacta para tarjetas chicas de resumen ($ 1,2 M): ahi el monto
-// completo se corta. El monto exacto va siempre en el `title`.
-export function formatearCompacto(centavos: number, moneda: string = base): string {
-  const abs = Math.abs(centavos)
-  const signo = centavos < 0 ? "-" : ""
-  // Por debajo de mil unidades no vale abreviar: se muestra completo.
-  if (abs < 1000 * factorDe(moneda)) return `${signo}${formatearMonto(abs, { moneda })}`
-  return `${signo}${armar(abs, moneda, "neutro", true)}`
-}
-
 // Simbolo y numero por separado, para alinear columnas de monto en una lista:
 // el simbolo tiene ancho variable ("$" contra "US$" contra "R$") y si comparte
 // caja con el numero las columnas quedan dentadas (DESIGN.md 7).
 export function partesMonto(
   centavos: number,
   opciones: { moneda?: string; direccion?: Direccion } = {},
-): { signo: string; simbolo: string; numero: string } {
+): PartesMonto {
   const { moneda = base, direccion = "neutro" } = opciones
-  return descomponer(centavos, moneda, direccion, false)
+  return descomponer(centavos, moneda, direccion)
 }
 
 // Formatea la entrada de la calculadora (string en curso) con separador de

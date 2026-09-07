@@ -12,6 +12,7 @@ import { LayoutMovil } from "@/layouts/movil/LayoutMovil"
 import { Ajustes } from "@/pantallas/Ajustes"
 import { Alta } from "@/pantallas/Alta"
 import { Categorias } from "@/pantallas/Categorias"
+import { Cotizaciones } from "@/pantallas/Cotizaciones"
 import { Cuentas } from "@/pantallas/Cuentas"
 import { DetalleMovimiento } from "@/pantallas/DetalleMovimiento"
 import { Estadisticas } from "@/pantallas/Estadisticas"
@@ -40,6 +41,7 @@ function Rutas() {
         <Route path="categorias" element={<Categorias />} />
         <Route path="medios" element={<MediosPago />} />
         <Route path="etiquetas" element={<Etiquetas />} />
+        <Route path="cotizaciones" element={<Cotizaciones />} />
         <Route path="plantillas" element={<Plantillas />} />
         <Route path="recurrentes" element={<Recurrentes />} />
         <Route path="presupuestos" element={<Presupuestos />} />

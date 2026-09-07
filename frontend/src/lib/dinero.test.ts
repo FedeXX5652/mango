@@ -6,7 +6,6 @@ import {
   decimalesDe,
   factorDe,
   formatearCentavos,
-  formatearCompacto,
   formatearEntrada,
   formatearMonto,
   formatearSaldo,
@@ -107,31 +106,35 @@ describe("decimalesDe / factorDe", () => {
 })
 
 describe("partesMonto", () => {
-  it("separa simbolo y numero para alinear columnas", () => {
-    expect(partesMonto(230272)).toEqual({ signo: "", simbolo: "$", numero: "2.302,72" })
+  it("separa simbolo, entero y decimales", () => {
+    expect(partesMonto(230272)).toEqual({
+      signo: "",
+      simbolo: "$",
+      entero: "2.302",
+      separador: ",",
+      fraccion: "72",
+      numero: "2.302,72",
+    })
+  })
+  it("el signo sale de la direccion y el simbolo de la moneda", () => {
     expect(partesMonto(1000, { moneda: "USD", direccion: "gasto" })).toEqual({
       signo: "-",
       simbolo: "US$",
+      entero: "10",
+      separador: ",",
+      fraccion: "00",
       numero: "10,00",
     })
   })
-})
-
-describe("formatearCompacto", () => {
-  it("abrevia los montos grandes (tarjetas chicas)", () => {
-    expect(formatearCompacto(100_000_000)).toBe("$ 1 M")
-    expect(formatearCompacto(-100_000_000)).toBe("-$ 1 M")
-  })
-  it("no abrevia por debajo de mil: monto completo", () => {
-    expect(formatearCompacto(85_000)).toBe("$ 850,00")
-  })
-  it("respeta la moneda", () => {
-    expect(formatearCompacto(100_000_000, "USD")).toBe("US$ 1 M")
-  })
-  it("el umbral de mil se mide en unidades de la moneda", () => {
-    // 1.235 yenes ya pasa el umbral; 1.235 centavos de peso no.
-    expect(formatearCompacto(1235, "JPY")).toBe("JPY 1,2 K")
-    expect(formatearCompacto(1235)).toBe("$ 12,35")
+  it("una moneda sin decimales no trae fraccion ni separador", () => {
+    expect(partesMonto(1235, { moneda: "JPY" })).toEqual({
+      signo: "",
+      simbolo: "JPY",
+      entero: "1.235",
+      separador: "",
+      fraccion: "",
+      numero: "1.235",
+    })
   })
 })
 

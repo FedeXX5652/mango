@@ -293,18 +293,52 @@ codigo ISO.
 Los codigos son **ISO 4217, tres letras** (ARS, USD, EUR, BRL). Los de dos
 letras son codigos de pais y no coinciden.
 
-**Excepcion: tarjetas de resumen chicas.** Cuando el espacio no alcanza (las
-tarjetas de cuenta del bloque 2x2 en Inicio), se usa `formatearCompacto`
-(`$ 1,2 M`, `$ 150 k`, como los abrevia `Intl` en es-AR) en vez de truncar el
-numero, y **el monto exacto va en el `title`** del elemento. Por debajo de mil
-no se abrevia. Nunca se abrevia en un detalle, un formulario ni una fila de
-movimiento: ahi el monto va completo.
+**Los montos no se abrevian nunca** (decision 0006): no hay `$ 1,2 M` ni
+`$ 183 k` en ninguna pantalla, y redondear tampoco vale —sacar los centavos es
+la misma perdida con otra cara. Cuando un monto no entra, **se cambia el layout,
+no el numero**:
 
-**Los tres datos del mes en Inicio (ingresos, egresos, resultado) van completos**,
-sin abreviar: son el resumen del mes y el numero exacto es el dato. Por eso
-cambian de forma segun el ancho — tres filas de una tarjeta en movil, donde un
-monto completo no entra en un tercio de 390 px, y tres tarjetas en fila en
-escritorio, donde sobra ancho.
+- **Bajar un punto de tamano**: las tarjetas de cuenta usan
+  `text-base sm:text-lg`.
+- **Pasar de columnas a filas**: los tres datos del mes en Inicio son tres filas
+  de una tarjeta en movil (un monto completo no entra en un tercio de 390 px) y
+  tres tarjetas en fila en escritorio.
+- **Mover el numero al detalle y comunicar la magnitud con un grafico**: el neto
+  por dia del calendario es una barra proporcional al dia mas movido del mes en
+  movil, con flecha para el signo (nunca solo color), y el numero completo en
+  escritorio, donde la celda es ancha. El monto exacto vive en el `title` y en
+  la lista al tocar el dia.
+
+**Los decimales van mas chicos que el numero** (`0.72em`), con el **separador
+pegado a ellos**: `$ 2.302` + `,72`. Los centavos casi nunca deciden algo y en
+un tamano solo compiten con los miles; achicarlos ordena la lectura sin ocultar
+nada. La coma no se deja en el numero grande porque queda colgando, y no se
+saca porque sin separador `2.302` + `72` se puede leer `230272`.
+
+Todo esto vive en un solo componente, **`<Monto>`**, que ademas resuelve la
+alineacion (`variante="lista"` para columnas, `"suelto"` para el resto) y la
+accesibilidad: el numero queda partido en varios `<span>`, asi que el
+contenedor lleva el monto completo en `aria-label` y las piezas van
+`aria-hidden` para que el lector de pantalla anuncie **un** numero.
+
+No se aplica dentro de una oracion, en un campo de entrada o su eco, ni en
+etiquetas de `text-xs` o menos (incluidos los tooltips de los graficos): ahi va
+el formateo plano. El detalle esta en la decision 0006.
+
+### Informes en una moneda
+
+Un informe **nunca mezcla monedas** (ver ESPECIFICACION 3.6.1). El patron es
+siempre el mismo:
+
+- El **selector de moneda va a nivel de pantalla**, no por cuadro: `Segmentado`
+  al lado del titulo, con las monedas que **tienen datos** y la base primero.
+  Con una sola moneda el control no se dibuja: seria ruido.
+- Debajo, una linea que dice en que moneda se esta leyendo. Un informe que
+  filtra sin decirlo se confunde con un informe que suma mal.
+- Donde no hay selector (los tres datos del mes en Inicio), se usa la moneda
+  base y **se avisa que hay movimientos afuera**, con salida a la pantalla que
+  si los muestra. Ni sumarlos ni esconderlos.
+- El **movimiento individual nunca se convierte**: va siempre en su moneda.
 
 ### Transacciones pendientes
 
