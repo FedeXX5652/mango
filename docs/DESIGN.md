@@ -340,6 +340,13 @@ siempre el mismo:
   si los muestra. Ni sumarlos ni esconderlos.
 - El **movimiento individual nunca se convierte**: va siempre en su moneda.
 
+**El patrimonio si convierte**, porque la pregunta es otra ("cuanto vale lo que
+tengo"). Su tarjeta lleva el switch **Global / Por moneda** adentro: en Global,
+el total en grande en una moneda, el selector de moneda debajo y **la fecha de
+la cotizacion usada** al pie; lo que no se pudo convertir se informa con salida
+a cargar la cotizacion. Un total con una conversion inventada es peor que un
+total incompleto.
+
 ### Transacciones pendientes
 
 Se distinguen con el token `pending` y un icono, **no solo por color**. En la

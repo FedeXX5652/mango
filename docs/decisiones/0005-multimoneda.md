@@ -65,7 +65,24 @@ consume ningun sobre, baja "por asignar" en pesos y sube en dolares. Si la plata
 estaba comprometida a sobres, "por asignar" en pesos queda negativo y avisa. Eso
 es informacion correcta, no un error.
 
-### 2. Los informes se leen en una moneda a la vez
+### 1.1 El patrimonio es la excepcion: ahi si se convierte
+
+El patrimonio tiene **dos vistas** en la misma tarjeta:
+
+- **Global**: todo en una sola moneda, convertido con la ultima cotizacion
+  conocida, con un selector para verlo en cualquiera de las monedas que el
+  usuario tiene y **la fecha del dato a la vista**. Es una valuacion: fluctua.
+- **Por moneda**: el saldo de cada moneda por separado, sin convertir. Es el
+  numero exacto, y el que contesta "cuantos dolares tengo".
+
+La eleccion de vista y de moneda se guarda **por dispositivo**: es una
+preferencia de lectura, no un dato del usuario que deba sincronizarse.
+
+Si falta la cotizacion de una moneda, ese saldo **no entra en el total** y la
+tarjeta lo dice, con salida a cargarla. Un total que incluye una conversion
+inventada es peor que un total incompleto.
+
+### 2. Los demas informes se leen en una moneda a la vez
 
 Mientras no haya cotizaciones, **ningun informe suma monedas distintas ni
 convierte**: elige una moneda (la base por defecto), filtra por ella y lo dice
@@ -111,6 +128,10 @@ cuando la transferencia cruza monedas.
 Direccion de la cotizacion en `exchange_rates`: `rate` es **cuantas unidades de
 `quote_currency` compra 1 de `base_currency`**. El dolar oficial se guarda
 `base='USD'`, `quote='ARS'`, `rate=1735.10`.
+
+**No hace falta cargar las dos direcciones**: si se necesita ARS -> USD y solo
+existe USD -> ARS, se usa `1/rate`. Es la misma cotizacion leida al reves, no un
+dato nuevo.
 
 ### 5. Cuando hay redondeo, manda el monto debitado
 

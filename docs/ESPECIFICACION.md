@@ -348,6 +348,12 @@ moneda**:
 
 El movimiento individual nunca se convierte: se muestra siempre en su moneda.
 
+**El patrimonio es la excepcion, y a proposito**: ahi la pregunta es "cuanto
+vale lo que tengo", que solo se contesta en una moneda. La tarjeta tiene dos
+vistas —**Global** (convertido, con selector de moneda y la fecha de la
+cotizacion usada) y **Por moneda** (los saldos exactos, sin convertir)— y si
+falta una cotizacion ese saldo queda afuera del total, dicho en pantalla.
+
 ### 3.6.2 Multimoneda
 
 El modelo completo esta en la decision 0005: un presupuesto por moneda con su

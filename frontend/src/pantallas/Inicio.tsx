@@ -4,11 +4,13 @@ import { useMemo } from "react"
 import { Link } from "react-router-dom"
 
 import { Monto } from "@/componentes/Monto"
+import { TarjetaPatrimonio } from "@/componentes/TarjetaPatrimonio"
 import { Vacio } from "@/componentes/Vacio"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { iconoCuenta } from "@/lib/cuentas"
 import { type Direccion } from "@/lib/dinero"
 import { ordenarMonedas } from "@/lib/monedas"
+import type { SaldoMoneda } from "@/lib/patrimonio"
 import { cn } from "@/lib/utils"
 
 interface SaldoCuenta {
@@ -142,13 +144,17 @@ export function Inicio() {
   const egresos = mesRows.find((r) => r.kind === "expense")?.total ?? 0
   const resultado = ingresos - egresos
 
-  const patrimonio = useMemo(() => {
+  // Saldo por moneda de las cuentas que cuentan en el patrimonio. La tarjeta
+  // decide si lo muestra unificado o separado.
+  const patrimonio = useMemo<SaldoMoneda[]>(() => {
     const porMoneda = new Map<string, number>()
     for (const c of cuentas) {
       if (c.off_budget || c.archived) continue
       porMoneda.set(c.currency, (porMoneda.get(c.currency) ?? 0) + c.balance)
     }
-    return [...porMoneda.entries()].sort()
+    return [...porMoneda.entries()]
+      .sort()
+      .map(([moneda, saldo]) => ({ moneda, saldo }))
   }, [cuentas])
 
   const activas = cuentas.filter((c) => !c.archived)
@@ -179,23 +185,7 @@ export function Inicio() {
         />
       ) : (
         <>
-          <section className="rounded-xl bg-card p-5">
-            <h2 className="text-sm font-medium text-muted-foreground">Patrimonio</h2>
-            {patrimonio.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">Sin cuentas en el patrimonio.</p>
-            ) : (
-              <div className="mt-1 space-y-1">
-                {patrimonio.map(([moneda, total]) => (
-                  <Monto
-                    key={moneda}
-                    centavos={total}
-                    moneda={moneda}
-                    className="block text-3xl font-semibold"
-                  />
-                ))}
-              </div>
-            )}
-          </section>
+          <TarjetaPatrimonio saldos={patrimonio} base={base} />
 
           {/* Tres datos del mes en curso, cada uno con su token de color. */}
           <div className="overflow-hidden rounded-xl border border-border bg-card lg:grid lg:grid-cols-3 lg:gap-3 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
