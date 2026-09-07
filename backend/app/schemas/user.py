@@ -21,6 +21,8 @@ class UserRead(BaseModel):
     theme_id: str
     theme_custom: dict[str, Any] | None
     color_scheme: ColorScheme
+    # Monedas que el usuario carga a mano (fuera del refresco automatico).
+    fx_manual: list[str] | None
     created_at: datetime
     updated_at: datetime
 
@@ -33,3 +35,4 @@ class UserUpdate(BaseModel):
     # Objeto {modo: {token: valor}} con solo los tokens sobreescritos.
     theme_custom: dict[str, Any] | None = None
     color_scheme: ColorScheme | None = None
+    fx_manual: list[Currency] | None = None

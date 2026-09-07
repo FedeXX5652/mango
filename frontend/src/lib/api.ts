@@ -14,6 +14,9 @@ export interface Usuario {
   theme_id: string
   theme_custom: Record<string, Record<string, string>> | null
   color_scheme: "light" | "dark" | "system"
+  // Monedas que el usuario carga a mano: quedan fuera del refresco automatico
+  // de cotizaciones (ver 0005).
+  fx_manual: string[] | null
   created_at: string
   updated_at: string
 }
@@ -21,7 +24,13 @@ export interface Usuario {
 export type PrefsUpdate = Partial<
   Pick<
     Usuario,
-    "display_name" | "base_currency" | "locale" | "theme_id" | "theme_custom" | "color_scheme"
+    | "display_name"
+    | "base_currency"
+    | "locale"
+    | "theme_id"
+    | "theme_custom"
+    | "color_scheme"
+    | "fx_manual"
   >
 >
 
@@ -108,6 +117,14 @@ export interface CredencialesSync {
   powersync_url: string
 }
 
+// Que hizo el refresco automatico de cotizaciones.
+export interface ResultadoCotizaciones {
+  actualizadas: string[]
+  sin_cambios: string[]
+  manuales: string[]
+  fallidas: string[]
+}
+
 export interface ResultadoRecurrentes {
   generated: number
   transaction_ids: string[]
@@ -128,6 +145,13 @@ export const api = {
   // Genera las transacciones de las reglas recurrentes vencidas. Idempotente
   // por fecha (avanza next_run_date), asi que es seguro llamarlo al abrir la app.
   runRecurring: () => pedir<ResultadoRecurrentes>("/recurring/run", { method: "POST" }),
+  // Trae la cotizacion de cada moneda del usuario contra su moneda base. Es
+  // idempotente por fecha (la fuente publica una por dia), asi que es seguro
+  // llamarlo al abrir la app.
+  refrescarCotizaciones: (forzar = false) =>
+    pedir<ResultadoCotizaciones>(`/exchange-rates/refresh${forzar ? "?forzar=true" : ""}`, {
+      method: "POST",
+    }),
   // Export CSV: lo arma el servidor (una sola fuente de verdad del formato),
   // asi que necesita conexion. Devuelve el texto crudo, no JSON.
   exportarCsv: async (params: Record<string, string>): Promise<string> => {

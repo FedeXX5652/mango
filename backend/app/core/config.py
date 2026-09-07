@@ -31,6 +31,13 @@ class Settings(BaseSettings):
         r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}):(5173|4173)"
     )
 
+    # Cotizaciones automaticas (ver 0005). El endpoint v4 de exchangerate-api
+    # es gratuito y sin clave, y publica UNA cotizacion por dia: por eso el
+    # refresco es idempotente por fecha y no hace falta un timer corto.
+    # `{base}` se reemplaza por el codigo ISO de la moneda de origen.
+    fx_api_url: str = "https://api.exchangerate-api.com/v4/latest/{base}"
+    fx_timeout_s: float = 8.0
+
     # Usuario semilla (fase 1: un solo usuario, sin auth de servidor).
     # Su id es fijo para que owner_id sea estable entre dispositivos y reinicios.
     # El codigo de acceso (PIN) vive en el cliente, no aca (ver fase 3 para auth real).

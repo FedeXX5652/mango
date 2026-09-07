@@ -15,8 +15,10 @@ import {
 } from "recharts"
 
 import { Monto } from "@/componentes/Monto"
+import { SelectorMoneda } from "@/componentes/SelectorMoneda"
 import { Button } from "@/componentes/ui/button"
 import { Hoja } from "@/componentes/ui/hoja"
+import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { useMonedaBase } from "@/hooks/monedaBase"
@@ -159,7 +161,7 @@ export function Estadisticas() {
 
   // Monedas con datos, para el selector. La pantalla se abre en la base.
   const base = useMonedaBase()
-  const { data: monedaRows } = useQuery<{ currency: string }>(
+  const { data: monedaRows, isLoading: cargaMonedas } = useQuery<{ currency: string }>(
     "SELECT DISTINCT currency FROM transactions WHERE deleted_at IS NULL AND status='confirmed'",
   )
   const monedas = useMemo(
@@ -169,14 +171,14 @@ export function Estadisticas() {
   const [monedaElegida, setMonedaElegida] = useState<string | null>(null)
   const moneda = monedaElegida ?? monedaPorDefecto(monedas, base)
 
-  const { data: categorias } = useQuery<CatRow>(
+  const { data: categorias, isLoading: cargaCats } = useQuery<CatRow>(
     "SELECT id, name, parent_id FROM categories WHERE deleted_at IS NULL",
   )
   const catById = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
 
   const inicioMes = new Date(anio, mes, 1).toISOString()
   const finMes = new Date(anio, mes + 1, 1).toISOString()
-  const { data: gastoRows } = useQuery<GastoRow>(
+  const { data: gastoRows, isLoading: cargaGasto } = useQuery<GastoRow>(
     `SELECT category_id, SUM(amount) AS total FROM transactions
      WHERE kind='expense' AND status='confirmed' AND deleted_at IS NULL
        AND currency = ? AND occurred_at >= ? AND occurred_at < ?
@@ -185,7 +187,7 @@ export function Estadisticas() {
   )
 
   // Totales del mes elegido, para las barras de ingresos vs egresos.
-  const { data: totalesMes } = useQuery<{ kind: string; total: number }>(
+  const { data: totalesMes, isLoading: cargaTotales } = useQuery<{ kind: string; total: number }>(
     `SELECT kind, SUM(amount) AS total FROM transactions
      WHERE kind IN ('income','expense') AND status='confirmed' AND deleted_at IS NULL
        AND currency = ? AND occurred_at >= ? AND occurred_at < ?
@@ -395,6 +397,14 @@ export function Estadisticas() {
   }, [evoRows])
 
   const etiquetaMes = mesAnio(anio, mes)
+
+  // Mientras la primera consulta no volvio, la pantalla NO afirma nada: sin
+  // este corte se dibuja "Sin gastos este mes" y "$ 0,00", y despues todo
+  // salta (ver 0008). Solo entran las consultas que deciden la estructura;
+  // las de detalle (etiquetas, evolucion) llegan dentro del mismo render.
+  const cargando = cargaMonedas || cargaCats || cargaGasto || cargaTotales
+  // El umbral solo decide si el esqueleto se VE; el corte es `cargando`.
+  const mostrarEsqueleto = useDemora(cargando)
   const tip = (v: number) => formatearMonto(v, { moneda })
 
   function cambiarMes(delta: number) {
@@ -403,18 +413,34 @@ export function Estadisticas() {
     setMes(d.getMonth())
   }
 
+  if (cargando) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-8 p-4">
+        <h1 className="text-2xl font-semibold">Estadísticas</h1>
+        <Cargando visible={mostrarEsqueleto} className="space-y-8" etiqueta="Cargando estadísticas">
+          {/* Los esqueletos tienen el tamano de lo que viene, asi el contenido
+              no empuja nada al llegar. */}
+          <div className="space-y-3">
+            <Esqueleto className="h-4 w-40" />
+            <Esqueleto className="mx-auto h-48 w-48 rounded-full" />
+            <Esqueleto className="h-4 w-full" />
+            <Esqueleto className="h-4 w-3/4" />
+          </div>
+          <div className="space-y-3">
+            <Esqueleto className="h-20 w-full rounded-xl" />
+            <Esqueleto className="h-20 w-full rounded-xl" />
+          </div>
+        </Cargando>
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-8 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Estadísticas</h1>
         {/* Con una sola moneda no hay nada que elegir y el control seria ruido. */}
-        {monedas.length > 1 && (
-          <Segmentado
-            opciones={monedas.map((m) => ({ valor: m, etiqueta: m }))}
-            valor={moneda}
-            onCambio={setMonedaElegida}
-          />
-        )}
+        <SelectorMoneda monedas={monedas} valor={moneda} onCambio={setMonedaElegida} />
       </div>
       {monedas.length > 1 && (
         <p className="-mt-6 text-xs text-muted-foreground">
@@ -455,10 +481,16 @@ export function Estadisticas() {
           <p className="p-8 text-center text-sm text-muted-foreground">Sin gastos este mes.</p>
         ) : (
           <>
-            <div className="relative h-60">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
+            {/* Tamano fijo, sin ResponsiveContainer: los radios de la dona ya
+                son fijos, asi que el contenedor no aportaba nada y su ciclo de
+                medicion dejaba el anillo en blanco ~100 ms (ver 0008). */}
+            <div className="relative mx-auto h-60 w-60">
+              <PieChart width={240} height={240}>
                   <Pie
+                    // Sin animacion de entrada: recharts la hace en 1,5 s y
+                    // deja el anillo a medio dibujar. Los datos que se leen no
+                    // se animan (DESIGN.md 8).
+                    isAnimationActive={false}
                     data={torta}
                     dataKey="value"
                     nameKey="name"
@@ -472,9 +504,8 @@ export function Estadisticas() {
                       <Cell key={i} fill={PALETA[i % PALETA.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v) => tip(Number(v))} />
-                </PieChart>
-              </ResponsiveContainer>
+                <Tooltip formatter={(v) => tip(Number(v))} />
+              </PieChart>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-xs text-muted-foreground">Gasto del mes</span>
                 <Monto centavos={totalMes} moneda={moneda} className="text-xl font-semibold" />
@@ -612,6 +643,7 @@ export function Estadisticas() {
               />
               <Tooltip formatter={(v) => tip(Number(v))} />
               <Area
+                isAnimationActive={false}
                 type="monotone"
                 dataKey="ingresos"
                 name="Ingresos"
@@ -620,6 +652,7 @@ export function Estadisticas() {
                 fill="url(#gradIngresos)"
               />
               <Area
+                isAnimationActive={false}
                 type="monotone"
                 dataKey="gastos"
                 name="Gastos"
@@ -644,7 +677,7 @@ export function Estadisticas() {
                 tick={{ fontSize: 12, fill: colores["muted-foreground"] }}
               />
               <Tooltip formatter={(v) => tip(Number(v))} />
-              <Bar dataKey="neto" name="Resultado" radius={6}>
+              <Bar isAnimationActive={false} dataKey="neto" name="Resultado" radius={6}>
                 {evolucion.map((m) => (
                   <Cell key={m.clave} fill={m.neto < 0 ? colores.expense : colores.income} />
                 ))}

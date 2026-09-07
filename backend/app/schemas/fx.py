@@ -53,3 +53,13 @@ class ExchangeRateRead(BaseModel):
     source: str
     created_at: datetime
     updated_at: datetime
+
+
+class RefrescoRead(BaseModel):
+    """Que hizo el refresco automatico. La pantalla lo usa para decir algo
+    concreto ("USD actualizado", "EUR lo maneja usted a mano")."""
+
+    actualizadas: list[str]
+    sin_cambios: list[str]
+    manuales: list[str]
+    fallidas: list[str]

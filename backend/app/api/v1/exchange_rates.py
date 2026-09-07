@@ -14,7 +14,13 @@ from app.api.deps import get_current_user_id
 from app.core.errors import DomainError
 from app.crud import fx as crud
 from app.db import get_session
-from app.schemas.fx import ExchangeRateCreate, ExchangeRateRead, ExchangeRateUpdate
+from app.schemas.fx import (
+    ExchangeRateCreate,
+    ExchangeRateRead,
+    ExchangeRateUpdate,
+    RefrescoRead,
+)
+from app.services import fx as servicio_fx
 
 router = APIRouter(prefix="/exchange-rates", tags=["exchange-rates"])
 
@@ -33,6 +39,24 @@ async def create_rate(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         ) from exc
+
+
+@router.post("/refresh", response_model=RefrescoRead)
+async def refresh_rates(
+    forzar: bool = False,
+    session: AsyncSession = Depends(get_session),
+    owner_id: uuid.UUID = Depends(get_current_user_id),
+) -> RefrescoRead:
+    """Trae la cotizacion de cada moneda del usuario contra su moneda base.
+
+    Idempotente por fecha: la fuente publica una por dia, asi que llamarlo al
+    abrir la app no gasta una llamada por vez. `forzar` reescribe la del dia.
+
+    Nunca falla por la red: lo que no se pudo traer sale en `fallidas` y la app
+    sigue con lo que ya tenia (la cotizacion cacheada sirve para estimar, ver
+    0005)."""
+    res = await servicio_fx.refrescar(session, owner_id, forzar=forzar)
+    return RefrescoRead(**vars(res))
 
 
 @router.get("", response_model=list[ExchangeRateRead])

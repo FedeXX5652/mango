@@ -383,6 +383,12 @@ vistas —**Global** (convertido, con selector de moneda y la fecha de la
 cotizacion usada) y **Por moneda** (los saldos exactos, sin convertir)— y si
 falta una cotizacion ese saldo queda afuera del total, dicho en pantalla.
 
+En el resumen, **los movimientos usan la misma cotizacion que el patrimonio**:
+la ultima. La tarjeta dice "cuanto tengo y como vino el mes, en esta moneda,
+hoy", como si cambiaras todo ahora. La cotizacion del momento de cada
+movimiento es para los informes historicos, donde "lo gastado en marzo" no debe
+cambiar (ver 0005).
+
 ### 3.6.2 Multimoneda
 
 El modelo completo esta en la decision 0005: un presupuesto por moneda con su
@@ -398,9 +404,16 @@ importa: la cotizacion sirve para **ver** (convierte el patrimonio), y nunca
 cambia un movimiento ya cargado, que conserva la que se le aplico.
 
 Una cotizacion se puede corregir (un dedazo) o dar de baja; se corrige el valor
-y la fuente, no el par ni la fecha, porque eso ya es otra cotizacion. La
-automatizacion desde una fuente publica llega despues: con la carga manual el
-patrimonio unificado ya funciona.
+y la fuente, no el par ni la fecha, porque eso ya es otra cotizacion.
+
+**Las cotizaciones se traen solas** de una API publica al abrir la app, una vez
+por dia, y hay un boton para forzarlo. No hay cron: el servidor no siempre esta
+prendido y el refresco es idempotente por fecha (ver 0005).
+
+**Cada moneda puede pasarse a manual** con un interruptor. En Argentina es el
+caso normal para el dolar: la API publica la cotizacion oficial y lo que uno
+paga es otra (MEP, tarjeta). La pantalla dice cual esta en automatico y cual a
+mano, y **a igual fecha la que cargo la persona gana** sobre la automatica.
 
 ### 3.7 Recurrentes y plantillas
 

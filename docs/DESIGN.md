@@ -340,12 +340,42 @@ siempre el mismo:
   si los muestra. Ni sumarlos ni esconderlos.
 - El **movimiento individual nunca se convierte**: va siempre en su moneda.
 
-**El patrimonio si convierte**, porque la pregunta es otra ("cuanto vale lo que
-tengo"). Su tarjeta lleva el switch **Global / Por moneda** adentro: en Global,
-el total en grande en una moneda, el selector de moneda debajo y **la fecha de
-la cotizacion usada** al pie; lo que no se pudo convertir se informa con salida
-a cargar la cotizacion. Un total con una conversion inventada es peor que un
-total incompleto.
+**El presupuesto usa el mismo control, con una restriccion**: ofrece solo las
+monedas que tienen **cuentas presupuestables**, porque no se puede repartir
+plata que no entra al presupuesto. No es un informe —es un compromiso— y por eso
+ahi nunca se convierte nada (ver 0005).
+
+### Tarjeta de resumen
+
+Inicio abre con **una** tarjeta que junta las dos escalas de la misma pregunta:
+el **patrimonio** arriba (cuanto tengo) y el **movimiento del mes** abajo
+(ingresos, egresos, resultado), separados por una linea de 1 px. Antes eran dos
+bloques sueltos y obligaban a leer dos veces.
+
+**Una tarjeta con una linea, no tarjetas anidadas.** Anidar suma peso visual sin
+agregar informacion; la linea ya dice "esto es otra cosa dentro del mismo tema".
+
+Lleva dos controles y ninguno se repite en el titulo (que dice solo "Resumen"):
+
+- **Global / Por moneda**, chips: en Global todo se lleva a la moneda elegida;
+  en Por moneda se muestra **solo lo que ya esta** en esa moneda, sin convertir.
+- **Selector de moneda** en los dos modos, con la regla de 0007 (chips hasta
+  dos, desplegable de tres en adelante). Reemplaza a la lista apilada de saldos:
+  en vez de ver todas las monedas juntas, se cambia de moneda.
+
+**Todo se convierte con la misma cotizacion, la ultima** (ver 0005). La tarjeta
+es una foto del ahora, y usar dos cotizaciones distintas en el mismo bloque
+mezclaria dos valuaciones. La cotizacion del momento de cada movimiento es para
+los informes historicos.
+
+**El pie dice el dato, no lo explica**: `Cotizacion del 07/09/2026`, y nada mas.
+Que la conversion use la ultima cotizacion es una regla del producto; repetirla
+en cada pantalla ensucia la vista sin agregar nada. Un pie de tarjeta es una
+linea corta, no una aclaracion.
+
+Lo que no se pudo convertir queda **afuera del total** y se informa con salida a
+cargar la cotizacion: un total con una conversion inventada es peor que un total
+incompleto.
 
 ### Transacciones pendientes
 
@@ -492,6 +522,40 @@ Desarchivar no pide confirmacion: es reversible y no destruye nada.
 Pista con pildora deslizante para elegir entre pocas opciones excluyentes (tipo
 de movimiento, apariencia). El desplazamiento de la pildora es `motion-safe`.
 
+**Si la cantidad de opciones depende de los datos, el control cambia con ella**
+(decision 0007): 1 opcion no se dibuja, 2 van en chips, **3 o mas pasan a
+desplegable**. Tres codigos de moneda en una fila de 390 px ya obligan a achicar
+el texto o a partir la fila, y empeora con cada moneda que agregue el usuario.
+Los vocabularios **fijos** (Gasto/Ingreso/Transferencia, Claro/Oscuro/Sistema)
+siguen en chips aunque sean tres: su cantidad no crece, y el control esta en la
+pantalla mas usada.
+
+La regla vive en un solo componente por rol —`SelectorMoneda`— y las pantallas
+le pasan la lista. Si cada pantalla decide, la regla deriva. Cuando el
+desplegable no tiene etiqueta visible al lado, lleva `aria-label`: el
+`Segmentado` se lee por sus opciones, el `Select` no.
+
+### Estados de carga
+
+Un estado vacio y "todavia no se" **no son lo mismo**, y confundirlos es lo que
+producia los saltos al cambiar de pestaña (decision 0008). La regla:
+
+- El corte se hace con **`isLoading`** de la consulta, nunca con
+  `data.length === 0`.
+- Es **por pantalla**, no por seccion: si cada bloque se destapa cuando llega su
+  consulta, la pantalla sube y baja como una escalera.
+- **Tres** estados: antes de 120 ms no se dibuja nada; pasado el umbral va el
+  **esqueleto**; con datos, el contenido. El umbral evita el parpadeo de un
+  esqueleto que vive 40 ms, y el "nada" evita el estado vacio falso.
+- El **esqueleto tiene la forma de lo que viene** (`Esqueleto` con el tamano
+  real), asi el contenido no empuja nada al llegar. Donde la forma no se sabe,
+  `Puntos`.
+- **No se opaca ni se bloquea la pantalla anterior**: se navega de inmediato y la
+  nueva muestra su estado. Bloquear hace que la app se sienta mas lenta de lo
+  que es.
+- **Nunca una barra de progreso** para algo indeterminado: un porcentaje
+  inventado es una mentira.
+
 ### Estados vacios: `Vacio`
 
 Icono tenue, titulo, detalle y **accion** cuando hay una obvia ("Crear cuenta").
@@ -505,7 +569,10 @@ Un estado vacio sin salida es un callejon.
   aparte con punto de color, monto y porcentaje.
 - **Progreso**: anillo con el porcentaje al centro.
 
-Los datos que el usuario lee no se animan al montar (ver 8).
+Los datos que el usuario lee no se animan al montar (ver 8): toda serie de
+recharts va con `isAnimationActive={false}`. Y donde el tamano del grafico es
+fijo (las donas) no se usa `ResponsiveContainer`: su ciclo de medicion deja el
+area vacia un instante y no aporta nada (decision 0008).
 
 ---
 
@@ -519,6 +586,11 @@ Se usa para comunicar cambios de estado, no para decorar.
 | Cambio entre pantallas | 250 ms |
 | Realimentacion a un toque | 100 ms |
 | Aparicion de elemento en lista | 150 ms |
+| Espera indeterminada (`latido`) | 1200 ms, en bucle |
+
+El `latido` es **el unico bucle de la aplicacion**: no comunica un cambio de
+estado sino "seguimos trabajando", asi que va lento y suave para no robar
+atencion (ver 0008 y `componentes/ui/cargando.tsx`).
 
 **Respetar `prefers-reduced-motion`.** Si el usuario pidio menos movimiento, las
 transiciones se reducen a cambios de opacidad o se eliminan.

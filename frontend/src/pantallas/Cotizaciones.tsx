@@ -1,6 +1,6 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft, Coins, Pencil, Trash2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { ArrowLeft, Coins, Pencil, RefreshCw, Trash2 } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { Vacio } from "@/componentes/Vacio"
@@ -12,9 +12,11 @@ import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
 import { useMonedaBase } from "@/hooks/monedaBase"
+import { api } from "@/lib/api"
 import { fechaISO, formatearFechaCorta } from "@/lib/fecha"
 import { ordenarMonedas } from "@/lib/monedas"
 import { uuidv4 } from "@/lib/uuid"
+import { cn } from "@/lib/utils"
 
 interface Cotizacion {
   id: string
@@ -37,7 +39,7 @@ export function Cotizaciones() {
   const { data: filas } = useQuery<Cotizacion>(
     `SELECT id, base_currency, quote_currency, rate, rate_date, source
      FROM exchange_rates WHERE deleted_at IS NULL
-     ORDER BY rate_date DESC, base_currency`,
+     ORDER BY rate_date DESC, base_currency, (source = 'auto') ASC`,
   )
   // Monedas de las cuentas: son las que hay que cotizar. La base no se cotiza
   // contra si misma.
@@ -51,6 +53,60 @@ export function Cotizaciones() {
 
   const [editando, setEditando] = useState<Cotizacion | "nueva" | null>(null)
   const [borrando, setBorrando] = useState<Cotizacion | null>(null)
+
+  // Que monedas maneja el usuario a mano. Vive en `users` (viaja con el
+  // usuario, no con el dispositivo) y se lee por REST porque esa tabla no se
+  // sincroniza (ver 0005).
+  const [manuales, setManuales] = useState<string[] | null>(null)
+  const [refrescando, setRefrescando] = useState(false)
+  const [aviso, setAviso] = useState<string | null>(null)
+
+  useEffect(() => {
+    let vigente = true
+    api
+      .getMe()
+      .then((u) => {
+        if (vigente) setManuales(u.fx_manual ?? [])
+      })
+      .catch(() => {
+        if (vigente) setManuales([])
+      })
+    return () => {
+      vigente = false
+    }
+  }, [])
+
+  async function alternarAuto(moneda: string, auto: boolean) {
+    const actuales = manuales ?? []
+    const siguiente = auto ? actuales.filter((m) => m !== moneda) : [...actuales, moneda]
+    setManuales(siguiente)
+    try {
+      await api.updateMe({ fx_manual: siguiente })
+      // Al pasar una moneda a automatica conviene traerla ya.
+      if (auto) await api.refrescarCotizaciones()
+    } catch {
+      setManuales(actuales)
+      setAviso("No se pudo guardar la preferencia: hace falta conexión.")
+    }
+  }
+
+  async function refrescarAhora() {
+    setRefrescando(true)
+    setAviso(null)
+    try {
+      const r = await api.refrescarCotizaciones(true)
+      const partes: string[] = []
+      if (r.actualizadas.length) partes.push(`actualizadas: ${r.actualizadas.join(", ")}`)
+      if (r.sin_cambios.length) partes.push(`ya al día: ${r.sin_cambios.join(", ")}`)
+      if (r.manuales.length) partes.push(`a mano: ${r.manuales.join(", ")}`)
+      if (r.fallidas.length) partes.push(`sin respuesta: ${r.fallidas.join(", ")}`)
+      setAviso(partes.length ? partes.join(" · ") : "No hay monedas que cotizar.")
+    } catch {
+      setAviso("No se pudo consultar la fuente: hace falta conexión.")
+    } finally {
+      setRefrescando(false)
+    }
+  }
 
   async function borrar(c: Cotizacion) {
     await db.execute("DELETE FROM exchange_rates WHERE id = ?", [c.id])
@@ -69,6 +125,60 @@ export function Cotizaciones() {
         La cotización se usa para <strong>ver</strong>: convierte el patrimonio a una sola moneda.
         Nunca cambia un movimiento ya cargado, que conserva la cotización que se le aplicó.
       </p>
+
+      {extranjeras.length > 0 && (
+        <section className="space-y-2 rounded-xl border border-border bg-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Actualización automática</h2>
+            <Button variant="outline" size="sm" onClick={refrescarAhora} disabled={refrescando}>
+              <RefreshCw
+                className={cn("mr-2 h-4 w-4", refrescando && "motion-safe:animate-spin")}
+                aria-hidden
+              />
+              {refrescando ? "Consultando…" : "Actualizar ahora"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Se traen solas al abrir la app, una vez por día. La fuente publica la cotización{" "}
+            <strong>oficial</strong>: si lo que pagás es otra (MEP, tarjeta), pasá esa moneda a
+            manual y cargala vos.
+          </p>
+
+          <ul className="divide-y divide-border">
+            {extranjeras.map((m) => {
+              const auto = !(manuales ?? []).includes(m)
+              return (
+                <li key={m} className="flex items-center justify-between gap-3 py-2">
+                  <span className="text-sm">
+                    1 {m} en {base}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "text-xs",
+                        auto ? "text-muted-foreground" : "text-foreground",
+                      )}
+                    >
+                      {auto ? "Automática" : "A mano"}
+                    </span>
+                    {/* Interruptor nativo: accesible, sin dependencias. */}
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-primary"
+                      checked={auto}
+                      disabled={manuales === null}
+                      onChange={(e) => alternarAuto(m, e.target.checked)}
+                      aria-label={`Actualizar ${m} automáticamente`}
+                    />
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+
+          {aviso && <p className="text-xs text-muted-foreground">{aviso}</p>}
+        </section>
+      )}
 
       {extranjeras.length === 0 ? (
         <Vacio
@@ -117,7 +227,8 @@ export function Cotizaciones() {
                   1 {c.base_currency} = {formatearRate(c.rate)} {c.quote_currency}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {formatearFechaCorta(c.rate_date)} · {c.source}
+                  {formatearFechaCorta(c.rate_date)} ·{" "}
+                  {c.source === "auto" ? "automática" : c.source}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-0.5">

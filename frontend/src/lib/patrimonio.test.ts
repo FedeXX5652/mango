@@ -114,6 +114,36 @@ describe("calcularPatrimonio", () => {
   })
 })
 
+describe("los flujos usan la misma cotizacion que el patrimonio", () => {
+  // La tarjeta de resumen contesta "cuanto tengo y como vino el mes, en esta
+  // moneda, hoy": una sola cotizacion para todo, como si cambiaras ahora. Por
+  // eso los flujos pasan por `calcularPatrimonio` y no hay conversion por
+  // fecha (la del momento de cada movimiento es para los informes historicos,
+  // ver 0005).
+  const ultimas = [
+    { base_currency: "USD", quote_currency: "ARS", rate: "1500.00", rate_date: "2026-09-06" },
+  ]
+
+  it("un ingreso viejo se convierte con la ultima cotizacion, no con la de su dia", () => {
+    const r = calcularPatrimonio([{ moneda: "USD", saldo: 50000 }], "ARS", ultimas)
+    expect(r.total).toBe(75000000)
+    expect(r.fecha).toBe("2026-09-06")
+  })
+
+  it("una moneda sin ninguna cotizacion queda afuera y se informa", () => {
+    const r = calcularPatrimonio(
+      [
+        { moneda: "ARS", saldo: 100000000 },
+        { moneda: "BRL", saldo: 50000 },
+      ],
+      "ARS",
+      ultimas,
+    )
+    expect(r.total).toBe(100000000)
+    expect(r.sinCotizacion).toEqual(["BRL"])
+  })
+})
+
 describe("ultimaPorPar", () => {
   it("se queda con la primera de cada par (la mas nueva)", () => {
     const filas = [

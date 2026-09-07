@@ -37,6 +37,12 @@ class User(Base, IdMixin, TimestampMixin):
     # color_scheme: 'system' sigue la preferencia del sistema operativo.
     color_scheme: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'system'"))
 
+    # Monedas que el usuario maneja A MANO: quedan fuera del refresco
+    # automatico de cotizaciones (ver 0005). En Argentina es el caso normal
+    # para el dolar, donde la cotizacion oficial que publica la API no es la
+    # que uno paga. Lista de codigos ISO; vacia o NULL = todas automaticas.
+    fx_manual: Mapped[list[str] | None] = mapped_column(JSONB)
+
     __table_args__ = (
         CheckConstraint("color_scheme IN ('light','dark','system')", name="users_color_scheme_chk"),
     )

@@ -19,13 +19,15 @@ dependencies = [
     "tzdata>=2024.1",
     # Firma de los JWT HS256 para PowerSync.
     "pyjwt>=2.9",
+    # Cliente HTTP async para traer cotizaciones (ver 0005). Ya venia como
+    # dependencia de pruebas; pasa a ejecucion porque ahora la API sale a la red.
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
-    "httpx>=0.27",
     "ruff>=0.5",
 ]
 

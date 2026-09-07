@@ -94,7 +94,14 @@ async def latest_rate(
         stmt = stmt.where(ExchangeRate.rate_date <= as_of)
     if source:
         stmt = stmt.where(ExchangeRate.source == source)
-    stmt = stmt.order_by(ExchangeRate.rate_date.desc(), ExchangeRate.created_at.desc())
+    # A igual fecha, **lo cargado a mano gana**: si el usuario tipeo una
+    # cotizacion es porque la oficial que trajo la API no es la que aplica
+    # (en Argentina, MEP o tarjeta). Ver 0005.
+    stmt = stmt.order_by(
+        ExchangeRate.rate_date.desc(),
+        (ExchangeRate.source == "auto").asc(),
+        ExchangeRate.created_at.desc(),
+    )
     return (await session.execute(stmt.limit(1))).scalar_one_or_none()
 
 

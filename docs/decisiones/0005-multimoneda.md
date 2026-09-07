@@ -82,6 +82,34 @@ Si falta la cotizacion de una moneda, ese saldo **no entra en el total** y la
 tarjeta lo dice, con salida a cargarla. Un total que incluye una conversion
 inventada es peor que un total incompleto.
 
+### 1.2 En el resumen, UNA sola cotizacion: la ultima
+
+El patrimonio y los flujos de la tarjeta usan **la misma** cotizacion, la ultima
+conocida. La tarjeta contesta "cuanto tengo y como vino el mes, expresado en
+esta moneda, **hoy**": es como si cambiaras todo ahora, a la cotizacion de
+ahora. Que el patrimonio usara una y los flujos otra mezclaria dos valuaciones
+en el mismo bloque.
+
+La cotizacion **del momento de cada movimiento** responde otra pregunta —
+"cuanto me costo en marzo", que no puede cambiar porque hoy salto el dolar — y
+por eso vive en los **informes historicos** (Estadisticas), con
+`transactions.exchange_rate` como fuente y la serie por fecha como respaldo.
+
+| Pregunta | Cotizacion |
+|---|---|
+| Resumen: cuanto tengo y como vino el mes, en una moneda | **la ultima** |
+| Informe historico: cuanto gaste en marzo | **la del momento** |
+
+Consecuencia buena: **el resumen no necesita avisos de fechas faltantes**. Con
+una sola cotizacion por par no hay "falta la del 04/09"; lo unico que puede
+faltar es la cotizacion de una moneda, y entonces esa queda afuera del total y
+se dice, con salida a cargarla.
+
+Esto reemplaza dos intentos anteriores —convertir cada flujo con la cotizacion
+de su dia, y despues aproximar con la mas cercana avisando— que resolvian un
+problema que esta tarjeta no tiene. Quedan anotados porque la logica por fecha
+si va a hacer falta en los informes historicos.
+
 ### 2. Los demas informes se leen en una moneda a la vez
 
 Mientras no haya cotizaciones, **ningun informe suma monedas distintas ni
@@ -97,10 +125,39 @@ por dia del calendario.
 | Cuanto gaste en marzo | **la del momento de cada movimiento** | Lo gastado en marzo no puede cambiar porque el dolar se movio en agosto. |
 
 `transactions.exchange_rate` conserva la de cada movimiento; `exchange_rates`
-guarda la serie para el patrimonio. La fuente es la **cotizacion oficial**, y se
-convierte siempre desde la moneda de origen a la moneda principal del usuario.
-Queda pendiente contemplar que en Argentina hay varias cotizaciones (oficial,
-MEP, tarjeta) y que no siempre aplica la misma.
+guarda la serie para el patrimonio. Se convierte siempre desde la moneda de
+origen a la moneda principal del usuario.
+
+#### De donde salen las cotizaciones
+
+**Automatico, con una API publica.** `api.exchangerate-api.com/v4/latest/{CODE}`:
+gratuita, sin clave, y publica **una cotizacion por dia** (trae `date` en el
+payload). Se pide **una llamada por moneda** —`/latest/{extranjera}`, leyendo
+`rates[base]`— y no una sola a `/latest/{base}` dando vuelta el numero: la API
+redondea a ~6 digitos y el inverso arrastra ese error. Ademas asi la fila queda
+en la direccion en que se lee ("1 USD = 1735,10 ARS"). Son una o dos monedas en
+la practica.
+
+**Sin cron ni timers.** El refresco se dispara **al abrir la app**, junto con
+las recurrentes (`POST /exchange-rates/refresh`), y hay un boton para forzarlo
+en Ajustes > Cotizaciones. El servidor no siempre esta prendido, asi que un cron
+se saltearia dias igual; y como la fuente publica una por dia, el refresco es
+**idempotente por fecha**: llamarlo de mas no gasta nada. Si la fuente falla o
+no hay conexion, las monedas salen en `fallidas` y la app sigue con lo que tenia.
+
+**Cada moneda puede quedar fuera del automatico** (`users.fx_manual`). Es
+necesario, no un lujo: para ARS esta API publica la **oficial**, que no es la que
+uno paga (MEP, tarjeta). La pantalla muestra un interruptor por moneda y dice
+cual esta en automatico y cual a mano.
+
+**A igual fecha, lo cargado a mano gana.** Si el usuario tipeo una cotizacion es
+porque la oficial no es la que aplica. El orden es
+`rate_date DESC, (source='auto') ASC, created_at DESC`, y esta escrito **en las
+dos puntas**: en `crud.fx.latest_rate` y en la consulta del cliente. Si estuviera
+en una sola, el servidor y la pantalla mostrarian numeros distintos.
+
+`source` guarda de donde vino cada fila: `auto` la que trae la API, y el texto
+que elija el usuario (`oficial`, `mep`, `tarjeta`) las que carga a mano.
 
 ### 4. Que campo lleva que moneda
 

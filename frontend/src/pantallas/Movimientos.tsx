@@ -17,6 +17,7 @@ import { Calendario } from "@/componentes/Calendario"
 import { Vacio } from "@/componentes/Vacio"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Monto } from "@/componentes/Monto"
+import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { Button } from "@/componentes/ui/button"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
@@ -119,7 +120,7 @@ export function Movimientos() {
   const [monedaFiltro, setMonedaFiltro] = useState("")
   const [diaSel, setDiaSel] = useState<number | null>(null)
 
-  const { data: cuentas } = useQuery<Opcion>(
+  const { data: cuentas, isLoading: cargaCuentas } = useQuery<Opcion>(
     "SELECT id, name FROM accounts WHERE deleted_at IS NULL ORDER BY name",
   )
   const { data: categorias } = useQuery<Opcion>(
@@ -189,7 +190,7 @@ export function Movimientos() {
     }
   }, [anio, mes, tipo, cuentaId, categoriaId, etiquetaId, monedaFiltro, texto])
 
-  const { data: mesMovs } = useQuery<Fila>(sql, params)
+  const { data: mesMovs, isLoading: cargaMovs } = useQuery<Fila>(sql, params)
 
   const lista = useMemo(
     () =>
@@ -217,6 +218,30 @@ export function Movimientos() {
   }
 
   const etiquetaMes = mesAnio(anio, mes)
+
+  // Sin esto la lista dice "Sin movimientos" antes de tener la respuesta.
+  const cargando = cargaMovs || cargaCuentas
+  // El umbral solo decide si el esqueleto se VE; el corte es `cargando`.
+  const mostrarEsqueleto = useDemora(cargando)
+
+  if (cargando) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-3 p-4">
+        <header className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Movimientos</h1>
+          <EstadoSync />
+        </header>
+        <Cargando visible={mostrarEsqueleto} className="space-y-3" etiqueta="Cargando movimientos">
+          <div className="grid grid-cols-2 gap-2">
+            <Esqueleto className="h-10" />
+            <Esqueleto className="h-10" />
+          </div>
+          <Esqueleto className="h-4 w-28" />
+          <Esqueleto className="h-64 w-full rounded-xl" />
+        </Cargando>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-3 p-4">

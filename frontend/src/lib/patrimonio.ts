@@ -68,6 +68,11 @@ export function convertir(
   return Math.round(unidades * rate * factorDe(destino))
 }
 
+// Busca la ultima cotizacion conocida del par. Espera `cotizaciones` ordenadas
+// de la fecha mas nueva a la mas vieja, que es como las devuelve la consulta.
+//
+// Cuando haga falta la cotizacion **de una fecha** (informes historicos, Inc 24)
+// va a entrar un parametro `hasta` y su prueba; no se deja de arriba sin uso.
 function buscarCotizacion(
   origen: string,
   destino: string,
@@ -148,3 +153,20 @@ export function ultimaPorPar(filas: CotizacionConocida[]): CotizacionConocida[] 
   }
   return salida
 }
+
+// ---------------------------------------------------------------------------
+// Flujos (ingresos, egresos) del periodo: se convierten con la MISMA cotizacion
+// que el patrimonio, la ultima conocida.
+//
+// Es la respuesta a "cuanto tengo y como vino el mes, expresado en esta moneda,
+// hoy": una sola cotizacion para todo, como si cambiaras todo ahora. Que el
+// patrimonio use una y los flujos otra mezclaria dos valuaciones en el mismo
+// bloque.
+//
+// La cotizacion del **momento de cada movimiento** es para otra pregunta —
+// "cuanto me costo en marzo", que no puede cambiar porque hoy salto el dolar —
+// y esa vive en los informes historicos, con `transactions.exchange_rate`
+// (ver 0005).
+//
+// Por eso no hay una funcion aparte: los flujos se agrupan por moneda y pasan
+// por `calcularPatrimonio`, que es exactamente esta operacion.

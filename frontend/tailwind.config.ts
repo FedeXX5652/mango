@@ -69,12 +69,20 @@ export default {
           from: { opacity: "0", transform: "scale(0.3)" },
           to: { opacity: "1", transform: "none" },
         },
+        // Espera indeterminada: el unico bucle de la app. No comunica un
+        // cambio de estado sino "seguimos trabajando", asi que va lento y
+        // suave para no llamar la atencion (ver DESIGN.md 8).
+        latido: {
+          "0%, 100%": { opacity: "0.35", transform: "scale(0.85)" },
+          "50%": { opacity: "1", transform: "none" },
+        },
       },
       animation: {
         subir: "subir 220ms cubic-bezier(0.23, 1, 0.32, 1)",
         aparecer: "aparecer 200ms cubic-bezier(0.23, 1, 0.32, 1)",
         fundir: "fundir 200ms cubic-bezier(0.23, 1, 0.32, 1)",
         punto: "punto 150ms cubic-bezier(0.23, 1, 0.32, 1)",
+        latido: "latido 1200ms ease-in-out infinite",
       },
     },
   },

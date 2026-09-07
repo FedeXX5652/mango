@@ -4,12 +4,12 @@ import { useMemo } from "react"
 import { Link } from "react-router-dom"
 
 import { Monto } from "@/componentes/Monto"
-import { TarjetaPatrimonio } from "@/componentes/TarjetaPatrimonio"
+import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
+import { TarjetaResumen } from "@/componentes/TarjetaResumen"
 import { Vacio } from "@/componentes/Vacio"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { iconoCuenta } from "@/lib/cuentas"
 import { type Direccion } from "@/lib/dinero"
-import { ordenarMonedas } from "@/lib/monedas"
 import type { SaldoMoneda } from "@/lib/patrimonio"
 import { cn } from "@/lib/utils"
 
@@ -68,81 +68,15 @@ const SQL_RECIENTES = `
   LIMIT ${MAX_RECIENTES}
 `
 
-// Totales del mes en curso, para los tres datos de arriba. Se leen en UNA
-// moneda (la base): sumar monedas distintas da un numero que no significa nada
-// y convertir necesita cotizaciones (ver 0005). Lo que quede afuera se avisa.
-const SQL_MES = `
-  SELECT kind, SUM(amount) AS total FROM transactions
-  WHERE kind IN ('income','expense') AND status = 'confirmed' AND deleted_at IS NULL
-    AND currency = ? AND occurred_at >= ? AND occurred_at < ?
-  GROUP BY kind
-`
-
-// Monedas distintas de la base con movimientos en el mes: no entran en los tres
-// datos y hay que decirlo.
-const SQL_OTRAS_MONEDAS = `
-  SELECT DISTINCT currency FROM transactions
-  WHERE kind IN ('income','expense') AND status = 'confirmed' AND deleted_at IS NULL
-    AND currency <> ? AND occurred_at >= ? AND occurred_at < ?
-`
-
 function fechaCorta(iso: string): string {
   return new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })
 }
 
-function Dato({
-  etiqueta,
-  centavos,
-  clase,
-}: {
-  etiqueta: string
-  centavos: number
-  clase: string
-}) {
-  // Estos tres van SIN abreviar: son el resumen del mes y el numero exacto es
-  // el dato. Por eso en movil van como tres filas de una tarjeta (un monto
-  // completo no entra en un tercio de 390 px) y en escritorio como tres
-  // tarjetas en fila, donde sobra ancho.
-  return (
-    <div
-      className={cn(
-        "flex items-baseline justify-between gap-3 border-b border-border px-3 py-2.5 last:border-b-0",
-        "lg:flex-col lg:items-start lg:gap-0 lg:rounded-xl lg:border lg:bg-card lg:p-3",
-      )}
-    >
-      <p className="text-xs text-muted-foreground">{etiqueta}</p>
-      <Monto centavos={centavos} className={cn("text-base font-semibold", clase)} />
-    </div>
-  )
-}
-
 export function Inicio() {
-  const { data: cuentas } = useQuery<SaldoCuenta>(SQL_SALDOS)
+  const { data: cuentas, isLoading: cargaCuentas } = useQuery<SaldoCuenta>(SQL_SALDOS)
   const { data: recientes } = useQuery<MovReciente>(SQL_RECIENTES)
 
-  const rangoMes = useMemo(() => {
-    const h = new Date()
-    return [
-      new Date(h.getFullYear(), h.getMonth(), 1).toISOString(),
-      new Date(h.getFullYear(), h.getMonth() + 1, 1).toISOString(),
-    ]
-  }, [])
   const base = useMonedaBase()
-  const { data: mesRows } = useQuery<{ kind: string; total: number }>(SQL_MES, [
-    base,
-    ...rangoMes,
-  ])
-  const { data: otrasRows } = useQuery<{ currency: string }>(SQL_OTRAS_MONEDAS, [
-    base,
-    ...rangoMes,
-  ])
-  const otrasMonedas = useMemo(
-    () => ordenarMonedas(otrasRows.map((r) => r.currency), base).filter((c) => c !== base),
-    [otrasRows, base],
-  )
-  const ingresos = mesRows.find((r) => r.kind === "income")?.total ?? 0
-  const egresos = mesRows.find((r) => r.kind === "expense")?.total ?? 0
-  const resultado = ingresos - egresos
 
   // Saldo por moneda de las cuentas que cuentan en el patrimonio. La tarjeta
   // decide si lo muestra unificado o separado.
@@ -158,6 +92,29 @@ export function Inicio() {
   }, [cuentas])
 
   const activas = cuentas.filter((c) => !c.archived)
+
+  // Sin este corte, Inicio dibuja "Sin cuentas todavia" y "$ 0,00" antes de
+  // que vuelvan las consultas, y despues todo salta (ver 0008).
+  const cargando = cargaCuentas
+  // El umbral solo decide si el esqueleto se VE; el corte es `cargando`.
+  const mostrarEsqueleto = useDemora(cargando)
+
+  if (cargando) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-6 p-4">
+        <Cargando visible={mostrarEsqueleto} className="space-y-6" etiqueta="Cargando inicio">
+          <Esqueleto className="h-32 w-full rounded-xl" />
+          <Esqueleto className="h-28 w-full rounded-xl" />
+          <div className="grid grid-cols-2 gap-3">
+            <Esqueleto className="h-24 rounded-xl" />
+            <Esqueleto className="h-24 rounded-xl" />
+            <Esqueleto className="h-24 rounded-xl" />
+            <Esqueleto className="h-24 rounded-xl" />
+          </div>
+        </Cargando>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4">
@@ -185,27 +142,7 @@ export function Inicio() {
         />
       ) : (
         <>
-          <TarjetaPatrimonio saldos={patrimonio} base={base} />
-
-          {/* Tres datos del mes en curso, cada uno con su token de color. */}
-          <div className="overflow-hidden rounded-xl border border-border bg-card lg:grid lg:grid-cols-3 lg:gap-3 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
-            <Dato etiqueta="Ingresos" centavos={ingresos} clase="text-income" />
-            <Dato etiqueta="Egresos" centavos={egresos} clase="text-expense" />
-            <Dato
-              etiqueta="Resultado"
-              centavos={resultado}
-              clase={resultado < 0 ? "text-expense" : "text-income"}
-            />
-          </div>
-          {otrasMonedas.length > 0 && (
-            <p className="-mt-1 px-1 text-xs text-muted-foreground">
-              Solo en {base}. Este mes también hay movimientos en {otrasMonedas.join(", ")}:{" "}
-              <Link to="/estadisticas" className="text-primary underline-offset-2 hover:underline">
-                verlos en Estadísticas
-              </Link>
-              .
-            </p>
-          )}
+          <TarjetaResumen saldos={patrimonio} base={base} />
 
           {/* Cuentas: bloque 2x2 con las primeras segun el orden de Ajustes. */}
           <section className="space-y-3">

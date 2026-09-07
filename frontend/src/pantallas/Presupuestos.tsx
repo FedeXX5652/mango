@@ -9,9 +9,11 @@ import {
   Trash2,
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts"
+import { Cell, Pie, PieChart } from "recharts"
 
 import { Monto } from "@/componentes/Monto"
+import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
+import { SelectorMoneda } from "@/componentes/SelectorMoneda"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
@@ -21,7 +23,9 @@ import { Select } from "@/componentes/ui/select"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, formatearCentavos, formatearMonto } from "@/lib/dinero"
+import { useMonedaBase } from "@/hooks/monedaBase"
 import { mesAnio } from "@/lib/fecha"
+import { monedaPorDefecto, ordenarMonedas } from "@/lib/monedas"
 import { type EntradaSobre, type SaldoSobre, calcularMes } from "@/lib/sobres"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
@@ -62,39 +66,67 @@ export function Presupuestos() {
   const [mes, setMes] = useState(hoy.getMonth())
   const [agregando, setAgregando] = useState(false)
 
+  // El sobre es categoria + moneda + mes (ver 0005): la pantalla presupuesta
+  // UNA moneda a la vez, con su propio "por asignar". Solo se ofrecen las
+  // monedas que tienen cuentas presupuestables: no se puede repartir plata que
+  // no entra al presupuesto.
+  const base = useMonedaBase()
+  const { data: monedaRows } = useQuery<{ currency: string }>(
+    `SELECT DISTINCT currency FROM accounts
+     WHERE deleted_at IS NULL AND archived = 0 AND COALESCE(off_budget,0) = 0`,
+  )
+  const monedas = useMemo(
+    () => ordenarMonedas(monedaRows.map((r) => r.currency), base),
+    [monedaRows, base],
+  )
+  const [monedaElegida, setMonedaElegida] = useState<string | null>(null)
+  const moneda = monedaElegida ?? monedaPorDefecto(monedas, base)
+
   const mesKey = `${anio}-${String(mes + 1).padStart(2, "0")}`
   const periodStart = `${mesKey}-01`
   const finMesISO = new Date(anio, mes + 1, 1).toISOString()
 
-  const { data: categorias } = useQuery<Cat>(
+  const { data: categorias, isLoading: cargaCats } = useQuery<Cat>(
     "SELECT id, name, parent_id, rollover FROM categories WHERE kind='expense' AND deleted_at IS NULL AND archived = 0 ORDER BY sort_order, name",
   )
   const catById = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
-  const { data: budgetRows } = useQuery<BudgetRow>(
-    "SELECT id, category_id, period_start, amount FROM budgets WHERE deleted_at IS NULL",
+  const { data: budgetRows, isLoading: cargaBudgets } = useQuery<BudgetRow>(
+    "SELECT id, category_id, period_start, amount FROM budgets WHERE deleted_at IS NULL AND currency = ?",
+    [moneda],
   )
   const { data: gastoRows } = useQuery<GastoRow>(
-    "SELECT category_id, amount, occurred_at FROM transactions WHERE kind='expense' AND status='confirmed' AND deleted_at IS NULL",
+    `SELECT category_id, amount, occurred_at FROM transactions
+     WHERE kind='expense' AND status='confirmed' AND deleted_at IS NULL AND currency = ?`,
+    [moneda],
   )
   const { data: reglaRows } = useQuery<ReglaAutoRow>(
-    "SELECT id, category_id, amount, active FROM budget_rules WHERE deleted_at IS NULL",
+    "SELECT id, category_id, amount, active FROM budget_rules WHERE deleted_at IS NULL AND currency = ?",
+    [moneda],
   )
   const reglaPorCat = useMemo(
     () => new Map(reglaRows.map((r) => [r.category_id, r])),
     [reglaRows],
   )
-  const { data: fondosRows } = useQuery<{ fondos: number }>(
+  // Fondos presupuestables DE ESTA MONEDA. El ancla es la moneda de la cuenta:
+  // una cuenta tiene una sola, y hoy sus movimientos van en esa misma. Cuando
+  // existan compras en otra moneda debitadas a la cuenta habra que restar
+  // `COALESCE(amount_account, amount)` del lado `account_id` (ver 0005).
+  const { data: fondosRows, isLoading: cargaFondos } = useQuery<{ fondos: number }>(
     `SELECT
-       (SELECT COALESCE(SUM(opening_balance),0) FROM accounts WHERE COALESCE(off_budget,0)=0 AND deleted_at IS NULL)
+       (SELECT COALESCE(SUM(opening_balance),0) FROM accounts
+          WHERE COALESCE(off_budget,0)=0 AND deleted_at IS NULL AND currency = ?)
        + COALESCE((SELECT SUM(CASE WHEN t.kind='income' THEN t.amount WHEN t.kind='expense' THEN -t.amount ELSE 0 END)
             FROM transactions t JOIN accounts a ON a.id=t.account_id
-            WHERE COALESCE(a.off_budget,0)=0 AND a.deleted_at IS NULL AND t.status='confirmed' AND t.deleted_at IS NULL AND t.occurred_at < ?),0)
+            WHERE COALESCE(a.off_budget,0)=0 AND a.deleted_at IS NULL AND a.currency = ?
+              AND t.status='confirmed' AND t.deleted_at IS NULL AND t.occurred_at < ?),0)
        + COALESCE((SELECT SUM(t.amount) FROM transactions t JOIN accounts a ON a.id=t.transfer_account_id
-            WHERE COALESCE(a.off_budget,0)=0 AND a.deleted_at IS NULL AND t.kind='transfer' AND t.status='confirmed' AND t.deleted_at IS NULL AND t.occurred_at < ?),0)
+            WHERE COALESCE(a.off_budget,0)=0 AND a.deleted_at IS NULL AND a.currency = ?
+              AND t.kind='transfer' AND t.status='confirmed' AND t.deleted_at IS NULL AND t.occurred_at < ?),0)
        - COALESCE((SELECT SUM(t.amount) FROM transactions t JOIN accounts a ON a.id=t.account_id
-            WHERE COALESCE(a.off_budget,0)=0 AND a.deleted_at IS NULL AND t.kind='transfer' AND t.status='confirmed' AND t.deleted_at IS NULL AND t.occurred_at < ?),0)
+            WHERE COALESCE(a.off_budget,0)=0 AND a.deleted_at IS NULL AND a.currency = ?
+              AND t.kind='transfer' AND t.status='confirmed' AND t.deleted_at IS NULL AND t.occurred_at < ?),0)
        AS fondos`,
-    [finMesISO, finMesISO, finMesISO],
+    [moneda, moneda, finMesISO, moneda, finMesISO, moneda, finMesISO],
   )
   const fondos = fondosRows[0]?.fondos ?? 0
 
@@ -169,8 +201,8 @@ export function Presupuestos() {
       await db.execute("UPDATE budgets SET amount = ? WHERE id = ?", [centavos, existente])
     } else {
       await db.execute(
-        "INSERT INTO budgets (id, category_id, period_start, amount, currency) VALUES (?, ?, ?, ?, 'ARS')",
-        [uuidv4(), catId, periodStart, centavos],
+        "INSERT INTO budgets (id, category_id, period_start, amount, currency) VALUES (?, ?, ?, ?, ?)",
+        [uuidv4(), catId, periodStart, centavos, moneda],
       )
     }
     // Si el sobre tiene asignacion automatica, la regla sigue al monto asignado.
@@ -180,8 +212,12 @@ export function Presupuestos() {
     }
   }
   async function quitarSobre(catId: string) {
-    await db.execute("DELETE FROM budgets WHERE category_id = ?", [catId])
-    await db.execute("DELETE FROM budget_rules WHERE category_id = ?", [catId])
+    // Solo el sobre de ESTA moneda: el mismo sobre en otra moneda es otro sobre.
+    await db.execute("DELETE FROM budgets WHERE category_id = ? AND currency = ?", [catId, moneda])
+    await db.execute("DELETE FROM budget_rules WHERE category_id = ? AND currency = ?", [
+      catId,
+      moneda,
+    ])
   }
   async function toggleAhorro(catId: string, rollover: boolean) {
     await db.execute("UPDATE categories SET rollover = ? WHERE id = ?", [rollover ? 1 : 0, catId])
@@ -198,8 +234,8 @@ export function Presupuestos() {
         ])
       } else {
         await db.execute(
-          "INSERT INTO budget_rules (id, category_id, amount, currency, active) VALUES (?, ?, ?, 'ARS', 1)",
-          [uuidv4(), catId, monto],
+          "INSERT INTO budget_rules (id, category_id, amount, currency, active) VALUES (?, ?, ?, ?, 1)",
+          [uuidv4(), catId, monto, moneda],
         )
       }
     } else if (regla) {
@@ -230,14 +266,44 @@ export function Presupuestos() {
     new Set(categorias.filter((c) => !sobreIds.has(c.id)).map((c) => c.id)),
   )
 
+  const cargando = cargaCats || cargaBudgets || cargaFondos
+  // El umbral solo decide si el esqueleto se VE; el corte es `cargando`.
+  const mostrarEsqueleto = useDemora(cargando)
+
+  if (cargando) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 p-4">
+        <Cargando visible={mostrarEsqueleto} className="space-y-4" etiqueta="Cargando presupuesto">
+          <Esqueleto className="h-40 w-full rounded-xl" />
+          <Esqueleto className="mx-auto h-6 w-40" />
+          <Esqueleto className="h-11 w-full rounded-xl" />
+          <Esqueleto className="h-28 w-full rounded-xl" />
+          <Esqueleto className="h-28 w-full rounded-xl" />
+        </Cargando>
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
+      {/* Cada moneda tiene su propio presupuesto y su propio "por asignar"
+          (ver 0005). Con una sola no hay nada que elegir. */}
+      {monedas.length > 1 && (
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-sm font-semibold text-muted-foreground">
+            Presupuesto en {moneda}
+          </h1>
+          <SelectorMoneda monedas={monedas} valor={moneda} onCambio={setMonedaElegida} />
+        </div>
+      )}
       <div className="rounded-xl bg-card p-5">
         <div className="flex items-center gap-5">
+          {/* Tamano fijo: los radios son fijos y el ciclo de medicion del
+              ResponsiveContainer dejaba el anillo vacio al entrar (ver 0008). */}
           <div className="relative h-28 w-28 shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+            <PieChart width={112} height={112}>
                 <Pie
+                  isAnimationActive={false}
                   data={donut}
                   dataKey="value"
                   innerRadius={40}
@@ -250,9 +316,8 @@ export function Presupuestos() {
                 >
                   <Cell fill={excedido ? colores.expense : colores.primary} />
                   <Cell fill={colores.muted} />
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
+              </Pie>
+            </PieChart>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
               <span className="tabular text-lg font-semibold">{Math.round(pctGastado)}%</span>
               <span className="text-[10px] text-muted-foreground">gastado</span>
@@ -262,6 +327,7 @@ export function Presupuestos() {
             <p className="text-sm font-medium text-muted-foreground">Por asignar</p>
             <Monto
               centavos={resultado.porAsignar}
+              moneda={moneda}
               className={cn(
                 "block text-2xl font-semibold",
                 resultado.porAsignar < 0 && "text-expense",
@@ -271,13 +337,13 @@ export function Presupuestos() {
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Asignado</dt>
                 <dd>
-                  <Monto centavos={totalAsignado} variante="lista" />
+                  <Monto centavos={totalAsignado} moneda={moneda} variante="lista" />
                 </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Gastado</dt>
                 <dd>
-                  <Monto centavos={totalGastado} variante="lista" />
+                  <Monto centavos={totalGastado} moneda={moneda} variante="lista" />
                 </dd>
               </div>
               <div className="flex justify-between">
@@ -285,6 +351,7 @@ export function Presupuestos() {
                 <dd>
                   <Monto
                     centavos={totalDisponible}
+                    moneda={moneda}
                     variante="lista"
                     className={cn(totalDisponible < 0 && "text-expense")}
                   />
@@ -344,6 +411,7 @@ export function Presupuestos() {
                   saldo={saldoPorId.get(rootId)}
                   asignadoSel={asignadoSel(rootId)}
                   autoOn={reglaPorCat.get(rootId)?.active === 1}
+                  moneda={moneda}
                   onAsignar={asignar}
                   onQuitar={quitarSobre}
                   onAhorro={toggleAhorro}
@@ -358,7 +426,7 @@ export function Presupuestos() {
                 <div className="flex items-center justify-between px-1 text-sm font-semibold">
                   <span>{rootCat?.name ?? "—"}</span>
                   <span className="text-xs text-muted-foreground">
-                    {formatearMonto(asigTot)} · {formatearMonto(gastTot)} gast.
+                    {formatearMonto(asigTot, { moneda })} · {formatearMonto(gastTot, { moneda })} gast.
                   </span>
                 </div>
                 {rootEsSobre && rootCat && (
@@ -368,6 +436,7 @@ export function Presupuestos() {
                     saldo={saldoPorId.get(rootId)}
                     asignadoSel={asignadoSel(rootId)}
                     autoOn={reglaPorCat.get(rootId)?.active === 1}
+                    moneda={moneda}
                     onAsignar={asignar}
                     onQuitar={quitarSobre}
                     onAhorro={toggleAhorro}
@@ -382,6 +451,7 @@ export function Presupuestos() {
                     saldo={saldoPorId.get(h.id)}
                     asignadoSel={asignadoSel(h.id)}
                     autoOn={reglaPorCat.get(h.id)?.active === 1}
+                    moneda={moneda}
                     onAsignar={asignar}
                     onQuitar={quitarSobre}
                     onAhorro={toggleAhorro}
@@ -410,6 +480,7 @@ function FilaSobre({
   asignadoSel,
   autoOn,
   sangria,
+  moneda,
   onAsignar,
   onQuitar,
   onAhorro,
@@ -421,6 +492,7 @@ function FilaSobre({
   asignadoSel: number
   autoOn: boolean
   sangria?: boolean
+  moneda: string
   onAsignar: (catId: string, centavos: number) => void
   onQuitar: (catId: string) => void
   onAhorro: (catId: string, rollover: boolean) => void
@@ -496,7 +568,7 @@ function FilaSobre({
         <div className="text-right">
           <p className="mb-0.5 text-xs text-muted-foreground">Gastado</p>
           <p className="h-8 leading-8">
-            <Monto centavos={gastado} />
+            <Monto centavos={gastado} moneda={moneda} />
           </p>
         </div>
         <div className="text-right">
@@ -504,6 +576,7 @@ function FilaSobre({
           <p className="h-8 leading-8">
             <Monto
               centavos={balance}
+              moneda={moneda}
               className={cn("font-medium", balance < 0 ? "text-expense" : "text-income")}
             />
           </p>

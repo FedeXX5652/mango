@@ -54,9 +54,15 @@ function Rutas() {
 // Al abrir la app, dispara las reglas recurrentes vencidas (best-effort: si no
 // hay conexion se ignora). Es idempotente por fecha, asi que correr de mas no
 // duplica. Las transacciones generadas bajan por sync.
-function DisparadorRecurrentes() {
+// Trabajo del servidor que se dispara al abrir la app. No hay timers ni cron:
+// el servidor no siempre esta prendido, y ambas cosas son idempotentes (las
+// recurrentes por fecha de proxima corrida, las cotizaciones por fecha del
+// dato), asi que llamarlas de mas no hace nada. Si no hay conexion, fallan en
+// silencio y la app sigue con lo que tiene.
+function DisparadorServidor() {
   useEffect(() => {
     api.runRecurring().catch(() => {})
+    api.refrescarCotizaciones().catch(() => {})
   }, [])
   return null
 }
@@ -68,7 +74,7 @@ export function App() {
         <ProveedorMonedaBase>
           <ProveedorBloqueo>
             <ProveedorPowerSync>
-              <DisparadorRecurrentes />
+              <DisparadorServidor />
               <Rutas />
             </ProveedorPowerSync>
           </ProveedorBloqueo>
