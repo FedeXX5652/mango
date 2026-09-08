@@ -447,9 +447,26 @@ encabezado. Nunca mezcladas con las activas.
 Iconos, no texto, y **siempre con `aria-label`**: editar (lapiz), archivar
 (caja) / desarchivar (caja con flecha), eliminar (tacho).
 
-El tacho **nunca desaparece**: si la entidad esta en uso se muestra en gris
-(`aria-disabled`) y al tocarlo explica por que no se puede borrar y cuantos
-movimientos tiene. Ver la regla de archivar vs eliminar en ESPECIFICACION.
+El tacho **nunca desaparece y nunca esta deshabilitado**: lo que cambia es lo
+que hace. Si la entidad no se usa, pide confirmacion y la borra. Si esta en uso,
+abre **"Eliminar y mover a..."** —elegir otra entidad y llevar todo ahi— con el
+boton principal en rojo y la lista de lo que se elimina en el camino.
+
+Antes el tacho se pintaba en gris con `aria-disabled` y al tocarlo explicaba que
+no se podia borrar. Era un callejon: el usuario queria eliminar algo y la app
+solo le decia que no. Ahora hay una salida, asi que el gris seria mentira (ver
+ESPECIFICACION 3.3).
+
+### Listas que crecen con el tiempo
+
+Una lista que gana una fila por dia no se muestra completa: **se agrupa por lo
+que la identifica y el detalle queda a un toque**. Las cotizaciones ganan una
+fila por moneda por dia —~1.400 al año— asi que la pantalla muestra **una fila
+por par** con la vigente adelante ("1 USD = 1511,15 ARS · hoy · automática · 6
+en total") y el historial de ese par se abre en una `Hoja`.
+
+Las acciones de cada fila (editar, eliminar) viven en el detalle, no en el
+resumen: en el resumen ensucian, y ahi la fila sirve para entrar.
 
 ### Resumenes con tope
 
@@ -516,6 +533,17 @@ Toda accion que archiva o elimina pide confirmacion (confirmar / cancelar) sobre
 archivar no es destructivo. `Aviso` es informativo, con una sola accion.
 
 Desarchivar no pide confirmacion: es reversible y no destruye nada.
+
+### Interruptor: `Interruptor`
+
+Encendido/apagado de **una** cosa: pastilla con perilla que se desliza. Es un
+`<button role="switch">` con `aria-checked`, no un checkbox nativo —que se ve
+distinto en cada sistema y no admite la pastilla—. El deslizamiento es
+`motion-safe`; con movimiento reducido queda el cambio de color solo.
+
+Se usa cuando la opcion es binaria y **por fila** (una moneda en automatico o a
+mano). Para elegir entre dos alternativas con nombre va `Segmentado`; para
+encender algo, el interruptor.
 
 ### Control segmentado: `Segmentado`
 

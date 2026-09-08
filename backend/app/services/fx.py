@@ -5,11 +5,21 @@ clave. Publica **una cotizacion por dia** (viene `date` en el payload), no en
 tiempo real: por eso el refresco es idempotente por fecha y no hace falta un
 timer corto.
 
-**Se pide una llamada por moneda**, `/latest/{extranjera}`, y se lee
-`rates[base]`. Se podria hacer una sola llamada a `/latest/{base}` y dar vuelta
-el numero, pero la API redondea a ~6 digitos y el inverso arrastra ese error;
-ademas asi la fila queda en la direccion en que se lee ("1 USD = 1735,10 ARS").
-Son una o dos monedas en la practica.
+**Se pide una llamada por moneda y se guarda el par en la direccion cuyo numero
+sea >= 1.** La razon es que la API devuelve **6 decimales fijos, no 6 digitos
+significativos**, y eso destruye la precision cuando el valor es chico:
+
+    /latest/USD -> rates[ARS] = 1507.37     (6 digitos significativos)
+    /latest/ARS -> rates[USD] = 0.000663    (3 digitos significativos)
+
+Invertir el segundo da 1508.2956 contra 1507.37 del primero: 0,06% de error, que
+sobre un patrimonio de 5,8 millones son 3.600 pesos, y se mueve todos los dias.
+
+Por eso no alcanza con "pedir la de la extranjera": si la base del usuario es la
+moneda de numeros chicos (base USD y cuenta en pesos), esa llamada devuelve el
+valor diminuto. Se prueban las dos direcciones y se guarda la del numero grande;
+`buscarCotizacion` en el cliente ya usa la inversa cuando hace falta, y la fila
+queda ademas en la direccion en que se lee ("1 USD = 1507,37 ARS").
 
 Ojo con Argentina: para ARS esta API da la **oficial**, que no es la que uno
 paga (MEP, tarjeta). Para eso existe `users.fx_manual`: la moneda queda fuera
@@ -129,7 +139,19 @@ async def refrescar(
             res.manuales.append(moneda)
             continue
 
-        traido = await fetch(moneda, base)
+        # Direccion 1: 1 extranjera = X base. Es la buena cuando la base es la
+        # moneda de numeros grandes (el caso argentino).
+        origen, destino = moneda, base
+        traido = await fetch(origen, destino)
+
+        # Si el numero es chico, la precision se fue en el redondeo de la API:
+        # se prueba al revés y se guarda esa, que trae todos los digitos.
+        if traido is not None and traido[0] < 1:
+            alreves = await fetch(destino, origen)
+            if alreves is not None and alreves[0] > traido[0]:
+                origen, destino = base, moneda
+                traido = alreves
+
         if traido is None:
             res.fallidas.append(moneda)
             continue
@@ -138,8 +160,8 @@ async def refrescar(
         existente = (
             await session.execute(
                 select(ExchangeRate).where(
-                    ExchangeRate.base_currency == moneda,
-                    ExchangeRate.quote_currency == base,
+                    ExchangeRate.base_currency == origen,
+                    ExchangeRate.quote_currency == destino,
                     ExchangeRate.rate_date == rate_date,
                     ExchangeRate.source == FUENTE_AUTO,
                     ExchangeRate.deleted_at.is_(None),
@@ -161,8 +183,8 @@ async def refrescar(
             ExchangeRate(
                 # Lo crea el servidor, como las recurrentes.
                 id=uuid.uuid4(),
-                base_currency=moneda,
-                quote_currency=base,
+                base_currency=origen,
+                quote_currency=destino,
                 rate=rate,
                 rate_date=rate_date,
                 source=FUENTE_AUTO,

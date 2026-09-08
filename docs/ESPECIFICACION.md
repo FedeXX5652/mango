@@ -175,6 +175,36 @@ recurrentes, medios asociados o subcategorias. Si esta en uso, la interfaz no
 permite borrarla y explica por que (ver DESIGN.md 7). Si no lo esta —el caso
 real: la creaste mal— se elimina con confirmacion.
 
+#### Eliminar y mover: el tercer camino
+
+Archivar sirve cuando la entidad **fue real** y su historia tiene sentido. Pero
+a veces no: dos categorias que en realidad eran una, una cuenta cargada por
+error, un medio duplicado. Para eso esta **"Eliminar y mover a..."**: se elige
+otra entidad, **todo lo que referenciaba a la vieja pasa a la nueva** y la vieja
+se elimina. El historial no pierde nada; es como si hubieran estado juntas desde
+el principio.
+
+Que se mueve y que no:
+
+| Entidad | Se mueve | Se elimina, y se avisa |
+|---|---|---|
+| Categoria | movimientos, plantillas, recurrentes y **sus subcategorias** (pasan a colgar del destino) | las asignaciones de presupuesto: el sobre es categoria + moneda + mes y sumarlas a otro cambiaria lo asignado (ver 0005) |
+| Cuenta | movimientos (las dos puntas de una transferencia), plantillas, recurrentes | las asociaciones con medios de pago: hay una por medio y moneda, y el destino ya puede tener la suya |
+| Medio de pago | movimientos, plantillas, recurrentes | sus cuentas asociadas: cada medio tiene las suyas |
+
+Restricciones del destino, para no corromper datos:
+
+- **Cuenta**: solo otra de la **misma moneda**. Los montos estan en la moneda de
+  la cuenta; mover pesos a una cuenta en dolares los convertiria en otra cosa.
+- **Categoria**: del mismo `kind` (un gasto no se mueve a una de ingreso) y, si
+  la que se elimina tiene subcategorias, solo una **raiz**: el arbol tiene dos
+  niveles y colgarlas de una subcategoria haria tres.
+
+Todo se escribe **local y en una sola transaccion** del dispositivo: o se mueve
+todo o no se mueve nada (ver 3.11). Mover 300 movimientos genera 300 subidas en
+la cola, y esta bien: es una accion rara y hacerla por endpoint la volveria
+imposible sin conexion.
+
 Eliminar tampoco es fisico: marca `deleted_at` (regla 3 de CLAUDE.md). El
 chequeo de "en uso" corre sobre la base local; las tablas que no se sincronizan
 al cliente (por ejemplo `category_rules`, de la ingesta) no se verifican ahi.
@@ -198,6 +228,11 @@ la define la persona.
 
 Las categorias tienen dos niveles: principal y subcategoria. Dos niveles
 alcanzan; mas profundidad complica la interfaz sin aportar.
+
+Una subcategoria **se puede mover de padre** (o pasar a raiz), con las mismas
+reglas que al crearla: el padre debe ser una raiz del mismo `kind`, y una
+categoria con subcategorias no puede volverse subcategoria. El `kind`, en
+cambio, es inmutable: cambiarlo convertiria en ingresos gastos ya clasificados.
 
 ### 3.5 Tabla de asociacion comercio a categoria
 
@@ -423,6 +458,11 @@ mano, y **a igual fecha la que cargo la persona gana** sobre la automatica.
   `next_run_date`. La generacion la dispara `POST /recurring/run` (al abrir la
   app, idempotente por fecha) o el boton manual "Ejecutar vencidas". Se pueden
   pausar.
+
+  **Pendiente**: con `auto_create` en falso la regla deberia **avisar** en vez de
+  generar ("manana vence el alquiler"), y ese recordatorio no esta construido.
+  Hoy una regla con el interruptor apagado simplemente no hace nada: es una
+  opcion de la interfaz que no cumple lo que promete.
 - **Presupuestos recurrentes** (`budget_rules`): la asignacion recurrente de un
   sobre (ver 3.6). El mismo `run` las aplica: crea la asignacion del mes que
   falte. Reemplaza a `default_budget`.
@@ -474,9 +514,24 @@ servidor. Si no, no se podria crear nada sin conexion.
   prefiere **una sola fuente de verdad** y avisar cuando no hay conexion.
 - **Ejecutar recurrentes** (`POST /recurring/run`): genera movimientos y
   asignaciones en el servidor.
+- **Traer cotizaciones** (`POST /exchange-rates/refresh`): sale a una API
+  publica, asi que la conexion es inherente. Sin ella se usa la ultima
+  cotizacion conocida, que para eso esta cacheada (ver 0005).
+- **Guardar las preferencias del usuario** (moneda base, tema, monedas
+  manuales): viven en `users`, que **no se sincroniza**, asi que se leen de una
+  copia en el dispositivo y se guardan por REST. Es la unica excepcion que
+  incomoda: cambiar la moneda base sin conexion no persiste. Cuando llegue el
+  multiusuario habra que decidir si `users` entra a la sync.
 
 Todo lo demas —cargar, editar, borrar, presupuestar, ver informes— funciona sin
 conexion contra la base local.
+
+**La regla, para lo que venga**: toda accion del usuario se escribe **local
+primero**, incluso las que tocan muchas filas. Reasignar 300 movimientos a otra
+categoria genera 300 subidas en la cola en vez de un `UPDATE` del servidor, y
+esta bien: son acciones raras, y hacerlas por endpoint las volveria imposibles
+sin conexion. La eficiencia no justifica romper la regla principal de la
+arquitectura.
 
 ### 3.12 Estrategia multidispositivo
  

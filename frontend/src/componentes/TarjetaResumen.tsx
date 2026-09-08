@@ -5,6 +5,7 @@ import { Link } from "react-router-dom"
 import { Monto } from "@/componentes/Monto"
 import { SelectorMoneda } from "@/componentes/SelectorMoneda"
 import { Segmentado } from "@/componentes/ui/segmentado"
+import { useRefrescoCotizaciones } from "@/hooks/refrescoCotizaciones"
 import { formatearFechaCorta } from "@/lib/fecha"
 import { ordenarMonedas } from "@/lib/monedas"
 import {
@@ -142,17 +143,14 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
     localStorage.setItem(LS_MONEDA, m)
   }
 
-  // Lo que no se pudo convertir: se informa, nunca se estima. En modo "Por
-  // moneda" no aplica, porque ahi no se convierte nada.
-  //
-  // Y se informa por separado: al patrimonio le falta LA cotizacion de una
-  // moneda (usa la ultima conocida, cualquiera sea su fecha); a un movimiento
-  // le falta la DE SU DIA. Decir solo "falta la cotizacion" cuando ya hay una
-  // cargada se lee como un error del sistema.
   // Lo que no se pudo convertir queda afuera y se informa; nunca se estima.
   const faltantes = global
     ? [...new Set([...patrimonio.sinCotizacion, ...flujos.sinCotizacion])].sort()
     : []
+
+  // Y se pide en el momento: una moneda nueva no deberia obligar a recargar la
+  // app para que aparezca su cotizacion. Toda moneda es automatica por default.
+  useRefrescoCotizaciones(faltantes)
 
   return (
     <section className="rounded-xl bg-card p-5">

@@ -1,5 +1,5 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft, Coins, Pencil, RefreshCw, Trash2 } from "lucide-react"
+import { ArrowLeft, ChevronRight, Coins, Pencil, RefreshCw, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
@@ -9,6 +9,7 @@ import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
+import { Interruptor } from "@/componentes/ui/interruptor"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
 import { useMonedaBase } from "@/hooks/monedaBase"
@@ -51,8 +52,26 @@ export function Cotizaciones() {
     [monedaRows, base],
   )
 
+  // Una fila por PAR, con la vigente adelante. La lista completa crece una
+  // cotizacion por moneda por dia: en un año son ~1.400 filas casi identicas,
+  // y las monedas que ya no se usan seguirian ocupando cientos de lineas. El
+  // historial de cada par queda a un toque.
+  const pares = useMemo(() => {
+    const m = new Map<string, Cotizacion[]>()
+    for (const c of filas) {
+      const clave = `${c.base_currency}|${c.quote_currency}`
+      const lista = m.get(clave) ?? []
+      lista.push(c)
+      m.set(clave, lista)
+    }
+    // `filas` ya viene ordenada por fecha desc y con la manual antes que la
+    // automatica a igual fecha, asi que la primera de cada par es la vigente.
+    return [...m.entries()].map(([clave, lista]) => ({ clave, vigente: lista[0], historial: lista }))
+  }, [filas])
+
   const [editando, setEditando] = useState<Cotizacion | "nueva" | null>(null)
   const [borrando, setBorrando] = useState<Cotizacion | null>(null)
+  const [verPar, setVerPar] = useState<string | null>(null)
 
   // Que monedas maneja el usuario a mano. Vive en `users` (viaja con el
   // usuario, no con el dispositivo) y se lee por REST porque esa tabla no se
@@ -161,14 +180,11 @@ export function Cotizaciones() {
                     >
                       {auto ? "Automática" : "A mano"}
                     </span>
-                    {/* Interruptor nativo: accesible, sin dependencias. */}
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-primary"
-                      checked={auto}
+                    <Interruptor
+                      encendido={auto}
                       disabled={manuales === null}
-                      onChange={(e) => alternarAuto(m, e.target.checked)}
-                      aria-label={`Actualizar ${m} automáticamente`}
+                      onCambio={(v) => alternarAuto(m, v)}
+                      etiqueta={`Actualizar ${m} automáticamente`}
                     />
                   </div>
                 </li>
@@ -220,11 +236,42 @@ export function Cotizaciones() {
         )
       ) : (
         <ListaInset>
-          {filas.map((c) => (
-            <FilaInset key={c.id}>
+          {pares.map(({ clave, vigente, historial }) => (
+            <FilaInset key={clave} onClick={() => setVerPar(clave)}>
               <div className="min-w-0">
                 <p className="truncate font-medium">
-                  1 {c.base_currency} = {formatearRate(c.rate)} {c.quote_currency}
+                  1 {vigente.base_currency} = {formatearRate(vigente.rate)}{" "}
+                  {vigente.quote_currency}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {formatearFechaCorta(vigente.rate_date)} ·{" "}
+                  {vigente.source === "auto" ? "automática" : vigente.source}
+                  {historial.length > 1 && ` · ${historial.length} en total`}
+                </p>
+              </div>
+              {/* Lo expandible se anuncia (DESIGN.md 7). */}
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40" aria-hidden />
+            </FilaInset>
+          ))}
+        </ListaInset>
+      )}
+
+      <Hoja
+        abierta={verPar !== null}
+        onOpenChange={(v) => {
+          if (!v) setVerPar(null)
+        }}
+        titulo={verPar ? `Historial de ${verPar.replace("|", " → ")}` : ""}
+      >
+        <ListaInset>
+          {(pares.find((p) => p.clave === verPar)?.historial ?? []).map((c, i) => (
+            <FilaInset key={c.id}>
+              <div className="min-w-0">
+                <p className="tabular truncate text-sm">
+                  {formatearRate(c.rate)} {c.quote_currency}
+                  {i === 0 && (
+                    <span className="ml-2 text-xs text-muted-foreground">vigente</span>
+                  )}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {formatearFechaCorta(c.rate_date)} ·{" "}
@@ -236,7 +283,10 @@ export function Cotizaciones() {
                   variant="ghost"
                   size="icon"
                   aria-label="Editar"
-                  onClick={() => setEditando(c)}
+                  onClick={() => {
+                    setVerPar(null)
+                    setEditando(c)
+                  }}
                 >
                   <Pencil className="h-4 w-4" />
                 </Button>
@@ -245,7 +295,10 @@ export function Cotizaciones() {
                   size="icon"
                   aria-label="Eliminar"
                   className="text-expense"
-                  onClick={() => setBorrando(c)}
+                  onClick={() => {
+                    setVerPar(null)
+                    setBorrando(c)
+                  }}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -253,7 +306,7 @@ export function Cotizaciones() {
             </FilaInset>
           ))}
         </ListaInset>
-      )}
+      </Hoja>
 
       <Confirmar
         abierta={borrando !== null}

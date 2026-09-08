@@ -106,3 +106,81 @@ async def test_update_and_soft_delete(api: SimpleNamespace) -> None:
 
     assert (await api.client.delete(f"/api/v1/categories/{cat['id']}")).status_code == 204
     assert (await api.client.get(f"/api/v1/categories/{cat['id']}")).status_code == 404
+
+
+# --- Mover de padre (necesario para "eliminar y mover", ver ESPECIFICACION 3.3)
+
+
+async def _cat(api, nombre: str, kind: str = "expense", parent: str | None = None) -> str:
+    cuerpo = {"id": str(uuid.uuid4()), "name": nombre, "kind": kind}
+    if parent:
+        cuerpo["parent_id"] = parent
+    resp = await api.client.post("/api/v1/categories", json=cuerpo)
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
+
+
+async def test_mover_subcategoria_a_otra_raiz(api) -> None:
+    vieja = await _cat(api, "Vivienda")
+    nueva = await _cat(api, "Servicios del hogar")
+    hija = await _cat(api, "Alquiler", parent=vieja)
+
+    resp = await api.client.patch(f"/api/v1/categories/{hija}", json={"parent_id": nueva})
+    assert resp.status_code == 200, resp.text
+    # Antes este PATCH devolvia 200 y NO movia nada: el campo no estaba en el
+    # esquema y Pydantic lo descartaba en silencio.
+    assert resp.json()["parent_id"] == nueva
+
+
+async def test_mover_a_raiz_con_parent_null(api) -> None:
+    padre = await _cat(api, "Vivienda")
+    hija = await _cat(api, "Alquiler", parent=padre)
+
+    resp = await api.client.patch(f"/api/v1/categories/{hija}", json={"parent_id": None})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["parent_id"] is None
+
+
+async def test_no_puede_ser_su_propio_padre(api) -> None:
+    cat = await _cat(api, "Comida")
+    resp = await api.client.patch(f"/api/v1/categories/{cat}", json={"parent_id": cat})
+    assert resp.status_code == 422
+    assert "propio padre" in resp.json()["detail"]
+
+
+async def test_no_se_permiten_tres_niveles(api) -> None:
+    raiz = await _cat(api, "Comida")
+    hija = await _cat(api, "Supermercado", parent=raiz)
+    otra = await _cat(api, "Ocio")
+    huerfana = await _cat(api, "Streaming", parent=otra)
+
+    # Colgar de una subcategoria haria tres niveles.
+    resp = await api.client.patch(f"/api/v1/categories/{huerfana}", json={"parent_id": hija})
+    assert resp.status_code == 422
+    assert "dos niveles" in resp.json()["detail"]
+
+
+async def test_una_categoria_con_hijas_no_puede_volverse_subcategoria(api) -> None:
+    padre = await _cat(api, "Vivienda")
+    await _cat(api, "Alquiler", parent=padre)
+    destino = await _cat(api, "Casa")
+
+    resp = await api.client.patch(f"/api/v1/categories/{padre}", json={"parent_id": destino})
+    assert resp.status_code == 422
+    assert "subcategorias" in resp.json()["detail"]
+
+
+async def test_el_padre_debe_tener_el_mismo_kind(api) -> None:
+    gasto = await _cat(api, "Comida", kind="expense")
+    ingreso = await _cat(api, "Sueldo", kind="income")
+    resp = await api.client.patch(f"/api/v1/categories/{gasto}", json={"parent_id": ingreso})
+    assert resp.status_code == 422
+    assert "kind" in resp.json()["detail"]
+
+
+async def test_el_kind_sigue_siendo_inmutable(api) -> None:
+    cat = await _cat(api, "Comida", kind="expense")
+    resp = await api.client.patch(f"/api/v1/categories/{cat}", json={"kind": "income"})
+    # El campo no esta en el esquema: se ignora, y el kind no cambia.
+    assert resp.status_code == 200
+    assert resp.json()["kind"] == "expense"

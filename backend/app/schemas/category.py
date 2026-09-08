@@ -22,8 +22,19 @@ class CategoryCreate(BaseModel):
 
 
 class CategoryUpdate(BaseModel):
-    # No se permite mover de padre ni cambiar el kind en fase 1: rompe coherencia
-    # de subcategorias y de transacciones ya clasificadas.
+    # `kind` sigue siendo inmutable: cambiarlo convertiria gastos en ingresos ya
+    # clasificados.
+    #
+    # `parent_id` SI se puede cambiar, con las mismas reglas que al crear (dos
+    # niveles, mismo kind). Hace falta para "eliminar y mover": al borrar una
+    # categoria con subcategorias, estas pasan a colgar del destino. Antes el
+    # campo no estaba y el PATCH respondia 200 **sin aplicar nada**, que es peor
+    # que rechazarlo: el cliente creia que se habia movido.
+    #
+    # `None` explicito la convierte en categoria raiz. Por eso el default es un
+    # centinela: no se puede distinguir "no lo mandes" de "ponelo en null" con
+    # `None` solo, y `exclude_unset` lo resuelve del lado del CRUD.
+    parent_id: uuid.UUID | None = None
     name: str | None = None
     color: str | None = None
     icon: str | None = None

@@ -132,11 +132,26 @@ origen a la moneda principal del usuario.
 
 **Automatico, con una API publica.** `api.exchangerate-api.com/v4/latest/{CODE}`:
 gratuita, sin clave, y publica **una cotizacion por dia** (trae `date` en el
-payload). Se pide **una llamada por moneda** —`/latest/{extranjera}`, leyendo
-`rates[base]`— y no una sola a `/latest/{base}` dando vuelta el numero: la API
-redondea a ~6 digitos y el inverso arrastra ese error. Ademas asi la fila queda
-en la direccion en que se lee ("1 USD = 1735,10 ARS"). Son una o dos monedas en
-la practica.
+payload).
+
+**Se pide una llamada por moneda, no una sola a `/latest/{base}`.** El motivo es
+medible: la API devuelve **6 decimales fijos, no 6 digitos significativos**.
+
+```
+/latest/USD -> rates[ARS] = 1507.37     (6 digitos significativos)
+/latest/ARS -> rates[USD] = 0.000663    (3 digitos significativos)
+```
+
+Invertir el segundo da 1508.2956 contra 1507.37: **0,06% de error**, que sobre un
+patrimonio de 5,8 millones son 3.600 pesos, y se mueve todos los dias.
+
+**Y se guarda el par en la direccion cuyo numero sea >= 1.** No alcanza con
+"pedir la de la moneda extranjera": si la base del usuario es la de numeros
+chicos (base USD con una cuenta en pesos) esa llamada devuelve justamente el
+valor diminuto. Se prueban las dos direcciones y se guarda la del numero grande
+—una segunda llamada solo en ese caso—; el lector ya usa la inversa cuando hace
+falta, y la fila queda ademas en la direccion en que se lee
+("1 USD = 1507,37 ARS").
 
 **Sin cron ni timers.** El refresco se dispara **al abrir la app**, junto con
 las recurrentes (`POST /exchange-rates/refresh`), y hay un boton para forzarlo
@@ -145,10 +160,21 @@ se saltearia dias igual; y como la fuente publica una por dia, el refresco es
 **idempotente por fecha**: llamarlo de mas no gasta nada. Si la fuente falla o
 no hay conexion, las monedas salen en `fallidas` y la app sigue con lo que tenia.
 
-**Cada moneda puede quedar fuera del automatico** (`users.fx_manual`). Es
-necesario, no un lujo: para ARS esta API publica la **oficial**, que no es la que
-uno paga (MEP, tarjeta). La pantalla muestra un interruptor por moneda y dice
-cual esta en automatico y cual a mano.
+**Toda moneda es automatica por default**: `users.fx_manual` es una lista de
+**exclusion**, asi que una moneda nueva no necesita que se active nada. Y **se
+pide en el momento**: cuando una pantalla no puede convertir una moneda,
+dispara el refresco, y la cotizacion llega por la sync. Sin eso, agregar una
+cuenta en euros a la tarde deja el aviso de "falta la cotizacion" hasta la
+proxima vez que se abra la app.
+
+El pedido se hace **una vez por moneda por carga de pagina**: si la fuente no
+cotiza ese par, se intenta una vez y no se insiste (el aviso queda, con la
+salida a cargarla a mano).
+
+**Cada moneda puede quedar fuera del automatico.** Es necesario, no un lujo:
+para ARS esta API publica la **oficial**, que no es la que uno paga (MEP,
+tarjeta). La pantalla muestra un **interruptor** por moneda y dice cual esta en
+automatico y cual a mano.
 
 **A igual fecha, lo cargado a mano gana.** Si el usuario tipeo una cotizacion es
 porque la oficial no es la que aplica. El orden es

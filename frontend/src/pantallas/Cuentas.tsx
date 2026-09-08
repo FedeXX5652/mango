@@ -11,9 +11,10 @@ import {
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+import { HojaReasignar } from "@/componentes/HojaReasignar"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
-import { Aviso, Confirmar } from "@/componentes/ui/confirmar"
+import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
@@ -21,6 +22,7 @@ import { Select } from "@/componentes/ui/select"
 import { iconoCuenta } from "@/lib/cuentas"
 import { moverEnOrden } from "@/lib/orden"
 import { aCentavos, formatearSaldo } from "@/lib/dinero"
+import { planCuenta } from "@/lib/reasignar"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 
@@ -73,7 +75,7 @@ export function Cuentas() {
 
   const [editando, setEditando] = useState<Cuenta | "nuevo" | null>(null)
   const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; c: Cuenta } | null>(null)
-  const [aviso, setAviso] = useState<string | null>(null)
+  const [reasignando, setReasignando] = useState<Cuenta | null>(null)
   // Modo ordenar: cambia las acciones por flechas, para no amontonar iconos.
   const [ordenando, setOrdenando] = useState(false)
 
@@ -84,15 +86,18 @@ export function Cuentas() {
     await db.execute("DELETE FROM accounts WHERE id = ?", [c.id])
   }
 
-  function motivo(c: Cuenta): string {
-    const n = movs.get(c.id) ?? 0
-    return n > 0
-      ? `No se puede eliminar: tiene ${n} movimiento${n === 1 ? "" : "s"} asociado${n === 1 ? "" : "s"}. Archivala en su lugar.`
-      : "No se puede eliminar: está en uso (medios de pago, plantillas o recurrentes). Archivala en su lugar."
-  }
   function alTacho(c: Cuenta) {
-    if (enUso.has(c.id)) setAviso(motivo(c))
+    // En uso: se ofrece mover sus movimientos a otra cuenta en vez de negar.
+    if (enUso.has(c.id)) setReasignando(c)
     else setAccion({ tipo: "eliminar", c })
+  }
+
+  // Solo cuentas de la MISMA moneda: los montos estan en la moneda de la
+  // cuenta, asi que mover pesos a una cuenta en dolares los corrompe.
+  function destinosDe(c: Cuenta) {
+    return cuentas
+      .filter((x) => x.id !== c.id && x.currency === c.currency && !x.archived)
+      .map((x) => ({ id: x.id, nombre: x.name }))
   }
   function alArchivar(c: Cuenta) {
     if (c.archived) archivar(c, 0) // desarchivar es reversible: directo
@@ -114,7 +119,6 @@ export function Cuentas() {
 
   function filaCuenta(c: Cuenta, i?: number) {
     const Icono = iconoCuenta(c.type)
-    const eliminable = !enUso.has(c.id)
     return (
       <FilaInset key={c.id}>
         <div className="flex min-w-0 items-center gap-3">
@@ -179,8 +183,7 @@ export function Cuentas() {
                 variant="ghost"
                 size="icon"
                 aria-label="Eliminar"
-                aria-disabled={!eliminable}
-                className={eliminable ? "text-expense" : "text-muted-foreground/40"}
+                className="text-expense"
                 onClick={() => alTacho(c)}
               >
                 <Trash2 className="h-4 w-4" />
@@ -260,14 +263,25 @@ export function Cuentas() {
           else archivar(accion.c, 1)
         }}
       />
-      <Aviso
-        abierta={aviso !== null}
-        onOpenChange={(v) => {
-          if (!v) setAviso(null)
-        }}
-        titulo="No se puede eliminar"
-        detalle={aviso ?? ""}
-      />
+      {reasignando && (
+        <HojaReasignar
+          abierta
+          onOpenChange={(v) => {
+            if (!v) setReasignando(null)
+          }}
+          titulo="Eliminar y mover"
+          nombre={reasignando.name}
+          detalle={(() => {
+            const n = movs.get(reasignando.id) ?? 0
+            return n > 0
+              ? `sus ${n} movimiento${n === 1 ? "" : "s"} y todo lo que la use`
+              : "todo lo que la use"
+          })()}
+          destinos={destinosDe(reasignando)}
+          plan={(destino) => planCuenta(reasignando.id, destino)}
+        />
+      )}
+
     </div>
   )
 }

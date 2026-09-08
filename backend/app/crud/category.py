@@ -64,9 +64,39 @@ async def list_categories(
 
 
 async def update_category(
-    session: AsyncSession, category: Category, data: CategoryUpdate
+    session: AsyncSession, owner_id: uuid.UUID, category: Category, data: CategoryUpdate
 ) -> Category:
-    for field, value in data.model_dump(exclude_unset=True).items():
+    campos = data.model_dump(exclude_unset=True)
+
+    # Mover de padre: mismas reglas que al crear, mas las que solo aplican al
+    # mover. `exclude_unset` distingue "no lo mandes" de "ponelo en null".
+    if "parent_id" in campos:
+        nuevo = campos["parent_id"]
+        if nuevo is not None:
+            if nuevo == category.id:
+                raise DomainError("Una categoria no puede ser su propio padre")
+            padre = await _get_owned(session, owner_id, nuevo)
+            if padre is None:
+                raise DomainError("La categoria padre no existe")
+            if padre.parent_id is not None:
+                raise DomainError("Solo se permiten dos niveles de categoria")
+            if padre.kind != category.kind:
+                raise DomainError("La subcategoria debe tener el mismo kind que el padre")
+            # Si la que se mueve tiene hijas, colgarla de otra haria tres niveles.
+            hijas = (
+                await session.execute(
+                    select(Category.id).where(
+                        Category.parent_id == category.id,
+                        Category.deleted_at.is_(None),
+                    )
+                )
+            ).first()
+            if hijas is not None:
+                raise DomainError(
+                    "Una categoria con subcategorias no puede pasar a ser subcategoria"
+                )
+
+    for field, value in campos.items():
         setattr(category, field, value)
     await session.commit()
     await session.refresh(category)

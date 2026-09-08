@@ -3,13 +3,15 @@ import { Archive, ArchiveRestore, ArrowLeft, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+import { HojaReasignar } from "@/componentes/HojaReasignar"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
-import { Aviso, Confirmar } from "@/componentes/ui/confirmar"
+import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
+import { planCategoria } from "@/lib/reasignar"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 
@@ -29,7 +31,9 @@ export function Categorias() {
   )
   const [mostrarForm, setMostrarForm] = useState(false)
   const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; c: Categoria } | null>(null)
-  const [aviso, setAviso] = useState<string | null>(null)
+  // Eliminar y mover: el fallback para borrar una categoria ya usada sin tocar
+  // los movimientos a mano (ESPECIFICACION 3.3).
+  const [reasignando, setReasignando] = useState<Categoria | null>(null)
 
   const principales = categorias.filter((c) => !c.parent_id)
 
@@ -58,16 +62,36 @@ export function Categorias() {
   }
 
   function alTacho(c: Categoria) {
+    // Si no la usa nadie, se borra directo.
     if (!enUso.has(c.id)) {
       setAccion({ tipo: "eliminar", c })
       return
     }
-    const n = movs.get(c.id) ?? 0
-    setAviso(
-      n > 0
-        ? `No se puede eliminar: tiene ${n} movimiento${n === 1 ? "" : "s"} asociado${n === 1 ? "" : "s"}. Archivala en su lugar.`
-        : "No se puede eliminar: está en uso (presupuestos, plantillas, recurrentes o subcategorías). Archivala en su lugar.",
-    )
+    // Si esta en uso, se ofrece mover lo que la referencia a otra. Si no hay
+    // otra posible, la hoja lo dice y sugiere archivar.
+    setReasignando(c)
+  }
+
+  // Destinos validos: del mismo tipo (un gasto no se mueve a una categoria de
+  // ingreso) y, si la que se elimina tiene subcategorias, solo raices: el
+  // arbol tiene dos niveles y colgarlas de una hija haria tres.
+  function destinosDe(c: Categoria) {
+    const tieneHijas = categorias.some((x) => x.parent_id === c.id)
+    return categorias
+      .filter(
+        (x) =>
+          x.id !== c.id &&
+          x.kind === c.kind &&
+          !x.archived &&
+          x.parent_id !== c.id &&
+          (!tieneHijas || !x.parent_id),
+      )
+      .map((x) => ({
+        id: x.id,
+        nombre: x.parent_id
+          ? `${categorias.find((p) => p.id === x.parent_id)?.name ?? "—"} › ${x.name}`
+          : x.name,
+      }))
   }
   function alArchivar(c: Categoria) {
     if (c.archived) archivar(c, 0) // desarchivar es reversible: directo
@@ -84,7 +108,6 @@ export function Categorias() {
       key={c.id}
       c={c}
       sangria={sangria}
-      eliminable={!enUso.has(c.id)}
       onArchivar={alArchivar}
       onEliminar={alTacho}
     />
@@ -160,14 +183,25 @@ export function Categorias() {
           else archivar(accion.c, 1)
         }}
       />
-      <Aviso
-        abierta={aviso !== null}
-        onOpenChange={(v) => {
-          if (!v) setAviso(null)
-        }}
-        titulo="No se puede eliminar"
-        detalle={aviso ?? ""}
-      />
+      {reasignando && (
+        <HojaReasignar
+          abierta
+          onOpenChange={(v) => {
+            if (!v) setReasignando(null)
+          }}
+          titulo="Eliminar y mover"
+          nombre={reasignando.name}
+          detalle={(() => {
+            const n = movs.get(reasignando.id) ?? 0
+            return n > 0
+              ? `sus ${n} movimiento${n === 1 ? "" : "s"} y todo lo que la use`
+              : "todo lo que la use"
+          })()}
+          destinos={destinosDe(reasignando)}
+          plan={(destino) => planCategoria(reasignando.id, destino)}
+        />
+      )}
+
     </div>
   )
 }
@@ -175,13 +209,11 @@ export function Categorias() {
 function Fila({
   c,
   sangria,
-  eliminable,
   onArchivar,
   onEliminar,
 }: {
   c: Categoria
   sangria?: boolean
-  eliminable?: boolean
   onArchivar: (c: Categoria) => void
   onEliminar: (c: Categoria) => void
 }) {
@@ -209,8 +241,7 @@ function Fila({
           variant="ghost"
           size="icon"
           aria-label="Eliminar"
-          aria-disabled={!eliminable}
-          className={eliminable ? "text-expense" : "text-muted-foreground/40"}
+          className="text-expense"
           onClick={() => onEliminar(c)}
         >
           <Trash2 className="h-4 w-4" />

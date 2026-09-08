@@ -59,7 +59,12 @@ async def update_category(
     category = await crud.get_category(session, owner_id, category_id)
     if category is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoria no encontrada")
-    return await crud.update_category(session, category, data)
+    try:
+        return await crud.update_category(session, owner_id, category, data)
+    except DomainError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -10,14 +10,16 @@ import {
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+import { HojaReasignar } from "@/componentes/HojaReasignar"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
-import { Aviso, Confirmar } from "@/componentes/ui/confirmar"
+import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
 import { moverEnOrden } from "@/lib/orden"
+import { planMedio } from "@/lib/reasignar"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 
@@ -59,7 +61,7 @@ export function MediosPago() {
 
   const [mostrarForm, setMostrarForm] = useState(false)
   const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; m: Medio } | null>(null)
-  const [aviso, setAviso] = useState<string | null>(null)
+  const [reasignando, setReasignando] = useState<Medio | null>(null)
   const [ordenando, setOrdenando] = useState(false)
 
   async function archivar(m: Medio, valor: number) {
@@ -69,15 +71,16 @@ export function MediosPago() {
     await db.execute("DELETE FROM payment_methods WHERE id = ?", [m.id])
   }
 
-  function motivo(m: Medio): string {
-    const n = movs.get(m.id) ?? 0
-    return n > 0
-      ? `No se puede eliminar: tiene ${n} movimiento${n === 1 ? "" : "s"} asociado${n === 1 ? "" : "s"}. Archivalo en su lugar.`
-      : "No se puede eliminar: está en uso (cuentas, plantillas o recurrentes). Archivalo en su lugar."
-  }
   function alTacho(m: Medio) {
-    if (enUso.has(m.id)) setAviso(motivo(m))
+    // En uso: se ofrece mover lo que lo referencia a otro medio.
+    if (enUso.has(m.id)) setReasignando(m)
     else setAccion({ tipo: "eliminar", m })
+  }
+
+  function destinosDe(m: Medio) {
+    return medios
+      .filter((x) => x.id !== m.id && !x.archived)
+      .map((x) => ({ id: x.id, nombre: x.name }))
   }
   function alArchivar(m: Medio) {
     if (m.archived) archivar(m, 0)
@@ -98,7 +101,6 @@ export function MediosPago() {
   }
 
   function filaMedio(m: Medio, i?: number) {
-    const eliminable = !enUso.has(m.id)
     return (
       <FilaInset key={m.id}>
         <div className="min-w-0">
@@ -151,8 +153,7 @@ export function MediosPago() {
                 variant="ghost"
                 size="icon"
                 aria-label="Eliminar"
-                aria-disabled={!eliminable}
-                className={eliminable ? "text-expense" : "text-muted-foreground/40"}
+                className="text-expense"
                 onClick={() => alTacho(m)}
               >
                 <Trash2 className="h-4 w-4" />
@@ -219,14 +220,25 @@ export function MediosPago() {
           else archivar(accion.m, 1)
         }}
       />
-      <Aviso
-        abierta={aviso !== null}
-        onOpenChange={(v) => {
-          if (!v) setAviso(null)
-        }}
-        titulo="No se puede eliminar"
-        detalle={aviso ?? ""}
-      />
+      {reasignando && (
+        <HojaReasignar
+          abierta
+          onOpenChange={(v) => {
+            if (!v) setReasignando(null)
+          }}
+          titulo="Eliminar y mover"
+          nombre={reasignando.name}
+          detalle={(() => {
+            const n = movs.get(reasignando.id) ?? 0
+            return n > 0
+              ? `sus ${n} movimiento${n === 1 ? "" : "s"} y todo lo que lo use`
+              : "todo lo que lo use"
+          })()}
+          destinos={destinosDe(reasignando)}
+          plan={(destino) => planMedio(reasignando.id, destino)}
+        />
+      )}
+
     </div>
   )
 }
