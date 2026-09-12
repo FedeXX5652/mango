@@ -11,6 +11,8 @@ from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
 
+from sqlalchemy import text
+
 from app.services import fx as servicio
 
 # La tabla no tiene dueño, asi que el fixture no la aisla y las filas reales de
@@ -265,3 +267,39 @@ async def test_si_la_direccion_natural_ya_es_grande_no_pregunta_dos_veces(
         api.session, api.owner_id, traer=_falso({"USD": "1507.37"}, registro=pedidos)
     )
     assert pedidos == [("USD", "ARS")]
+
+
+# --- Dos pedidos a la vez -----------------------------------------------------
+
+
+async def test_insertar_si_falta_no_choca_con_una_igual(session) -> None:
+    """La app dispara el refresco al abrir: dos pedidos que llegan juntos ven
+    los dos que la fila falta y los dos la insertan. El segundo tiene que salir
+    sin ruido, no reventar contra `fx_uniq`.
+
+    Se usa XTS, el codigo que ISO 4217 reserva justamente para pruebas: la tabla
+    no tiene `owner_id`, asi que la base de desarrollo se filtra en las pruebas
+    y hay que elegir un par que nadie mas vaya a cotizar.
+    """
+    par = {
+        "base_currency": "XTS",
+        "quote_currency": "XXX",
+        "rate": Decimal("1234.5600000000"),
+        "rate_date": date.fromisoformat(FECHA_PRUEBA),
+    }
+
+    assert await servicio.insertar_si_falta(session, **par) is True
+    # La segunda no inserta y **no levanta**: es el caso de la carrera.
+    assert await servicio.insertar_si_falta(session, **par) is False
+
+    filas = (
+        await session.execute(
+            text(
+                "SELECT count(*) FROM exchange_rates"
+                " WHERE base_currency='XTS' AND quote_currency='XXX'"
+                " AND rate_date=:f AND deleted_at IS NULL"
+            ),
+            {"f": par["rate_date"]},
+        )
+    ).scalar_one()
+    assert filas == 1

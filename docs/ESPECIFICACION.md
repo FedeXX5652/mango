@@ -397,13 +397,14 @@ del mes" mostrando `$ 1.000.500` cuando son 1.000.000 de pesos **mas** 500
 dolares es un dato falso, no una aproximacion. Y convertir exige cotizaciones,
 que son otro problema (ver 3.6.2).
 
-Por eso, mientras no haya conversion, **todo informe se lee en una sola
-moneda**:
+Por eso ningun informe suma monedas distintas **sin convertirlas**:
 
-- **Estadisticas** tiene un selector de moneda a nivel de pantalla, con las
-  monedas que tienen datos y la base por defecto. Todos los cuadros de la
-  pantalla —dona por categoria, ingresos y egresos, evolucion, gasto por
-  etiqueta— filtran por esa moneda, y la pantalla lo aclara.
+- **Estadisticas** tiene dos modos, con el mismo selector de moneda: **Global**,
+  que lleva todo a la moneda elegida convirtiendo cada movimiento con la
+  cotizacion de **su dia**, y **Por moneda**, que muestra solo lo que ya esta en
+  esa moneda, sin convertir. Los cuatro cuadros —dona por categoria, ingresos y
+  egresos, evolucion, gasto por etiqueta— responden al modo a la vez. Con una
+  sola moneda el control no aparece.
 - **Los tres datos del mes en Inicio** van en la moneda base. Si el mes tiene
   movimientos en otra moneda, lo avisa y ofrece verlos en Estadisticas: no los
   suma ni los esconde.
@@ -420,9 +421,15 @@ falta una cotizacion ese saldo queda afuera del total, dicho en pantalla.
 
 En el resumen, **los movimientos usan la misma cotizacion que el patrimonio**:
 la ultima. La tarjeta dice "cuanto tengo y como vino el mes, en esta moneda,
-hoy", como si cambiaras todo ahora. La cotizacion del momento de cada
-movimiento es para los informes historicos, donde "lo gastado en marzo" no debe
-cambiar (ver 0005).
+hoy", como si cambiaras todo ahora.
+
+**En Estadisticas es al reves**: cada movimiento se convierte con la cotizacion
+de su fecha, porque "lo gastado en marzo" no puede cambiar porque hoy salto el
+dolar. El orden es: si el movimiento ya esta en la moneda pedida se usa tal
+cual; si la cuenta debitada esta en esa moneda se usa **el monto debitado**, que
+es el que cobro el banco de verdad; si no, la serie de cotizaciones a esa fecha.
+Lo que no se puede convertir **queda afuera del total** y se dice al pie, con
+salida a cargar la cotizacion (ver 0005).
 
 ### 3.6.2 Multimoneda
 

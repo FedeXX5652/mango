@@ -33,7 +33,8 @@ from decimal import Decimal
 from typing import Protocol
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -112,6 +113,45 @@ async def monedas_del_usuario(session: AsyncSession, owner_id: uuid.UUID, base: 
     return sorted({c.strip().upper() for c in filas if c} - {base.strip().upper()})
 
 
+async def insertar_si_falta(
+    session: AsyncSession,
+    *,
+    base_currency: str,
+    quote_currency: str,
+    rate: Decimal,
+    rate_date: date,
+) -> bool:
+    """Inserta la cotizacion salvo que ya exista. Devuelve si la inserto.
+
+    El chequeo previo (SELECT y despues INSERT) no alcanza: la app dispara el
+    refresco al abrir, y dos pedidos que llegan juntos ven los dos que la fila
+    falta y los dos la insertan. El segundo choca contra `fx_uniq` y sale un 500
+    convertido en 409, ruido por algo que en realidad esta bien: la cotizacion
+    quedo guardada.
+
+    `ON CONFLICT DO NOTHING` lo resuelve en la base, que es donde se puede. El
+    indice es **parcial** (solo las vigentes, ver 0003), asi que hay que nombrar
+    su `WHERE`; sin eso Postgres no sabe a que indice se refiere.
+    """
+    stmt = (
+        pg_insert(ExchangeRate)
+        .values(
+            # Lo crea el servidor, como las recurrentes.
+            id=uuid.uuid4(),
+            base_currency=base_currency,
+            quote_currency=quote_currency,
+            rate=rate,
+            rate_date=rate_date,
+            source=FUENTE_AUTO,
+        )
+        .on_conflict_do_nothing(
+            index_elements=["base_currency", "quote_currency", "rate_date", "source"],
+            index_where=text("deleted_at IS NULL"),
+        )
+    )
+    return (await session.execute(stmt)).rowcount > 0
+
+
 async def refrescar(
     session: AsyncSession,
     owner_id: uuid.UUID,
@@ -179,18 +219,16 @@ async def refrescar(
             res.actualizadas.append(moneda)
             continue
 
-        session.add(
-            ExchangeRate(
-                # Lo crea el servidor, como las recurrentes.
-                id=uuid.uuid4(),
-                base_currency=origen,
-                quote_currency=destino,
-                rate=rate,
-                rate_date=rate_date,
-                source=FUENTE_AUTO,
-            )
+        inserto = await insertar_si_falta(
+            session,
+            base_currency=origen,
+            quote_currency=destino,
+            rate=rate,
+            rate_date=rate_date,
         )
-        res.actualizadas.append(moneda)
+        # Si no inserto es porque otro pedido simultaneo ya la guardo: el dato
+        # esta, y decir "actualizada" dos veces seria mentir sobre quien la puso.
+        (res.actualizadas if inserto else res.sin_cambios).append(moneda)
 
     await session.commit()
     return res

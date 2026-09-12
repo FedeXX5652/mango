@@ -110,12 +110,20 @@ de su dia, y despues aproximar con la mas cercana avisando— que resolvian un
 problema que esta tarjeta no tiene. Quedan anotados porque la logica por fecha
 si va a hacer falta en los informes historicos.
 
-### 2. Los demas informes se leen en una moneda a la vez
+### 2. Los demas informes: una moneda a la vez, o convertidos al momento
 
-Mientras no haya cotizaciones, **ningun informe suma monedas distintas ni
-convierte**: elige una moneda (la base por defecto), filtra por ella y lo dice
-en pantalla. Vale para Estadisticas, los tres datos del mes en Inicio y el neto
-por dia del calendario.
+**Ningun informe suma monedas distintas sin convertirlas.** Hay dos formas de
+cumplirlo y las dos valen:
+
+- **Filtrar**: elegir una moneda y mostrar solo eso. Es el numero exacto, y es
+  lo unico posible mientras no haya cotizaciones. Sigue siendo el modo "Por
+  moneda" de Estadisticas, y lo que hacen los tres datos del mes en Inicio y el
+  neto por dia del calendario.
+- **Convertir con la cotizacion del momento**: el modo "Global" de Estadisticas
+  (ver punto 3). Contesta "cuanto gaste en total" sin reescribir el pasado.
+
+Lo que no se puede convertir queda **afuera del total** y se informa. Un total
+con una conversion inventada es peor que un total incompleto.
 
 ### 3. La cotizacion correcta depende de la pregunta
 
@@ -215,6 +223,23 @@ Direccion de la cotizacion en `exchange_rates`: `rate` es **cuantas unidades de
 **No hace falta cargar las dos direcciones**: si se necesita ARS -> USD y solo
 existe USD -> ARS, se usa `1/rate`. Es la misma cotizacion leida al reves, no un
 dato nuevo.
+
+**Ni cargar todos los pares: los que faltan se componen.** El refresco guarda
+todo contra la moneda base —una llamada por moneda—, asi que con base ARS
+existen `USD->ARS` y `MXN->ARS` pero **nunca** `USD->MXN`. Leer el patrimonio en
+dolares dejaba los pesos mexicanos afuera por un dato que ya estaba guardado: 1
+USD = 1509,91 ARS y 1 MXN = 88,96 ARS dan 1 USD = 16,97 MXN.
+
+Por eso `buscarCotizacion` prueba, en orden: el par directo, el invertido, y
+recien despues lo compone pasando por una tercera moneda (en la practica, la
+base). Componer no es inventar una cotizacion, es la misma operacion que leer un
+par al reves con un paso mas, y es lo que vuelve suficiente la decision de pedir
+una sola llamada por moneda.
+
+Dos reglas para que el resultado sea estable: la fecha que se informa es **la
+mas vieja de las dos patas** (el total no es mas fresco que su peor insumo), y
+entre varias cadenas posibles gana la del eslabon debil mas nuevo, con el orden
+alfabetico como desempate para que no dependa de como vino ordenada la consulta.
 
 ### 5. Cuando hay redondeo, manda el monto debitado
 

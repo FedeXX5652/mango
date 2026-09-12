@@ -58,29 +58,48 @@ export interface Patrimonio {
 // el error relativo del float es ~1e-16 y el resultado se redondea a la unidad
 // menor, asi que no se ve. Lo que NO se hace es guardar este numero: es un
 // valor para mostrar.
-export function convertir(
-  saldo: number,
-  origen: string,
-  destino: string,
-  rate: number,
-): number {
+export function convertir(saldo: number, origen: string, destino: string, rate: number): number {
   const unidades = saldo / factorDe(origen)
   return Math.round(unidades * rate * factorDe(destino))
 }
 
-// Busca la ultima cotizacion conocida del par. Espera `cotizaciones` ordenadas
-// de la fecha mas nueva a la mas vieja, que es como las devuelve la consulta.
+// Busca la cotizacion del par. Espera `cotizaciones` ordenadas de la fecha mas
+// nueva a la mas vieja, que es como las devuelve la consulta.
 //
-// Cuando haga falta la cotizacion **de una fecha** (informes historicos, Inc 24)
-// va a entrar un parametro `hasta` y su prueba; no se deja de arriba sin uso.
-function buscarCotizacion(
+// Con `hasta` devuelve la ultima **anterior o igual** a esa fecha, que es lo que
+// necesita un informe historico: lo gastado en marzo se convierte con el dolar
+// de marzo, no con el de hoy. Sin `hasta` devuelve la ultima conocida, que es lo
+// que necesita el patrimonio.
+//
+// La comparacion es de texto y eso alcanza: las dos puntas son ISO-8601, asi que
+// el orden alfabetico es el cronologico. `hasta` puede venir como fecha
+// ("2026-03-11") o como instante ("2026-03-11T14:20:00Z") y en los dos casos una
+// cotizacion del mismo dia entra.
+//
+// Ojo con que se le pasa: para el patrimonio, `ultimaPorPar` (una por par); para
+// un informe historico, **la serie completa**, si no no hay de donde elegir.
+export interface CotizacionUsada {
+  rate: number
+  // La fecha del dato. En una compuesta, la MAS VIEJA de las dos patas: el
+  // resultado no es mas fresco que su peor insumo.
+  fecha: string
+  // Se leyo el par al reves (habia ARS->USD y se necesitaba USD->ARS).
+  inversa: boolean
+  // Moneda por la que se paso para componerla, si hubo que componer.
+  via: string | null
+}
+
+// Par directo o invertido, sin componer. Es el primitivo.
+function directaOInversa(
   origen: string,
   destino: string,
   cotizaciones: CotizacionConocida[],
+  hasta?: string,
 ): { rate: number; fecha: string; inversa: boolean } | null {
+  const vale = (c: CotizacionConocida) => hasta === undefined || c.rate_date <= hasta
   // Directa: 1 origen = rate destino.
   const directa = cotizaciones.find(
-    (c) => c.base_currency === origen && c.quote_currency === destino,
+    (c) => c.base_currency === origen && c.quote_currency === destino && vale(c),
   )
   if (directa) {
     const rate = Number(directa.rate)
@@ -88,13 +107,59 @@ function buscarCotizacion(
   }
   // Inversa: hay 1 destino = rate origen, asi que 1 origen = 1/rate destino.
   const inversa = cotizaciones.find(
-    (c) => c.base_currency === destino && c.quote_currency === origen,
+    (c) => c.base_currency === destino && c.quote_currency === origen && vale(c),
   )
   if (inversa) {
     const rate = Number(inversa.rate)
     if (rate > 0) return { rate: 1 / rate, fecha: inversa.rate_date, inversa: true }
   }
   return null
+}
+
+export function buscarCotizacion(
+  origen: string,
+  destino: string,
+  cotizaciones: CotizacionConocida[],
+  hasta?: string,
+): CotizacionUsada | null {
+  const par = directaOInversa(origen, destino, cotizaciones, hasta)
+  if (par) return { ...par, via: null }
+
+  // Componer por una tercera moneda. Hace falta de verdad: el refresco guarda
+  // **todo contra la moneda base** (una llamada por moneda, ver 0005), asi que
+  // con base ARS existen USD->ARS y MXN->ARS pero jamas USD->MXN. Leer el
+  // patrimonio en dolares dejaba los pesos mexicanos afuera por un dato que ya
+  // estaba: 1 USD = 1509,91 ARS y 1 MXN = 88,96 ARS dan 1 USD = 16,97 MXN.
+  //
+  // Componer no es inventar una cotizacion: es la misma operacion que leer un
+  // par al reves, con un paso mas. Y sigue siendo solo para **ver**: registrar
+  // un movimiento nunca usa la serie (0005 punto 7).
+  const pivotes = new Set<string>()
+  for (const c of cotizaciones) {
+    pivotes.add(c.base_currency)
+    pivotes.add(c.quote_currency)
+  }
+  pivotes.delete(origen)
+  pivotes.delete(destino)
+
+  let mejor: CotizacionUsada | null = null
+  // Orden alfabetico para que dos cadenas igual de frescas den siempre lo
+  // mismo; si no, el total cambiaria segun como vino ordenada la consulta.
+  for (const via of [...pivotes].sort()) {
+    const a = directaOInversa(origen, via, cotizaciones, hasta)
+    if (!a) continue
+    const b = directaOInversa(via, destino, cotizaciones, hasta)
+    if (!b) continue
+    // 1 origen = a.rate via, y 1 via = b.rate destino.
+    const rate = a.rate * b.rate
+    if (!(rate > 0)) continue
+    const fecha = a.fecha < b.fecha ? a.fecha : b.fecha
+    // Entre varias cadenas posibles gana la del eslabon debil mas nuevo.
+    if (mejor === null || fecha > mejor.fecha) {
+      mejor = { rate, fecha, inversa: false, via }
+    }
+  }
+  return mejor
 }
 
 // `cotizaciones` tiene que traer UNA por par: la ultima conocida. La consulta

@@ -1,6 +1,7 @@
 import { useQuery } from "@powersync/react"
 import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { useMemo, useState } from "react"
+import { Link } from "react-router-dom"
 import {
   Area,
   AreaChart,
@@ -22,6 +23,7 @@ import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { useMonedaBase } from "@/hooks/monedaBase"
+import { useRefrescoCotizaciones } from "@/hooks/refrescoCotizaciones"
 import { formatearMonto } from "@/lib/dinero"
 import {
   type EtiquetaInfo,
@@ -30,7 +32,9 @@ import {
   agruparPorEtiqueta,
 } from "@/lib/etiquetas"
 import { mesAnio } from "@/lib/fecha"
+import { type MovimientoConvertible, convertirTodos } from "@/lib/historico"
 import { monedaPorDefecto, ordenarMonedas } from "@/lib/monedas"
+import type { CotizacionConocida } from "@/lib/patrimonio"
 import { PALETA } from "@/lib/paleta"
 import { cn } from "@/lib/utils"
 
@@ -43,16 +47,105 @@ interface GastoRow {
   category_id: string | null
   total: number
 }
-interface EvoRow {
+
+// Fila a grano de movimiento: lo minimo para poder convertirla (ver
+// lib/historico) mas lo que agrupa cada informe.
+interface MovRow extends MovimientoConvertible {
   kind: "income" | "expense"
-  amount: number
-  occurred_at: string
+  category_id: string | null
+}
+interface EvoRow extends MovimientoConvertible {
+  kind: "income" | "expense"
+}
+interface TagRow extends MovimientoConvertible {
+  id: string
 }
 
-// Toda la pantalla se lee en UNA moneda: cada consulta filtra por `moneda` y
-// los montos se formatean con ella. Sumar monedas distintas da un numero que no
-// significa nada, y convertir necesita cotizaciones (ver 0005). El selector
-// aparece solo si hay datos en mas de una moneda.
+// Toda la pantalla se lee en UNA moneda, con dos modos (decision 0005):
+//
+// - **Global**: todo llevado a la moneda elegida, cada movimiento con la
+//   cotizacion de SU dia. Lo gastado en marzo no cambia porque hoy salto el
+//   dolar; por eso NO se usa la ultima cotizacion, que es lo que corresponde al
+//   patrimonio y no a un informe historico.
+// - **Por moneda**: solo lo que ya esta en esa moneda, sin convertir. Es el
+//   numero exacto.
+//
+// Lo que no se puede convertir queda AFUERA del total y se informa al pie; nunca
+// se estima. El modo se guarda por dispositivo: es una preferencia de lectura.
+const LS_VISTA = "mango.statsVista"
+
+type Vista = "global" | "moneda"
+
+// Columnas que necesita la conversion. `moneda_cuenta` sale del join con la
+// cuenta debitada: si esta justo en la moneda que se lee, `amount_account` es el
+// monto real del resumen y no hace falta ninguna cotizacion.
+const COLS = "t.amount, t.currency, t.occurred_at, t.amount_account, a.currency AS moneda_cuenta"
+const JOIN = "LEFT JOIN accounts a ON a.id = t.account_id"
+
+// Movimientos de un mes, los dos tipos. De aca salen el gasto por categoria y
+// los totales de ingresos/egresos: una sola consulta para las dos cosas.
+const SQL_MES = `
+  SELECT t.category_id, t.kind, ${COLS}
+  FROM transactions t ${JOIN}
+  WHERE t.kind IN ('income','expense') AND t.status='confirmed' AND t.deleted_at IS NULL
+    AND t.occurred_at >= ? AND t.occurred_at < ?`
+
+const SQL_ETIQUETAS = `
+  SELECT tt.tag_id AS id, ${COLS}
+  FROM transaction_tags tt
+  JOIN transactions t ON t.id = tt.transaction_id
+  ${JOIN}
+  WHERE tt.deleted_at IS NULL AND t.deleted_at IS NULL
+    AND t.kind='expense' AND t.status='confirmed'
+    AND t.occurred_at >= ? AND t.occurred_at < ?`
+
+const SQL_EVO = `
+  SELECT t.kind, ${COLS}
+  FROM transactions t ${JOIN}
+  WHERE t.kind IN ('income','expense') AND t.status='confirmed' AND t.deleted_at IS NULL
+    AND t.occurred_at >= ?`
+
+// La serie COMPLETA, no una por par: un informe historico necesita poder elegir
+// la de cada fecha. A igual fecha gana lo cargado a mano sobre lo automatico
+// (ver 0005), y eso va escrito igual en el servidor y aca.
+const SQL_COTIZACIONES = `
+  SELECT base_currency, quote_currency, rate, rate_date
+  FROM exchange_rates WHERE deleted_at IS NULL
+  ORDER BY rate_date DESC, (source = 'auto') ASC, created_at DESC`
+
+// Pasa las filas a la moneda que se esta leyendo y descarta lo que no se pudo
+// convertir, diciendo que monedas quedaron afuera.
+function useValores<T extends MovimientoConvertible>(
+  filas: T[],
+  moneda: string,
+  global: boolean,
+  cotizaciones: CotizacionConocida[],
+): { filas: (T & { valor: number })[]; sinCotizacion: string[] } {
+  return useMemo(() => {
+    if (!global) {
+      return {
+        filas: filas
+          .filter((f) => f.currency.trim().toUpperCase() === moneda)
+          .map((f) => ({ ...f, valor: f.amount })),
+        sinCotizacion: [],
+      }
+    }
+    const { filas: convertidas, sinCotizacion } = convertirTodos(filas, moneda, cotizaciones)
+    return {
+      filas: convertidas.flatMap(({ fila, convertido }) =>
+        convertido === null ? [] : [{ ...fila, valor: convertido }],
+      ),
+      sinCotizacion,
+    }
+  }, [filas, moneda, global, cotizaciones])
+}
+
+// Suma por categoria, en la forma que espera el grafico.
+function porCategoria(filas: { category_id: string | null; valor: number }[]): GastoRow[] {
+  const acc = new Map<string | null, number>()
+  for (const f of filas) acc.set(f.category_id, (acc.get(f.category_id) ?? 0) + f.valor)
+  return [...acc].map(([category_id, total]) => ({ category_id, total }))
+}
 
 // La leyenda muestra las mas representativas; el resto va en un dialogo.
 const MAX_CATEGORIAS = 5
@@ -61,15 +154,7 @@ const MAX_ETIQUETAS = 6
 // Barra de una etiqueta, con el color propio de la etiqueta. El ancho se mide
 // contra la etiqueta mas grande, no contra el gasto total: un movimiento con
 // varias etiquetas suma en todas y un porcentaje del total mentiria.
-function FilaEtiqueta({
-  e,
-  tope,
-  moneda,
-}: {
-  e: GastoEtiqueta
-  tope: number
-  moneda: string
-}) {
+function FilaEtiqueta({ e, tope, moneda }: { e: GastoEtiqueta; tope: number; moneda: string }) {
   const pct = Math.min((e.total / tope) * 100, 100)
   return (
     <li className="space-y-1.5">
@@ -83,7 +168,12 @@ function FilaEtiqueta({
           <span className="truncate">{e.name}</span>
           {e.archived && <span className="shrink-0 text-xs text-muted-foreground">archivada</span>}
         </span>
-        <Monto centavos={e.total} moneda={moneda} variante="lista" className="shrink-0 font-medium" />
+        <Monto
+          centavos={e.total}
+          moneda={moneda}
+          variante="lista"
+          className="shrink-0 font-medium"
+        />
       </div>
       <div className="flex items-center gap-2">
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
@@ -165,11 +255,29 @@ export function Estadisticas() {
     "SELECT DISTINCT currency FROM transactions WHERE deleted_at IS NULL AND status='confirmed'",
   )
   const monedas = useMemo(
-    () => ordenarMonedas(monedaRows.map((r) => r.currency), base),
+    () =>
+      ordenarMonedas(
+        monedaRows.map((r) => r.currency),
+        base,
+      ),
     [monedaRows, base],
   )
   const [monedaElegida, setMonedaElegida] = useState<string | null>(null)
   const moneda = monedaElegida ?? monedaPorDefecto(monedas, base)
+
+  const [vista, setVista] = useState<Vista>(
+    () => (localStorage.getItem(LS_VISTA) as Vista) ?? "global",
+  )
+  // Con una sola moneda no hay nada que unificar: el control seria ruido y el
+  // modo da lo mismo.
+  const unaSola = monedas.length <= 1
+  const global = vista === "global" && !unaSola
+  function cambiarVista(v: Vista) {
+    setVista(v)
+    localStorage.setItem(LS_VISTA, v)
+  }
+
+  const { data: cotizaciones } = useQuery<CotizacionConocida>(SQL_COTIZACIONES)
 
   const { data: categorias, isLoading: cargaCats } = useQuery<CatRow>(
     "SELECT id, name, parent_id FROM categories WHERE deleted_at IS NULL",
@@ -178,36 +286,33 @@ export function Estadisticas() {
 
   const inicioMes = new Date(anio, mes, 1).toISOString()
   const finMes = new Date(anio, mes + 1, 1).toISOString()
-  const { data: gastoRows, isLoading: cargaGasto } = useQuery<GastoRow>(
-    `SELECT category_id, SUM(amount) AS total FROM transactions
-     WHERE kind='expense' AND status='confirmed' AND deleted_at IS NULL
-       AND currency = ? AND occurred_at >= ? AND occurred_at < ?
-     GROUP BY category_id`,
-    [moneda, inicioMes, finMes],
+  const inicioMesAnterior = new Date(anio, mes - 1, 1).toISOString()
+
+  // Las consultas NO filtran por moneda: traen todo y el modo se resuelve al
+  // convertir. Asi hay una sola forma de consulta en vez de dos condicionales,
+  // y cambiar de modo no vuelve a pegarle a la base.
+  const { data: mesRows, isLoading: cargaMes } = useQuery<MovRow>(SQL_MES, [inicioMes, finMes])
+  const { data: mesAnteriorRows } = useQuery<MovRow>(SQL_MES, [inicioMesAnterior, inicioMes])
+
+  const valoresMes = useValores(mesRows, moneda, global, cotizaciones)
+  const valoresAnterior = useValores(mesAnteriorRows, moneda, global, cotizaciones)
+
+  const gastoRows = useMemo(
+    () => porCategoria(valoresMes.filas.filter((f) => f.kind === "expense")),
+    [valoresMes],
+  )
+  const gastoAnteriorRows = useMemo(
+    () => porCategoria(valoresAnterior.filas.filter((f) => f.kind === "expense")),
+    [valoresAnterior],
   )
 
   // Totales del mes elegido, para las barras de ingresos vs egresos.
-  const { data: totalesMes, isLoading: cargaTotales } = useQuery<{ kind: string; total: number }>(
-    `SELECT kind, SUM(amount) AS total FROM transactions
-     WHERE kind IN ('income','expense') AND status='confirmed' AND deleted_at IS NULL
-       AND currency = ? AND occurred_at >= ? AND occurred_at < ?
-     GROUP BY kind`,
-    [moneda, inicioMes, finMes],
-  )
-  const ingresosMes = totalesMes.find((r) => r.kind === "income")?.total ?? 0
-  const egresosMes = totalesMes.find((r) => r.kind === "expense")?.total ?? 0
+  const sumar = (kind: MovRow["kind"]) =>
+    valoresMes.filas.reduce((s, f) => (f.kind === kind ? s + f.valor : s), 0)
+  const ingresosMes = sumar("income")
+  const egresosMes = sumar("expense")
   const resultadoMes = ingresosMes - egresosMes
   const topeMes = Math.max(ingresosMes, egresosMes, 1)
-
-  // Mismo corte para el mes anterior, para poder comparar.
-  const inicioMesAnterior = new Date(anio, mes - 1, 1).toISOString()
-  const { data: gastoAnteriorRows } = useQuery<GastoRow>(
-    `SELECT category_id, SUM(amount) AS total FROM transactions
-     WHERE kind='expense' AND status='confirmed' AND deleted_at IS NULL
-       AND currency = ? AND occurred_at >= ? AND occurred_at < ?
-     GROUP BY category_id`,
-    [moneda, inicioMesAnterior, inicioMes],
-  )
 
   // Gasto por categoria principal (las subcategorias suman al padre), ordenado
   // de mayor a menor y con la variacion contra el mes anterior.
@@ -350,15 +455,18 @@ export function Estadisticas() {
   const { data: todasEtiquetas } = useQuery<EtiquetaInfo>(
     "SELECT id, name, color, archived FROM tags WHERE deleted_at IS NULL",
   )
-  const { data: gastoEtiquetaRows } = useQuery<GastoEtiquetaRow>(
-    `SELECT tt.tag_id AS id, SUM(t.amount) AS total, COUNT(*) AS n
-     FROM transaction_tags tt JOIN transactions t ON t.id = tt.transaction_id
-     WHERE tt.deleted_at IS NULL AND t.deleted_at IS NULL
-       AND t.kind='expense' AND t.status='confirmed'
-       AND t.currency = ? AND t.occurred_at >= ? AND t.occurred_at < ?
-     GROUP BY tt.tag_id`,
-    [moneda, desdeTags, hastaTags],
-  )
+  const { data: etiquetaRows } = useQuery<TagRow>(SQL_ETIQUETAS, [desdeTags, hastaTags])
+  const valoresEtiquetas = useValores(etiquetaRows, moneda, global, cotizaciones)
+  const gastoEtiquetaRows = useMemo<GastoEtiquetaRow[]>(() => {
+    const acc = new Map<string, GastoEtiquetaRow>()
+    for (const f of valoresEtiquetas.filas) {
+      const cur = acc.get(f.id) ?? { id: f.id, total: 0, n: 0 }
+      cur.total += f.valor
+      cur.n += 1
+      acc.set(f.id, cur)
+    }
+    return [...acc.values()]
+  }, [valoresEtiquetas])
   const porEtiqueta = useMemo(
     () => agruparPorEtiqueta(gastoEtiquetaRows, todasEtiquetas),
     [gastoEtiquetaRows, todasEtiquetas],
@@ -368,12 +476,9 @@ export function Estadisticas() {
 
   // Evolucion: ultimos 6 meses.
   const inicioEvo = new Date(hoy.getFullYear(), hoy.getMonth() - 5, 1).toISOString()
-  const { data: evoRows } = useQuery<EvoRow>(
-    `SELECT kind, amount, occurred_at FROM transactions
-     WHERE kind IN ('income','expense') AND status='confirmed' AND deleted_at IS NULL
-       AND currency = ? AND occurred_at >= ?`,
-    [moneda, inicioEvo],
-  )
+  const { data: evoRowsCrudas } = useQuery<EvoRow>(SQL_EVO, [inicioEvo])
+  const valoresEvo = useValores(evoRowsCrudas, moneda, global, cotizaciones)
+  const evoRows = valoresEvo.filas
   const evolucion = useMemo(() => {
     const meses = Array.from({ length: 6 }, (_, i) => {
       const d = new Date(hoy.getFullYear(), hoy.getMonth() - (5 - i), 1)
@@ -389,8 +494,8 @@ export function Estadisticas() {
       const d = new Date(r.occurred_at)
       const i = idx.get(`${d.getFullYear()}-${d.getMonth()}`)
       if (i === undefined) continue
-      if (r.kind === "income") meses[i].ingresos += r.amount
-      else meses[i].gastos += r.amount
+      if (r.kind === "income") meses[i].ingresos += r.valor
+      else meses[i].gastos += r.valor
     }
     return meses.map((m) => ({ ...m, neto: m.ingresos - m.gastos }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -398,11 +503,28 @@ export function Estadisticas() {
 
   const etiquetaMes = mesAnio(anio, mes)
 
+  // Lo que no se pudo convertir queda afuera del total y se dice; nunca se
+  // estima. Y se pide la cotizacion en el momento: una moneda nueva no deberia
+  // obligar a recargar la app (ver 0005).
+  const faltantes = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...valoresMes.sinCotizacion,
+          ...valoresAnterior.sinCotizacion,
+          ...valoresEtiquetas.sinCotizacion,
+          ...valoresEvo.sinCotizacion,
+        ]),
+      ].sort(),
+    [valoresMes, valoresAnterior, valoresEtiquetas, valoresEvo],
+  )
+  useRefrescoCotizaciones(faltantes)
+
   // Mientras la primera consulta no volvio, la pantalla NO afirma nada: sin
   // este corte se dibuja "Sin gastos este mes" y "$ 0,00", y despues todo
   // salta (ver 0008). Solo entran las consultas que deciden la estructura;
   // las de detalle (etiquetas, evolucion) llegan dentro del mismo render.
-  const cargando = cargaMonedas || cargaCats || cargaGasto || cargaTotales
+  const cargando = cargaMonedas || cargaCats || cargaMes
   // El umbral solo decide si el esqueleto se VE; el corte es `cargando`.
   const mostrarEsqueleto = useDemora(cargando)
   const tip = (v: number) => formatearMonto(v, { moneda })
@@ -439,15 +561,32 @@ export function Estadisticas() {
     <div className="mx-auto max-w-2xl space-y-8 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Estadísticas</h1>
-        {/* Con una sola moneda no hay nada que elegir y el control seria ruido. */}
-        <SelectorMoneda monedas={monedas} valor={moneda} onCambio={setMonedaElegida} />
+        {/* Con una sola moneda no hay nada que unificar. */}
+        {!unaSola && (
+          <Segmentado
+            opciones={[
+              { valor: "global", etiqueta: "Global" },
+              { valor: "moneda", etiqueta: "Por moneda" },
+            ]}
+            valor={vista}
+            onCambio={cambiarVista}
+          />
+        )}
       </div>
-      {monedas.length > 1 && (
-        <p className="-mt-6 text-xs text-muted-foreground">
-          Todo lo de abajo es solo en {moneda}. Los montos en otra moneda no se suman ni se
-          convierten.
-        </p>
-      )}
+      {/* El modo ya lo dicen los chips y la moneda el selector: no hace falta
+          explicarlo abajo (DESIGN.md 7). Solo se avisa lo que quedo afuera. */}
+      <div className="-mt-6 space-y-1">
+        <SelectorMoneda monedas={monedas} valor={moneda} onCambio={setMonedaElegida} />
+        {faltantes.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            No incluye {faltantes.join(", ")}: falta su cotización.{" "}
+            <Link to="/cotizaciones" className="text-primary underline-offset-2 hover:underline">
+              Cargarla
+            </Link>
+            .
+          </p>
+        )}
+      </div>
 
       <section className="space-y-3">
         {/* flex-wrap + nowrap: si no entran en una linea, el selector de mes baja
@@ -486,24 +625,24 @@ export function Estadisticas() {
                 medicion dejaba el anillo en blanco ~100 ms (ver 0008). */}
             <div className="relative mx-auto h-60 w-60">
               <PieChart width={240} height={240}>
-                  <Pie
-                    // Sin animacion de entrada: recharts la hace en 1,5 s y
-                    // deja el anillo a medio dibujar. Los datos que se leen no
-                    // se animan (DESIGN.md 8).
-                    isAnimationActive={false}
-                    data={torta}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={68}
-                    outerRadius={92}
-                    paddingAngle={2}
-                    cornerRadius={5}
-                    stroke="none"
-                  >
-                    {torta.map((_, i) => (
-                      <Cell key={i} fill={PALETA[i % PALETA.length]} />
-                    ))}
-                  </Pie>
+                <Pie
+                  // Sin animacion de entrada: recharts la hace en 1,5 s y
+                  // deja el anillo a medio dibujar. Los datos que se leen no
+                  // se animan (DESIGN.md 8).
+                  isAnimationActive={false}
+                  data={torta}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={68}
+                  outerRadius={92}
+                  paddingAngle={2}
+                  cornerRadius={5}
+                  stroke="none"
+                >
+                  {torta.map((_, i) => (
+                    <Cell key={i} fill={PALETA[i % PALETA.length]} />
+                  ))}
+                </Pie>
                 <Tooltip formatter={(v) => tip(Number(v))} />
               </PieChart>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">

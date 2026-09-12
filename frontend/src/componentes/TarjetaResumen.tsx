@@ -23,10 +23,15 @@ import { cn } from "@/lib/utils"
 //
 // Dos modos, los mismos cuatro campos:
 //
-// - **Global**: todo llevado a la moneda elegida. El patrimonio con la ultima
-//   cotizacion conocida (es una valuacion de hoy); los flujos con la del **dia
-//   de cada movimiento** (son hechos pasados y no pueden cambiar porque hoy
-//   salto el dolar).
+// - **Global**: todo llevado a la moneda elegida con **una sola** cotizacion, la
+//   ultima conocida: patrimonio y flujos por igual. La tarjeta dice "cuanto
+//   tengo y como vino el mes, en esta moneda, HOY", como si cambiaras todo
+//   ahora; que el patrimonio usara una y los flujos otra mezclaria dos
+//   valuaciones en el mismo bloque (0005 punto 1.2).
+//
+//   La cotizacion del dia de cada movimiento es de los informes historicos
+//   (Estadisticas), donde lo gastado en marzo no puede cambiar porque hoy salto
+//   el dolar. No confundir las dos.
 // - **Por moneda**: solo lo que ya esta en la moneda elegida, sin convertir
 //   nada. Es el numero exacto.
 //
@@ -79,18 +84,15 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
   const { data: flujoRows } = useQuery<FlujoRow>(SQL_FLUJOS, rangoMes)
   const { data: cotizaRows } = useQuery<CotizacionConocida>(SQL_COTIZACIONES)
 
-  // El patrimonio usa una por par (la ultima); los flujos necesitan la serie
-  // completa para poder buscar la del dia de cada movimiento.
+  // Una por par, la ultima: la tarjeta entera se lee con esa. La serie completa
+  // la usa Estadisticas, que si necesita la de cada fecha.
   const ultimas = useMemo(() => ultimaPorPar(cotizaRows), [cotizaRows])
 
   // Se puede leer el resumen en cualquier moneda que el usuario tenga, sea de
   // una cuenta o de un movimiento del mes.
   const monedas = useMemo(
     () =>
-      ordenarMonedas(
-        [...saldos.map((s) => s.moneda), ...flujoRows.map((f) => f.currency)],
-        base,
-      ),
+      ordenarMonedas([...saldos.map((s) => s.moneda), ...flujoRows.map((f) => f.currency)], base),
     [saldos, flujoRows, base],
   )
   const moneda = monedaElegida && monedas.includes(monedaElegida) ? monedaElegida : base
@@ -102,9 +104,7 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
 
   const flujos = useMemo(() => {
     const porMoneda = (kind: FlujoRow["kind"]): SaldoMoneda[] =>
-      flujoRows
-        .filter((f) => f.kind === kind)
-        .map((f) => ({ moneda: f.currency, saldo: f.total }))
+      flujoRows.filter((f) => f.kind === kind).map((f) => ({ moneda: f.currency, saldo: f.total }))
 
     if (vista === "moneda") {
       // Sin convertir: solo lo que ya esta en esa moneda.
@@ -112,7 +112,11 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
         flujoRows
           .filter((f) => f.kind === kind && f.currency === moneda)
           .reduce((s, f) => s + f.total, 0)
-      return { ingresos: propio("income"), egresos: propio("expense"), sinCotizacion: [] as string[] }
+      return {
+        ingresos: propio("income"),
+        egresos: propio("expense"),
+        sinCotizacion: [] as string[],
+      }
     }
     // Misma operacion que el patrimonio: una sola cotizacion, la ultima.
     const ing = calcularPatrimonio(porMoneda("income"), moneda, ultimas)
@@ -189,8 +193,18 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
               arriba; como viene el mes, abajo. Una tarjeta anidada pesaria mas
               y no diria mas (DESIGN.md 7). */}
           <dl className="mt-4 space-y-1 border-t border-border pt-3 text-sm">
-            <Fila etiqueta="Ingresos" centavos={flujos.ingresos} moneda={moneda} clase="text-income" />
-            <Fila etiqueta="Egresos" centavos={flujos.egresos} moneda={moneda} clase="text-expense" />
+            <Fila
+              etiqueta="Ingresos"
+              centavos={flujos.ingresos}
+              moneda={moneda}
+              clase="text-income"
+            />
+            <Fila
+              etiqueta="Egresos"
+              centavos={flujos.egresos}
+              moneda={moneda}
+              clase="text-expense"
+            />
             <Fila
               etiqueta="Resultado"
               centavos={resultado}
