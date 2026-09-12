@@ -21,6 +21,7 @@ import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { Button } from "@/componentes/ui/button"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
+import { useConexion } from "@/hooks/conexion"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { type Direccion } from "@/lib/dinero"
@@ -94,13 +95,17 @@ function horaCorta(iso: string): string {
 
 function EstadoSync() {
   const status = useStatus()
-  const texto = !status.connected
+  // `status.connected` solo no alcanza: tarda demasiado en enterarse de que se
+  // corto la red y el indicador se queda diciendo "Al día" sin serlo. Ver
+  // hooks/conexion.
+  const hayConexion = useConexion()
+  const texto = !hayConexion
     ? "Sin conexión"
     : status.dataFlowStatus.downloading || status.dataFlowStatus.uploading
       ? "Sincronizando…"
       : "Al día"
   return (
-    <span className={cn("text-xs", status.connected ? "text-income" : "text-muted-foreground")}>
+    <span className={cn("text-xs", hayConexion ? "text-income" : "text-muted-foreground")}>
       {texto}
     </span>
   )
@@ -144,7 +149,11 @@ export function Movimientos() {
     "SELECT DISTINCT currency FROM transactions WHERE deleted_at IS NULL",
   )
   const monedas = useMemo(
-    () => ordenarMonedas(monedaRows.map((r) => r.currency), base),
+    () =>
+      ordenarMonedas(
+        monedaRows.map((r) => r.currency),
+        base,
+      ),
     [monedaRows, base],
   )
   const etiquetasOrden = useMemo(
@@ -176,9 +185,7 @@ export function Movimientos() {
       p.push(monedaFiltro)
     }
     if (soloSinConversion) {
-      cond.push(
-        `t.amount_account IS NULL AND a.currency IS NOT NULL AND a.currency <> t.currency`,
-      )
+      cond.push(`t.amount_account IS NULL AND a.currency IS NOT NULL AND a.currency <> t.currency`)
     }
     if (etiquetaId) {
       // EXISTS y no JOIN: un movimiento con varias etiquetas no debe duplicarse.
@@ -207,8 +214,7 @@ export function Movimientos() {
   const { data: mesMovs, isLoading: cargaMovs } = useQuery<Fila>(sql, params)
 
   const lista = useMemo(
-    () =>
-      diaSel ? mesMovs.filter((f) => new Date(f.occurred_at).getDate() === diaSel) : mesMovs,
+    () => (diaSel ? mesMovs.filter((f) => new Date(f.occurred_at).getDate() === diaSel) : mesMovs),
     [mesMovs, diaSel],
   )
 

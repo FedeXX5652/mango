@@ -14,6 +14,9 @@ import { configurarMonedaBase } from "@/lib/dinero"
 const LS_MONEDA = "mango.monedaBase"
 
 const Ctx = createContext<string>("ARS")
+// Setter aparte para no cambiarle la forma al contexto que ya consumen siete
+// pantallas. Solo lo usa la pantalla que cambia la moneda base.
+const CtxSet = createContext<(moneda: string) => void>(() => {})
 
 function guardada(): string {
   return localStorage.getItem(LS_MONEDA) ?? "ARS"
@@ -48,9 +51,25 @@ export function ProveedorMonedaBase({ children }: { children: React.ReactNode })
     }
   }, [])
 
-  return <Ctx.Provider value={moneda}>{children}</Ctx.Provider>
+  // Aplica una moneda base nueva en el dispositivo. El servidor sigue siendo la
+  // fuente de verdad: esto corre DESPUES de que el PATCH salio bien, no antes.
+  function aplicar(nueva: string) {
+    const cur = nueva.trim().toUpperCase()
+    localStorage.setItem(LS_MONEDA, cur)
+    setMoneda(cur)
+  }
+
+  return (
+    <Ctx.Provider value={moneda}>
+      <CtxSet.Provider value={aplicar}>{children}</CtxSet.Provider>
+    </Ctx.Provider>
+  )
 }
 
 export function useMonedaBase(): string {
   return useContext(Ctx)
+}
+
+export function useCambiarMonedaBase(): (moneda: string) => void {
+  return useContext(CtxSet)
 }

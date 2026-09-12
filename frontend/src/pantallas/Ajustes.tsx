@@ -23,12 +23,7 @@ import { TEMAS } from "@/config/temas"
 import { api } from "@/lib/api"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { descargarTexto } from "@/lib/descargar"
-import {
-  type RangoExport,
-  nombreExport,
-  parametrosExport,
-  tieneFilas,
-} from "@/lib/exportar"
+import { type RangoExport, nombreExport, parametrosExport, tieneFilas } from "@/lib/exportar"
 import { type ColorScheme, useTema } from "@/hooks/tema"
 import { useBloqueo } from "@/hooks/bloqueo"
 import {
@@ -37,6 +32,7 @@ import {
   biometriaDisponible,
   desactivarBiometria,
 } from "@/lib/biometria"
+import { CambiarMonedaBase } from "@/componentes/CambiarMonedaBase"
 import { cn } from "@/lib/utils"
 
 const MODOS: { valor: ColorScheme; etiqueta: string }[] = [
@@ -103,6 +99,10 @@ export function Ajustes() {
         </div>
       </Seccion>
 
+      <Seccion titulo="Moneda">
+        <CambiarMonedaBase />
+      </Seccion>
+
       <Seccion titulo="Datos">
         <button
           type="button"
@@ -119,11 +119,7 @@ export function Ajustes() {
             </span>
           </span>
         </button>
-        <Hoja
-          abierta={mostrarExport}
-          onOpenChange={setMostrarExport}
-          titulo="Exportar movimientos"
-        >
+        <Hoja abierta={mostrarExport} onOpenChange={setMostrarExport} titulo="Exportar movimientos">
           <FormExportar onCerrar={() => setMostrarExport(false)} />
         </Hoja>
       </Seccion>

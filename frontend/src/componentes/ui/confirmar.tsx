@@ -11,6 +11,9 @@ export function Confirmar({
   detalle,
   etiqueta = "Confirmar",
   destructivo,
+  deshabilitado,
+  nota,
+  children,
   onConfirmar,
 }: {
   abierta: boolean
@@ -19,14 +22,24 @@ export function Confirmar({
   detalle?: string
   etiqueta?: string
   destructivo?: boolean
+  // Para las pocas acciones que NO se pueden hacer sin conexion (ver DESIGN 7):
+  // el boton queda apagado y `nota` dice por que. Es la excepcion, no la regla:
+  // todo lo que se escribe local se puede hacer siempre.
+  deshabilitado?: boolean
+  nota?: React.ReactNode
+  // Detalle mas largo que una frase: una lista de consecuencias, por ejemplo.
+  children?: React.ReactNode
   onConfirmar: () => void
 }) {
   return (
     <Hoja abierta={abierta} onOpenChange={onOpenChange} titulo={titulo}>
       {detalle && <p className="mb-4 text-sm text-muted-foreground">{detalle}</p>}
+      {children}
+      {nota && <p className="mb-3 text-sm text-muted-foreground">{nota}</p>}
       <div className="flex flex-col gap-2">
         <Button
           variant={destructivo ? "destructive" : "default"}
+          disabled={deshabilitado}
           onClick={() => {
             onConfirmar()
             onOpenChange(false)

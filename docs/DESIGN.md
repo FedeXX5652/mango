@@ -407,6 +407,19 @@ informa. **La aplicacion sigue funcionando con normalidad**: no se bloquean
 acciones ni se muestran errores. Si hay cambios sin sincronizar, se indica
 cuantos.
 
+**La excepcion son las pocas acciones que el servidor tiene que hacer** (exportar
+el CSV, cambiar la moneda base, refrescar cotizaciones, generar recurrentes; ver
+ESPECIFICACION 3.11). Esas apagan su boton y dicen por que **antes** de que la
+persona acepte, en vez de fallar despues. No contradice la regla: lo que se
+escribe local nunca se bloquea.
+
+Que hay conexion se pregunta con **`useConexion()`**, no con `status.connected`
+de PowerSync a secas. Esta medido: cortando la red, `navigator.onLine` pasa a
+false en 2 segundos y `status.connected` seguia diciendo que si a los 45, porque
+el socket no se entera hasta que intenta hablar. El hook combina las dos. Aun
+asi, habilitado es una prediccion —puede haber red y estar caido el servidor—,
+asi que el fallo del pedido se maneja igual.
+
 ### Lista de movimientos
 
 **Agrupada por dia.** Cada dia es un grupo con encabezado propio (texto chico,
