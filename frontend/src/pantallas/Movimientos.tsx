@@ -118,6 +118,10 @@ export function Movimientos() {
   const [texto, setTexto] = useState("")
   const [etiquetaId, setEtiquetaId] = useState("")
   const [monedaFiltro, setMonedaFiltro] = useState("")
+  // "Faltan datos de conversion": movimientos en otra moneda que la cuenta y
+  // sin el monto debitado. Es un FILTRO, no un estado: el movimiento esta
+  // completo, lo que falta es un dato del banco (regla 4, ver 0005).
+  const [soloSinConversion, setSoloSinConversion] = useState(false)
   const [diaSel, setDiaSel] = useState<number | null>(null)
 
   const { data: cuentas, isLoading: cargaCuentas } = useQuery<Opcion>(
@@ -131,6 +135,11 @@ export function Movimientos() {
     "SELECT id, name FROM tags WHERE deleted_at IS NULL AND archived = 0",
   )
   const base = useMonedaBase()
+  // Cuantos movimientos del mes esperan el monto debitado del banco.
+  const { data: sinConversion } = useQuery<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM transactions t JOIN accounts a ON a.id = t.account_id
+     WHERE t.deleted_at IS NULL AND t.amount_account IS NULL AND a.currency <> t.currency`,
+  )
   const { data: monedaRows } = useQuery<{ currency: string }>(
     "SELECT DISTINCT currency FROM transactions WHERE deleted_at IS NULL",
   )
@@ -166,6 +175,11 @@ export function Movimientos() {
       cond.push("t.currency = ?")
       p.push(monedaFiltro)
     }
+    if (soloSinConversion) {
+      cond.push(
+        `t.amount_account IS NULL AND a.currency IS NOT NULL AND a.currency <> t.currency`,
+      )
+    }
     if (etiquetaId) {
       // EXISTS y no JOIN: un movimiento con varias etiquetas no debe duplicarse.
       cond.push(
@@ -188,7 +202,7 @@ export function Movimientos() {
             ORDER BY t.occurred_at DESC`,
       params: p,
     }
-  }, [anio, mes, tipo, cuentaId, categoriaId, etiquetaId, monedaFiltro, texto])
+  }, [anio, mes, tipo, cuentaId, categoriaId, etiquetaId, monedaFiltro, soloSinConversion, texto])
 
   const { data: mesMovs, isLoading: cargaMovs } = useQuery<Fila>(sql, params)
 
@@ -339,6 +353,29 @@ export function Movimientos() {
           onChange={(e) => setTexto(e.target.value)}
         />
       </div>
+
+      {/* Solo aparece si hay algo que completar: un filtro que nunca encuentra
+          nada es ruido. */}
+      {(sinConversion[0]?.n ?? 0) > 0 && (
+        <button
+          type="button"
+          onClick={() => setSoloSinConversion((v) => !v)}
+          className={cn(
+            "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+            soloSinConversion
+              ? "border-primary bg-primary/10"
+              : "border-border bg-card hover:bg-muted",
+          )}
+        >
+          <span>
+            {sinConversion[0].n} movimiento{sinConversion[0].n === 1 ? "" : "s"} sin el monto
+            debitado
+          </span>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {soloSinConversion ? "ver todos" : "ver solo esos"}
+          </span>
+        </button>
+      )}
 
       {vista === "calendario" ? (
         <Calendario

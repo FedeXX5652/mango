@@ -26,6 +26,13 @@ class TransactionCreate(BaseModel):
     payee: str | None = None
     notes: str | None = None
     visibility: Visibility = "private"
+    # Conversion, cuando la moneda del movimiento no es la de la cuenta
+    # debitada (ver 0005). **Dos de tres determinan el tercero**: alcanza con
+    # mandar uno de estos dos y el servidor completa el otro. Si vienen los dos
+    # y no cierran, manda `amount_account`, que es lo que figura en el resumen
+    # del banco. Con la misma moneda los dos quedan en NULL.
+    amount_account: int | None = Field(default=None, gt=0)
+    exchange_rate: Decimal | None = Field(default=None, gt=0, max_digits=20, decimal_places=10)
 
 
 class TransactionUpdate(BaseModel):
@@ -40,6 +47,11 @@ class TransactionUpdate(BaseModel):
     payee: str | None = None
     notes: str | None = None
     visibility: Visibility | None = None
+    # Al editar: si cambia `amount`, se recalcula la cotizacion y el monto
+    # debitado NO se toca (es el dato del banco). Si cambia `amount_account`,
+    # se recalcula la cotizacion. Ver `services.conversion`.
+    amount_account: int | None = Field(default=None, gt=0)
+    exchange_rate: Decimal | None = Field(default=None, gt=0, max_digits=20, decimal_places=10)
 
 
 class TransactionRead(BaseModel):

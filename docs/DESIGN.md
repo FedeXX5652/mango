@@ -325,6 +325,13 @@ No se aplica dentro de una oracion, en un campo de entrada o su eco, ni en
 etiquetas de `text-xs` o menos (incluidos los tooltips de los graficos): ahi va
 el formateo plano. El detalle esta en la decision 0006.
 
+**Una cotizacion no es un monto.** Se escribe como frase, `1 USD = 1.734,9747
+ARS`, con separador decimal local y hasta cuatro decimales (seis si es menor a
+1, si no el numero no dice nada). Los diez decimales de la columna son ruido en
+pantalla: el dato exacto es el monto debitado, la cotizacion es derivada. El
+formateo esta en `cotizacionLegible` (`lib/conversion.ts`); lo que se guarda es
+el string completo, no lo que se muestra.
+
 ### Informes en una moneda
 
 Un informe **nunca mezcla monedas** (ver ESPECIFICACION 3.6.1). El patron es

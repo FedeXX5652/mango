@@ -432,6 +432,18 @@ la cotizacion del momento de cada movimiento, y el tipo de cambio real anotado
 por movimiento (con el monto debitado como fuente de verdad). Adelanta trabajo
 que estaba en fase 4.
 
+**Al cargar un gasto en otra moneda** aparece un campo mas: *monto debitado de
+la cuenta*, lo que figura en el resumen del banco. De ahi sale la cotizacion,
+que se muestra debajo pero no se pide: los dos caminos no dan el mismo numero y
+el del resumen es el que cuadra el saldo (ver 0005 punto 5). El campo aparece
+solo cuando la moneda del movimiento no es la de la cuenta elegida.
+
+El monto debitado **puede quedar vacio**: la compra en USD esta completa igual y
+se guarda `confirmed`, no `pending` (regla 4). Los que les falta se cuentan en
+un filtro de la lista de movimientos, "N movimientos sin el monto debitado", que
+solo aparece si hay alguno. La exportacion a CSV lleva las dos columnas
+(`monto_debitado`, `cotizacion`), vacias cuando no hubo conversion.
+
 **Las cotizaciones se cargan en Ajustes > Cotizaciones**, una por moneda, fecha
 y fuente ('oficial', 'mep', 'tarjeta'...). La carga es local-first como todo lo
 demas: se puede cargar sin conexion y sube despues. La pantalla dice lo que

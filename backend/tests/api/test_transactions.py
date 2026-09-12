@@ -1,6 +1,7 @@
 """API de transacciones (Inc 6): los 3 tipos y su validacion de dominio."""
 
 import uuid
+from decimal import Decimal
 from types import SimpleNamespace
 
 from sqlalchemy import text
@@ -271,3 +272,200 @@ async def test_list_filters_by_kind_and_account(api: SimpleNamespace) -> None:
     by_dest = (await api.client.get("/api/v1/transactions", params={"account_id": dest})).json()
     assert len(by_dest) == 1
     assert by_dest[0]["kind"] == "transfer"
+
+
+# --- Conversion cuando la moneda del movimiento no es la de la cuenta (0005)
+
+
+async def test_compra_en_dolares_con_cuenta_en_pesos_deduce_la_cotizacion(api) -> None:
+    cta = await _account(api, "ARS")
+    cat = await _category(api, "expense")
+    # 15,80 USD que el banco debito como 27.412,60 pesos.
+    resp = await api.client.post(
+        "/api/v1/transactions",
+        json={
+            "id": str(uuid.uuid4()),
+            "kind": "expense",
+            "occurred_at": "2026-09-08T12:00:00Z",
+            "amount": 1580,
+            "currency": "USD",
+            "account_id": cta,
+            "category_id": cat,
+            "amount_account": 2741260,
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    tx = resp.json()
+    assert tx["amount_account"] == 2741260
+    assert Decimal(tx["exchange_rate"]) == Decimal("1734.9746835443")
+
+
+async def test_con_la_cotizacion_deduce_el_monto_debitado(api) -> None:
+    cta = await _account(api, "ARS")
+    cat = await _category(api, "expense")
+    resp = await api.client.post(
+        "/api/v1/transactions",
+        json={
+            "id": str(uuid.uuid4()),
+            "kind": "expense",
+            "occurred_at": "2026-09-08T12:00:00Z",
+            "amount": 1580,
+            "currency": "USD",
+            "account_id": cta,
+            "category_id": cat,
+            "exchange_rate": "1735.10",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["amount_account"] == 2741458
+
+
+async def test_si_vienen_los_dos_manda_el_monto_debitado(api) -> None:
+    cta = await _account(api, "ARS")
+    cat = await _category(api, "expense")
+    resp = await api.client.post(
+        "/api/v1/transactions",
+        json={
+            "id": str(uuid.uuid4()),
+            "kind": "expense",
+            "occurred_at": "2026-09-08T12:00:00Z",
+            "amount": 1580,
+            "currency": "USD",
+            "account_id": cta,
+            "category_id": cat,
+            "amount_account": 2741260,
+            "exchange_rate": "1735.10",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    # La cotizacion se recalcula desde el monto, no se guarda la que mandaron.
+    assert Decimal(resp.json()["exchange_rate"]) == Decimal("1734.9746835443")
+
+
+async def test_sin_datos_de_conversion_el_movimiento_es_valido(api) -> None:
+    """Una compra en USD esta completa: falta un dato del banco, no del
+    movimiento. No se marca 'pending' (regla 4)."""
+    cta = await _account(api, "ARS")
+    cat = await _category(api, "expense")
+    resp = await api.client.post(
+        "/api/v1/transactions",
+        json={
+            "id": str(uuid.uuid4()),
+            "kind": "expense",
+            "occurred_at": "2026-09-08T12:00:00Z",
+            "amount": 1580,
+            "currency": "USD",
+            "account_id": cta,
+            "category_id": cat,
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    tx = resp.json()
+    assert tx["amount_account"] is None
+    assert tx["exchange_rate"] is None
+    assert tx["status"] == "confirmed"
+
+
+async def test_misma_moneda_no_guarda_conversion(api) -> None:
+    cta = await _account(api, "ARS")
+    cat = await _category(api, "expense")
+    resp = await api.client.post(
+        "/api/v1/transactions",
+        json={
+            "id": str(uuid.uuid4()),
+            "kind": "expense",
+            "occurred_at": "2026-09-08T12:00:00Z",
+            "amount": 100000,
+            "currency": "ARS",
+            "account_id": cta,
+            "category_id": cat,
+            "amount_account": 100000,
+            "exchange_rate": "1",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["amount_account"] is None
+    assert resp.json()["exchange_rate"] is None
+
+
+async def test_al_editar_el_monto_se_conserva_lo_debitado(api) -> None:
+    cta = await _account(api, "ARS")
+    cat = await _category(api, "expense")
+    creada = (
+        await api.client.post(
+            "/api/v1/transactions",
+            json={
+                "id": str(uuid.uuid4()),
+                "kind": "expense",
+                "occurred_at": "2026-09-08T12:00:00Z",
+                "amount": 1580,
+                "currency": "USD",
+                "account_id": cta,
+                "category_id": cat,
+                "amount_account": 2741260,
+            },
+        )
+    ).json()
+
+    # Corregir el monto en dolares: lo que salio de la cuenta no cambia (es el
+    # dato del banco), la cotizacion se recalcula.
+    resp = await api.client.patch(f"/api/v1/transactions/{creada['id']}", json={"amount": 1600})
+    assert resp.status_code == 200, resp.text
+    tx = resp.json()
+    assert tx["amount_account"] == 2741260
+    assert Decimal(tx["exchange_rate"]) == Decimal("1713.2875")
+
+
+async def test_al_editar_lo_debitado_se_recalcula_la_cotizacion(api) -> None:
+    cta = await _account(api, "ARS")
+    cat = await _category(api, "expense")
+    creada = (
+        await api.client.post(
+            "/api/v1/transactions",
+            json={
+                "id": str(uuid.uuid4()),
+                "kind": "expense",
+                "occurred_at": "2026-09-08T12:00:00Z",
+                "amount": 1580,
+                "currency": "USD",
+                "account_id": cta,
+                "category_id": cat,
+                "amount_account": 2741260,
+            },
+        )
+    ).json()
+
+    resp = await api.client.patch(
+        f"/api/v1/transactions/{creada['id']}", json={"amount_account": 2800000}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["amount_account"] == 2800000
+    assert Decimal(resp.json()["exchange_rate"]) == Decimal("1772.1518987342")
+
+
+async def test_cambiar_a_una_cuenta_de_la_misma_moneda_borra_la_conversion(api) -> None:
+    ars = await _account(api, "ARS")
+    usd = await _account(api, "USD")
+    cat = await _category(api, "expense")
+    creada = (
+        await api.client.post(
+            "/api/v1/transactions",
+            json={
+                "id": str(uuid.uuid4()),
+                "kind": "expense",
+                "occurred_at": "2026-09-08T12:00:00Z",
+                "amount": 1580,
+                "currency": "USD",
+                "account_id": ars,
+                "category_id": cat,
+                "amount_account": 2741260,
+            },
+        )
+    ).json()
+
+    # Si el gasto en USD pasa a debitarse de la cuenta en USD, ya no hay
+    # conversion que registrar.
+    resp = await api.client.patch(f"/api/v1/transactions/{creada['id']}", json={"account_id": usd})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["amount_account"] is None
+    assert resp.json()["exchange_rate"] is None

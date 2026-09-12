@@ -9,6 +9,7 @@ import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { ordenarJerarquico } from "@/lib/categorias"
+import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
 
@@ -17,6 +18,8 @@ interface Tx {
   kind: "expense" | "income" | "transfer"
   amount: number
   currency: string
+  amount_account: number | null
+  exchange_rate: string | null
   occurred_at: string
   account_id: string | null
   transfer_account_id: string | null
@@ -27,6 +30,7 @@ interface Tx {
 interface Opcion {
   id: string
   name: string
+  currency?: string
   kind?: string
   parent_id?: string | null
 }
@@ -59,13 +63,13 @@ export function DetalleMovimiento() {
     "SELECT tag_id FROM transaction_tags WHERE transaction_id = ? AND deleted_at IS NULL",
     [id ?? ""],
   )
-  const idsActuales = useMemo(
-    () => etiquetasActuales.map((r) => r.tag_id),
-    [etiquetasActuales],
-  )
+  const idsActuales = useMemo(() => etiquetasActuales.map((r) => r.tag_id), [etiquetasActuales])
 
   const [etiquetas, setEtiquetas] = useState<string[]>([])
   const [monto, setMonto] = useState("")
+  // Monto debitado de la cuenta, cuando la moneda del movimiento no es la de
+  // la cuenta. Es la fuente de verdad; la cotizacion se deduce (ver 0005).
+  const [debitado, setDebitado] = useState("")
   const [cuentaId, setCuentaId] = useState("")
   const [destinoId, setDestinoId] = useState("")
   const [categoriaId, setCategoriaId] = useState("")
@@ -78,6 +82,7 @@ export function DetalleMovimiento() {
   useEffect(() => {
     if (!tx) return
     setMonto((tx.amount / 100).toString().replace(".", ","))
+    setDebitado(tx.amount_account ? (tx.amount_account / 100).toString().replace(".", ",") : "")
     setCuentaId(tx.account_id ?? "")
     setDestinoId(tx.transfer_account_id ?? "")
     setCategoriaId(tx.category_id ?? "")
@@ -103,6 +108,19 @@ export function DetalleMovimiento() {
     (c) => c.kind === (tx.kind === "income" ? "income" : "expense"),
   )
 
+  // Moneda de la cuenta elegida (puede cambiar en el formulario) y cotizacion
+  // que implica lo tipeado.
+  const monedaCuentaSel = cuentas.find((c) => c.id === cuentaId)?.currency ?? tx?.currency ?? ""
+  const cotizacionVista =
+    tx && monedaCuentaSel !== tx.currency && debitado.trim()
+      ? cotizacionDe(
+          aCentavos(monto) ?? 0,
+          tx.currency,
+          aCentavos(debitado, monedaCuentaSel) ?? 0,
+          monedaCuentaSel,
+        )
+      : null
+
   async function guardar() {
     setError("")
     const centavos = aCentavos(monto)
@@ -113,9 +131,20 @@ export function DetalleMovimiento() {
     if (tx!.kind === "transfer" && destinoId === cuentaId)
       return setError("Las cuentas deben ser distintas")
 
+    // La conversion se recalcula desde el monto debitado, que es lo que figura
+    // en el resumen del banco. Si las monedas coinciden, los dos quedan NULL.
+    const monedaCuenta = cuentas.find((c) => c.id === cuentaId)?.currency ?? tx!.currency
+    const difieren = tx!.currency !== monedaCuenta
+    const centavosDebitado = debitado.trim() ? (aCentavos(debitado, monedaCuenta) ?? 0) : 0
+    const cotizacion =
+      difieren && centavosDebitado > 0
+        ? cotizacionDe(centavos, tx!.currency, centavosDebitado, monedaCuenta)
+        : null
+
     await db.execute(
       `UPDATE transactions SET amount = ?, account_id = ?, transfer_account_id = ?,
-         category_id = ?, payee = ?, notes = ?, occurred_at = ? WHERE id = ?`,
+         category_id = ?, payee = ?, notes = ?, occurred_at = ?,
+         amount_account = ?, exchange_rate = ? WHERE id = ?`,
       [
         centavos,
         cuentaId,
@@ -124,6 +153,8 @@ export function DetalleMovimiento() {
         payee || null,
         notas || null,
         new Date(cuando).toISOString(),
+        difieren && centavosDebitado > 0 ? centavosDebitado : null,
+        difieren && cotizacion ? cotizacion : null,
         tx!.id,
       ],
     )
@@ -137,10 +168,10 @@ export function DetalleMovimiento() {
       )
     }
     for (const tagId of idsActuales.filter((t) => !etiquetas.includes(t))) {
-      await db.execute(
-        "DELETE FROM transaction_tags WHERE transaction_id = ? AND tag_id = ?",
-        [tx!.id, tagId],
-      )
+      await db.execute("DELETE FROM transaction_tags WHERE transaction_id = ? AND tag_id = ?", [
+        tx!.id,
+        tagId,
+      ])
     }
     navigate(-1)
   }
@@ -170,6 +201,25 @@ export function DetalleMovimiento() {
           = {formatearMonto(aCentavos(monto) ?? 0, { moneda: tx?.currency })}
         </span>
       </Campo>
+
+      {/* Solo si la moneda del movimiento no es la de la cuenta. La cotizacion
+          es informativa: se deduce del monto debitado (ver 0005). */}
+      {monedaCuentaSel !== tx.currency && (
+        <Campo etiqueta={`Monto debitado de la cuenta (${monedaCuentaSel})`}>
+          <Input
+            value={debitado}
+            onChange={(e) => setDebitado(e.target.value)}
+            placeholder="Lo que figura en el resumen"
+            inputMode="decimal"
+            className="tabular"
+          />
+          <span className="text-xs text-muted-foreground">
+            {cotizacionVista
+              ? `1 ${tx.currency} = ${cotizacionLegible(cotizacionVista)} ${monedaCuentaSel}`
+              : "Falta este dato: el movimiento vale igual, la cotización se completa cuando llegue el resumen."}
+          </span>
+        </Campo>
+      )}
 
       <Campo etiqueta={tx.kind === "transfer" ? "Desde" : "Cuenta"}>
         <Select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)}>

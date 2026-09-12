@@ -107,22 +107,23 @@ export function Presupuestos() {
     () => new Map(reglaRows.map((r) => [r.category_id, r])),
     [reglaRows],
   )
-  // Fondos presupuestables DE ESTA MONEDA. El ancla es la moneda de la cuenta:
-  // una cuenta tiene una sola, y hoy sus movimientos van en esa misma. Cuando
-  // existan compras en otra moneda debitadas a la cuenta habra que restar
-  // `COALESCE(amount_account, amount)` del lado `account_id` (ver 0005).
+  // Fondos presupuestables DE ESTA MONEDA. El ancla es la moneda de la cuenta,
+  // y el monto que se suma del lado `account_id` es
+  // `COALESCE(amount_account, amount)`: con una compra en otra moneda, lo que
+  // salio de la cuenta es `amount_account` (ver 0005).
   const { data: fondosRows, isLoading: cargaFondos } = useQuery<{ fondos: number }>(
     `SELECT
        (SELECT COALESCE(SUM(opening_balance),0) FROM accounts
           WHERE COALESCE(off_budget,0)=0 AND deleted_at IS NULL AND currency = ?)
-       + COALESCE((SELECT SUM(CASE WHEN t.kind='income' THEN t.amount WHEN t.kind='expense' THEN -t.amount ELSE 0 END)
+       + COALESCE((SELECT SUM(CASE WHEN t.kind='income' THEN COALESCE(t.amount_account, t.amount)
+                                   WHEN t.kind='expense' THEN -COALESCE(t.amount_account, t.amount) ELSE 0 END)
             FROM transactions t JOIN accounts a ON a.id=t.account_id
             WHERE COALESCE(a.off_budget,0)=0 AND a.deleted_at IS NULL AND a.currency = ?
               AND t.status='confirmed' AND t.deleted_at IS NULL AND t.occurred_at < ?),0)
        + COALESCE((SELECT SUM(t.amount) FROM transactions t JOIN accounts a ON a.id=t.transfer_account_id
             WHERE COALESCE(a.off_budget,0)=0 AND a.deleted_at IS NULL AND a.currency = ?
               AND t.kind='transfer' AND t.status='confirmed' AND t.deleted_at IS NULL AND t.occurred_at < ?),0)
-       - COALESCE((SELECT SUM(t.amount) FROM transactions t JOIN accounts a ON a.id=t.account_id
+       - COALESCE((SELECT SUM(COALESCE(t.amount_account, t.amount)) FROM transactions t JOIN accounts a ON a.id=t.account_id
             WHERE COALESCE(a.off_budget,0)=0 AND a.deleted_at IS NULL AND a.currency = ?
               AND t.kind='transfer' AND t.status='confirmed' AND t.deleted_at IS NULL AND t.occurred_at < ?),0)
        AS fondos`,

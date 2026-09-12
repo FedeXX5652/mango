@@ -94,3 +94,76 @@ async def test_export_empty_is_just_header(api: SimpleNamespace) -> None:
     assert resp.status_code == 200
     assert _rows(resp.text) == []
     assert resp.text.splitlines()[0].startswith("fecha,tipo,monto")
+
+
+async def test_export_incluye_la_conversion(api: SimpleNamespace) -> None:
+    """Una compra en otra moneda sale con lo que salio de la cuenta y la
+    cotizacion aplicada (ver 0005)."""
+    cta = (
+        await api.client.post(
+            "/api/v1/accounts",
+            json={"id": str(uuid.uuid4()), "name": "Pesos", "type": "bank", "currency": "ARS"},
+        )
+    ).json()["id"]
+    cat = (
+        await api.client.post(
+            "/api/v1/categories",
+            json={"id": str(uuid.uuid4()), "name": "Cat", "kind": "expense"},
+        )
+    ).json()["id"]
+    assert (
+        await api.client.post(
+            "/api/v1/transactions",
+            json={
+                "id": str(uuid.uuid4()),
+                "kind": "expense",
+                "occurred_at": "2026-09-08T12:00:00Z",
+                "amount": 1580,
+                "currency": "USD",
+                "account_id": cta,
+                "category_id": cat,
+                "amount_account": 2741260,
+                "payee": "Amazon",
+            },
+        )
+    ).status_code == 201
+
+    resp = await api.client.get("/api/v1/transactions/export")
+    assert resp.status_code == 200
+    lineas = resp.text.splitlines()
+    assert "monto_debitado,cotizacion" in lineas[0]
+    fila = next(linea for linea in lineas if "Amazon" in linea)
+    assert "15.80,USD,27412.60,1734.9746835443" in fila
+
+
+async def test_export_deja_vacia_la_conversion_cuando_no_hay(api: SimpleNamespace) -> None:
+    # Sin conversion no se rellena con el monto ni con 1: quedan vacias.
+    cta = (
+        await api.client.post(
+            "/api/v1/accounts",
+            json={"id": str(uuid.uuid4()), "name": "Pesos", "type": "bank", "currency": "ARS"},
+        )
+    ).json()["id"]
+    cat = (
+        await api.client.post(
+            "/api/v1/categories",
+            json={"id": str(uuid.uuid4()), "name": "Cat", "kind": "expense"},
+        )
+    ).json()["id"]
+    await api.client.post(
+        "/api/v1/transactions",
+        json={
+            "id": str(uuid.uuid4()),
+            "kind": "expense",
+            "occurred_at": "2026-09-08T12:00:00Z",
+            "amount": 100000,
+            "currency": "ARS",
+            "account_id": cta,
+            "category_id": cat,
+            "payee": "Kiosco",
+        },
+    )
+
+    resp = await api.client.get("/api/v1/transactions/export")
+    fila = next(linea for linea in resp.text.splitlines() if "Kiosco" in linea)
+    assert "1000.00,ARS,,," in fila

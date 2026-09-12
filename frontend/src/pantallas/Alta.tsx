@@ -5,13 +5,18 @@ import { useLocation, useNavigate } from "react-router-dom"
 
 import { Calculadora } from "@/componentes/Calculadora"
 import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
+import { SelectorMoneda } from "@/componentes/SelectorMoneda"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { Select } from "@/componentes/ui/select"
 import type { TipoMovimiento } from "@/lib/api"
+import { useMonedaBase } from "@/hooks/monedaBase"
 import { ordenarJerarquico } from "@/lib/categorias"
+import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
+import { aCentavos } from "@/lib/dinero"
+import { ordenarMonedas } from "@/lib/monedas"
 import { uuidv4 } from "@/lib/uuid"
 
 interface CuentaLocal {
@@ -99,8 +104,33 @@ export function FormularioMovimiento({
   const [montoInicial, setMontoInicial] = useState(0)
   const [calcKey, setCalcKey] = useState(0)
 
+  const base = useMonedaBase()
   const cuentaSel = cuentas.find((c) => c.id === cuentaId)
-  const moneda = cuentaSel?.currency ?? "ARS"
+  const monedaCuenta = cuentaSel?.currency ?? base
+  // La moneda del movimiento arranca en la de la cuenta, que es el 90% de los
+  // casos, y se cambia en la misma linea del monto (ver 0005).
+  const [monedaElegida, setMonedaElegida] = useState<string | null>(null)
+  const moneda = monedaElegida ?? monedaCuenta
+  // Se ofrecen las monedas de las cuentas que tenga: no hay lista mundial.
+  const monedas = useMemo(
+    () =>
+      ordenarMonedas(
+        cuentas.map((c) => c.currency),
+        base,
+      ),
+    [cuentas, base],
+  )
+  // Conversion: solo cuando difieren. Se pide el **monto debitado**, que es la
+  // fuente de verdad, y la cotizacion se deduce.
+  // Se exige cuenta elegida: la etiqueta del campo afirma la moneda de la
+  // cuenta, y sin cuenta seria una suposicion.
+  const difieren = Boolean(cuentaId) && moneda !== monedaCuenta
+  const [debitado, setDebitado] = useState("")
+  const centavosDebitado = debitado.trim() ? (aCentavos(debitado, monedaCuenta) ?? 0) : 0
+  const cotizacion =
+    difieren && centavos > 0 && centavosDebitado > 0
+      ? cotizacionDe(centavos, moneda, centavosDebitado, monedaCuenta)
+      : null
 
   const nombrePorId = useMemo(() => new Map(categorias.map((c) => [c.id, c.name])), [categorias])
   const categoriasDelTipo = useMemo(
@@ -157,8 +187,8 @@ export function FormularioMovimiento({
       await db.execute(
         `INSERT INTO transactions
            (id, kind, occurred_at, amount, currency, account_id, transfer_account_id,
-            category_id, payment_method_id, payee, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            category_id, payment_method_id, payee, notes, amount_account, exchange_rate)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           idTx,
           tipo,
@@ -171,6 +201,10 @@ export function FormularioMovimiento({
           medioId || null,
           comercio || null,
           notas || null,
+          // Sin conversion, los dos van en NULL. El movimiento es valido
+          // igual: lo que falta es un dato del banco (ver 0005).
+          difieren && centavosDebitado > 0 ? centavosDebitado : null,
+          difieren && cotizacion ? cotizacion : null,
         ],
       )
       // Una fila por etiqueta elegida (ver 3.5.1).
@@ -209,7 +243,42 @@ export function FormularioMovimiento({
         </div>
       )}
 
+      {/* La moneda va pegada al monto, no en un bloque aparte: con la de la
+          cuenta por defecto, el 90% de las veces no hay nada que elegir. */}
+      {monedas.length > 1 && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Moneda</span>
+          <SelectorMoneda
+            monedas={monedas}
+            valor={moneda}
+            onCambio={(m) => {
+              setMonedaElegida(m)
+              if (m === monedaCuenta) setDebitado("")
+            }}
+          />
+        </div>
+      )}
+
       <Calculadora key={calcKey} moneda={moneda} onCambio={setCentavos} inicial={montoInicial} />
+
+      {difieren && (
+        <Campo etiqueta={`Monto debitado de la cuenta (${monedaCuenta})`}>
+          <Input
+            value={debitado}
+            onChange={(e) => setDebitado(e.target.value)}
+            placeholder="Lo que figura en el resumen"
+            inputMode="decimal"
+            className="tabular"
+          />
+          {/* La cotizacion se muestra, no se pide: el dato del resumen es el
+              monto, y de ahi sale la cotizacion (ver 0005). */}
+          <p className="mt-1 text-xs text-muted-foreground">
+            {cotizacion
+              ? `1 ${moneda} = ${cotizacionLegible(cotizacion)} ${monedaCuenta}`
+              : "Si todavía no lo sabés, dejalo vacío: se puede completar después."}
+          </p>
+        </Campo>
+      )}
 
       {cuentas.length === 0 ? (
         <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
@@ -282,7 +351,11 @@ export function FormularioMovimiento({
           </Campo>
 
           <Campo etiqueta="Fecha y hora">
-            <Input type="datetime-local" value={cuando} onChange={(e) => setCuando(e.target.value)} />
+            <Input
+              type="datetime-local"
+              value={cuando}
+              onChange={(e) => setCuando(e.target.value)}
+            />
           </Campo>
 
           <Campo etiqueta="Notas (opcional)">

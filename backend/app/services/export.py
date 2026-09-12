@@ -22,6 +22,10 @@ _HEADER = [
     "tipo",
     "monto",
     "moneda",
+    # Conversion cuando la moneda del movimiento no es la de la cuenta (0005).
+    # Vacias cuando no hay conversion: no se rellena con el monto ni con 1.
+    "monto_debitado",
+    "cotizacion",
     "cuenta",
     "cuenta_destino",
     "categoria",
@@ -77,6 +81,10 @@ async def transactions_csv(
                 tx.kind,
                 _format_amount(tx.amount),
                 tx.currency,
+                _format_amount(tx.amount_account) if tx.amount_account is not None else "",
+                # La cotizacion sale como la guarda la base (hasta 10
+                # decimales): es un dato, no un monto que haya que formatear.
+                str(tx.exchange_rate) if tx.exchange_rate is not None else "",
                 accounts.get(tx.account_id, ""),
                 accounts.get(tx.transfer_account_id, "") if tx.transfer_account_id else "",
                 categories.get(tx.category_id, "") if tx.category_id else "",

@@ -20,6 +20,7 @@ from app.models.account import Account, PaymentMethod
 from app.models.category import Category
 from app.models.transaction import Transaction
 from app.schemas.transaction import TransactionCreate, TransactionUpdate
+from app.services import conversion
 
 
 async def _account_owned(session: AsyncSession, owner_id: uuid.UUID, account_id: uuid.UUID) -> bool:
@@ -38,6 +39,44 @@ async def _pm_owned(session: AsyncSession, owner_id: uuid.UUID, pm_id: uuid.UUID
         PaymentMethod.deleted_at.is_(None),
     )
     return (await session.execute(stmt)).scalar_one_or_none() is not None
+
+
+async def _moneda_de_cuenta(
+    session: AsyncSession, owner_id: uuid.UUID, account_id: uuid.UUID
+) -> str | None:
+    stmt = select(Account.currency).where(
+        Account.id == account_id,
+        Account.owner_id == owner_id,
+        Account.deleted_at.is_(None),
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def _completar_conversion(
+    session: AsyncSession,
+    owner_id: uuid.UUID,
+    *,
+    amount: int,
+    currency: str,
+    account_id: uuid.UUID,
+    amount_account: int | None,
+    exchange_rate,
+) -> tuple[int | None, object]:
+    """Deja `amount_account` y `exchange_rate` coherentes entre si y con la
+    moneda de la cuenta debitada (ver services/conversion y 0005)."""
+    moneda_cuenta = await _moneda_de_cuenta(session, owner_id, account_id)
+    if moneda_cuenta is None:
+        raise DomainError("La cuenta no existe")
+    try:
+        return conversion.completar(
+            amount=amount,
+            moneda=currency,
+            moneda_cuenta=moneda_cuenta,
+            amount_account=amount_account,
+            exchange_rate=exchange_rate,
+        )
+    except ValueError as exc:
+        raise DomainError(str(exc)) from exc
 
 
 async def _category_kind(
@@ -110,11 +149,21 @@ async def create_transaction(
         category_id=data.category_id,
         payment_method_id=data.payment_method_id,
     )
+    campos = data.model_dump()
+    campos["amount_account"], campos["exchange_rate"] = await _completar_conversion(
+        session,
+        owner_id,
+        amount=data.amount,
+        currency=data.currency,
+        account_id=data.account_id,
+        amount_account=data.amount_account,
+        exchange_rate=data.exchange_rate,
+    )
     tx = Transaction(
         owner_id=owner_id,
         status="confirmed",
         source=source,
-        **data.model_dump(),
+        **campos,
     )
     session.add(tx)
     await session.commit()
@@ -184,6 +233,32 @@ async def update_transaction(
         category_id=eff("category_id"),
         payment_method_id=eff("payment_method_id"),
     )
+
+    # La conversion se recalcula si cambio cualquiera de sus insumos. Regla:
+    # si vino `amount_account` manda el; si no y cambio el monto, se recalcula
+    # la cotizacion sobre el monto debitado que ya estaba (es el dato del
+    # banco, no se toca); si vino solo la cotizacion, se deduce el monto.
+    toca_conversion = {"amount", "currency", "account_id", "amount_account", "exchange_rate"} & set(
+        values
+    )
+    if toca_conversion:
+        if "amount_account" in values:
+            monto, rate = values["amount_account"], None
+        elif "exchange_rate" in values:
+            monto, rate = None, values["exchange_rate"]
+        else:
+            # Cambio el monto o la cuenta: se conserva lo debitado y se
+            # recalcula la cotizacion.
+            monto, rate = tx.amount_account, None
+        values["amount_account"], values["exchange_rate"] = await _completar_conversion(
+            session,
+            owner_id,
+            amount=eff("amount"),
+            currency=eff("currency"),
+            account_id=eff("account_id"),
+            amount_account=monto,
+            exchange_rate=rate,
+        )
 
     for field, value in values.items():
         setattr(tx, field, value)

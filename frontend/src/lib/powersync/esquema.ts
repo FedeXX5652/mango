@@ -71,6 +71,11 @@ const transactions = new Table(
     category_id: column.text,
     amount: column.integer,
     currency: column.text,
+    // Conversion cuando la moneda del movimiento no es la de la cuenta
+    // debitada (ver 0005). `exchange_rate` va como TEXTO: es un
+    // NUMERIC(20,10) y el float de SQLite le comeria digitos.
+    amount_account: column.integer,
+    exchange_rate: column.text,
     payee: column.text,
     notes: column.text,
     source: column.text,

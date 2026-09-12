@@ -42,16 +42,23 @@ const DIR: Record<MovReciente["kind"], Direccion> = {
 const MAX_RECIENTES = 5
 const MAX_CUENTAS = 4
 
+// El lado `account_id` usa **COALESCE(amount_account, amount)**: si el
+// movimiento esta en otra moneda, lo que salio de la cuenta es
+// `amount_account`, en la moneda de la cuenta (ver 0005). Restar `amount`
+// descuadraria la cuenta en pesos con una compra en dolares.
+//
+// El lado `transfer_account_id` usa `amount`, que ya esta en la moneda de la
+// cuenta que recibe: es la otra mitad de la misma convencion.
 const SQL_SALDOS = `
   SELECT a.id, a.name, a.type, a.currency, a.off_budget, a.archived,
     a.opening_balance
-    + COALESCE((SELECT SUM(amount) FROM transactions
+    + COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM transactions
         WHERE account_id = a.id AND kind='income' AND status='confirmed' AND deleted_at IS NULL), 0)
-    - COALESCE((SELECT SUM(amount) FROM transactions
+    - COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM transactions
         WHERE account_id = a.id AND kind='expense' AND status='confirmed' AND deleted_at IS NULL), 0)
     + COALESCE((SELECT SUM(amount) FROM transactions
         WHERE transfer_account_id = a.id AND kind='transfer' AND status='confirmed' AND deleted_at IS NULL), 0)
-    - COALESCE((SELECT SUM(amount) FROM transactions
+    - COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM transactions
         WHERE account_id = a.id AND kind='transfer' AND status='confirmed' AND deleted_at IS NULL), 0)
     AS balance
   FROM accounts a
