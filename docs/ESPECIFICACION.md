@@ -800,10 +800,13 @@ imposible propagar a otros dispositivos un borrado hecho sin conexion.
 ### 5.6 Arquitectura de temas por usuario desde el principio
 
 Los componentes nunca declaran colores literales: usan tokens que un tema
-resuelve, y la preferencia (`theme_id`, `theme_custom`, `color_scheme`) vive en
-el registro del usuario. Agregar esto despues implica reescribir todo el CSS.
-La arquitectura y los campos van desde la fase 1; el editor de temas puede
-esperar (ver 3.13 y `DESIGN.md`).
+resuelve, y la preferencia (`theme_id`, `color_scheme`) vive en el registro del
+usuario. **Eso** es lo que hay que tener desde el principio, porque agregarlo
+despues implica reescribir todo el CSS.
+
+Los campos del editor de temas, en cambio, **no**: hubo un `theme_custom` que
+nadie escribia ni leia y se borro. Guardar una columna no adelanta trabajo; lo
+que lo adelanta es la arquitectura de tokens (ver 3.13 y `DESIGN.md`).
 
 ---
 

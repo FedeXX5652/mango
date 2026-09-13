@@ -199,18 +199,15 @@ El tema `default` es obligatorio y es al que se cae si algo falla.
 
 ### Personalizados
 
-El usuario puede sobreescribir tokens puntuales. Se guarda en `theme_custom`
-como un objeto con solo los tokens modificados:
+**No existen todavia, y la columna que los guardaba se borro.** Habia un
+`theme_custom` en `users` que ninguna pantalla escribia ni leia: el editor de
+temas esta fuera de fase 1 y guardar el campo antes no adelantaba nada.
 
-```json
-{
-  "light": { "primary": "#0f766e" },
-  "dark":  { "primary": "#2dd4bf", "background": "#0c0f0e" }
-}
-```
-
-Lo que no este ahi se hereda del tema base. Asi un tema personalizado sigue
-siendo valido si el tema base agrega tokens nuevos en una version futura.
+Lo que si esta desde el principio es lo que costaria caro agregar despues: los
+componentes no declaran colores literales, usan tokens. Cuando el editor se
+construya, la forma sera un objeto con **solo los tokens modificados** por modo,
+heredando el resto del tema base, asi un tema personalizado sigue siendo valido
+si el tema base agrega tokens en una version futura.
 
 ### Persistencia
 

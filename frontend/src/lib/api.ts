@@ -14,9 +14,7 @@ export interface Usuario {
   email: string
   display_name: string
   base_currency: string
-  locale: string
   theme_id: string
-  theme_custom: Record<string, Record<string, string>> | null
   color_scheme: "light" | "dark" | "system"
   // Monedas que el usuario carga a mano: quedan fuera del refresco automatico
   // de cotizaciones (ver 0005).
@@ -26,16 +24,7 @@ export interface Usuario {
 }
 
 export type PrefsUpdate = Partial<
-  Pick<
-    Usuario,
-    | "display_name"
-    | "base_currency"
-    | "locale"
-    | "theme_id"
-    | "theme_custom"
-    | "color_scheme"
-    | "fx_manual"
-  >
+  Pick<Usuario, "display_name" | "base_currency" | "theme_id" | "color_scheme" | "fx_manual">
 >
 
 // Error de API con el status y el detalle (para mostrar el 422 de dominio).
