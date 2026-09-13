@@ -49,20 +49,6 @@ async def get_category(
     return await _get_owned(session, owner_id, category_id)
 
 
-async def list_categories(
-    session: AsyncSession, owner_id: uuid.UUID, *, include_archived: bool = False
-) -> list[Category]:
-    stmt = select(Category).where(
-        Category.owner_id == owner_id,
-        Category.deleted_at.is_(None),
-    )
-    if not include_archived:
-        stmt = stmt.where(Category.archived.is_(False))
-    # Padres antes que hijas (parent_id NULL primero), luego por orden y nombre.
-    stmt = stmt.order_by(Category.parent_id.nulls_first(), Category.sort_order, Category.name)
-    return list((await session.execute(stmt)).scalars().all())
-
-
 async def update_category(
     session: AsyncSession, owner_id: uuid.UUID, category: Category, data: CategoryUpdate
 ) -> Category:

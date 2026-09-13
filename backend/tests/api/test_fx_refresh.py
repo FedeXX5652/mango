@@ -14,11 +14,18 @@ from types import SimpleNamespace
 from sqlalchemy import text
 
 from app.services import fx as servicio
+from tests.conftest import _plano
 
 # La tabla no tiene dueño, asi que el fixture no la aisla y las filas reales de
 # la base de dev se ven (ver el aviso de arriba). Las pruebas trabajan sobre una
 # fecha que el refresco real nunca va a producir.
 FECHA_PRUEBA = "2026-03-11"
+
+
+async def _filas(api: SimpleNamespace) -> list[dict]:
+    """Las cotizaciones, leidas de la base: la API ya no tiene GET."""
+    res = await api.session.execute(text("SELECT * FROM exchange_rates WHERE deleted_at IS NULL"))
+    return [_plano(dict(m)) for m in res.mappings()]
 
 
 def _del_dia(filas: list[dict], **filtros) -> list[dict]:
@@ -87,7 +94,7 @@ async def test_crea_la_cotizacion_de_cada_moneda_del_usuario(api: SimpleNamespac
     # Se pide una llamada por moneda, contra la base, y NUNCA la base sola.
     assert sorted(pedidos) == [("EUR", "ARS"), ("USD", "ARS")]
 
-    filas = (await api.client.get("/api/v1/exchange-rates", params={"limit": 200})).json()
+    filas = await _filas(api)
     creadas = {
         (f["base_currency"], f["quote_currency"], f["source"]): Decimal(f["rate"])
         for f in _del_dia(filas, source="auto")
@@ -116,7 +123,7 @@ async def test_si_el_valor_del_dia_cambio_corrige_la_fila(api: SimpleNamespace) 
 
     assert res.actualizadas == ["USD"]
     # Corrige, no duplica: es el mismo dato del mismo dia y misma fuente.
-    filas = (await api.client.get("/api/v1/exchange-rates", params={"limit": 200})).json()
+    filas = await _filas(api)
     delDia = _del_dia(filas, source="auto", base_currency="USD")
     assert len(delDia) == 1
     assert Decimal(delDia[0]["rate"]) == Decimal("1740.00")
@@ -169,13 +176,13 @@ async def test_lo_cargado_a_mano_gana_a_igual_fecha(api: SimpleNamespace) -> Non
     # ...y despues entra el automatico con la oficial del mismo dia.
     await servicio.refrescar(api.session, api.owner_id, traer=_falso({"USD": "1735.10"}))
 
-    resp = await api.client.get(
-        "/api/v1/exchange-rates/latest",
-        params={"base_currency": "USD", "quote_currency": "ARS", "as_of": FECHA_PRUEBA},
-    )
-    assert resp.status_code == 200
-    # Gana la del usuario: si la tipeo es porque la oficial no es la que aplica.
-    assert Decimal(resp.json()["rate"]) == Decimal("2100.00")
+    # Las dos conviven, que es lo que el servidor tiene que garantizar: el unico
+    # parcial es por (par, fecha, FUENTE), asi que la manual no pisa la auto.
+    # Cual gana al mostrar lo decide el lector, y el unico lector es el cliente
+    # (`ORDER BY rate_date DESC, (source = 'auto') ASC` en lib/patrimonio).
+    del_dia = _del_dia(await _filas(api), base_currency="USD")
+    por_fuente = {f["source"]: Decimal(f["rate"]) for f in del_dia}
+    assert por_fuente == {"mep": Decimal("2100.00"), "auto": Decimal("1735.10")}
 
 
 async def test_endpoint_de_refresco(api: SimpleNamespace, monkeypatch) -> None:
@@ -243,13 +250,7 @@ async def test_guarda_el_par_en_la_direccion_del_numero_grande(api: SimpleNamesp
     )
     assert res.actualizadas == ["ARS"]
 
-    filas = (
-        await api.client.get(
-            "/api/v1/exchange-rates",
-            params={"desde": FECHA_PRUEBA, "hasta": FECHA_PRUEBA, "limit": 50},
-        )
-    ).json()
-    auto = [f for f in filas if f["source"] == "auto"]
+    auto = _del_dia(await _filas(api), source="auto")
     assert len(auto) == 1
     # Guarda 1 USD = 1507,37 ARS, no 1 ARS = 0,000663 USD.
     assert (auto[0]["base_currency"], auto[0]["quote_currency"]) == ("USD", "ARS")

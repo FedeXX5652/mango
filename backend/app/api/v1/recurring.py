@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user_id
+from app.core.config import settings
 from app.core.errors import DomainError
 from app.crud import budget_rule as budget_rule_crud
 from app.crud import recurring as crud
@@ -18,7 +19,6 @@ from app.schemas.recurring import (
     RecurringRunResult,
     RecurringUpdate,
 )
-from app.services.reports import DEFAULT_TZ
 
 router = APIRouter(prefix="/recurring", tags=["recurring"])
 
@@ -39,14 +39,6 @@ async def create_recurring(
         ) from exc
 
 
-@router.get("", response_model=list[RecurringRead])
-async def list_recurring(
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> list[RecurringRead]:
-    return await crud.list_recurring(session, owner_id)
-
-
 @router.post("/run", response_model=RecurringRunResult)
 async def run_recurring(
     as_of: date | None = None,
@@ -54,24 +46,12 @@ async def run_recurring(
     owner_id: uuid.UUID = Depends(get_current_user_id),
 ) -> RecurringRunResult:
     if as_of is None:
-        as_of = datetime.now(ZoneInfo(DEFAULT_TZ)).date()
+        as_of = datetime.now(ZoneInfo(settings.tz)).date()
     ids = await crud.run_due(session, owner_id, as_of)
     budget_ids = await budget_rule_crud.apply_due(session, owner_id, as_of)
     return RecurringRunResult(
         generated=len(ids), transaction_ids=ids, budgets_created=len(budget_ids)
     )
-
-
-@router.get("/{rule_id}", response_model=RecurringRead)
-async def get_recurring(
-    rule_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> RecurringRead:
-    rule = await crud.get_recurring(session, owner_id, rule_id)
-    if rule is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
-    return rule
 
 
 @router.patch("/{rule_id}", response_model=RecurringRead)

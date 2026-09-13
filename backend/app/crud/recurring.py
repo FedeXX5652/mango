@@ -15,11 +15,11 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.crud.transaction import _validate_invariants, create_transaction
 from app.models.recurring import RecurringRule
 from app.schemas.recurring import RecurringCreate, RecurringUpdate
 from app.schemas.transaction import TransactionCreate
-from app.services.reports import DEFAULT_TZ
 
 
 def _add_period(d: date, freq: str, n: int) -> date:
@@ -71,15 +71,6 @@ async def get_recurring(
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
-async def list_recurring(session: AsyncSession, owner_id: uuid.UUID) -> list[RecurringRule]:
-    stmt = (
-        select(RecurringRule)
-        .where(RecurringRule.owner_id == owner_id, RecurringRule.deleted_at.is_(None))
-        .order_by(RecurringRule.next_run_date)
-    )
-    return list((await session.execute(stmt)).scalars().all())
-
-
 async def update_recurring(
     session: AsyncSession, rule: RecurringRule, data: RecurringUpdate
 ) -> RecurringRule:
@@ -97,7 +88,7 @@ async def soft_delete_recurring(session: AsyncSession, rule: RecurringRule) -> N
 
 def _occurred_at(run_date: date) -> datetime:
     # Mediodia en la zona del usuario: cae en el dia/mes correcto sin ambiguedad.
-    return datetime.combine(run_date, time(12, 0), tzinfo=ZoneInfo(DEFAULT_TZ))
+    return datetime.combine(run_date, time(12, 0), tzinfo=ZoneInfo(settings.tz))
 
 
 async def run_due(session: AsyncSession, owner_id: uuid.UUID, as_of: date) -> list[uuid.UUID]:

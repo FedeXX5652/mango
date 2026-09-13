@@ -11,13 +11,14 @@ import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { Select } from "@/componentes/ui/select"
-import type { TipoMovimiento } from "@/lib/api"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
 import { aCentavos } from "@/lib/dinero"
 import { ordenarMonedas } from "@/lib/monedas"
 import { uuidv4 } from "@/lib/uuid"
+
+type TipoMovimiento = "expense" | "income" | "transfer"
 
 interface CuentaLocal {
   id: string

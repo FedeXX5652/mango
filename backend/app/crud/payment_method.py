@@ -56,19 +56,6 @@ async def get_payment_method(
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
-async def list_payment_methods(
-    session: AsyncSession, owner_id: uuid.UUID, *, include_archived: bool = False
-) -> list[PaymentMethod]:
-    stmt = select(PaymentMethod).where(
-        PaymentMethod.owner_id == owner_id,
-        PaymentMethod.deleted_at.is_(None),
-    )
-    if not include_archived:
-        stmt = stmt.where(PaymentMethod.archived.is_(False))
-    stmt = stmt.order_by(PaymentMethod.sort_order, PaymentMethod.created_at)
-    return list((await session.execute(stmt)).scalars().all())
-
-
 async def update_payment_method(
     session: AsyncSession, owner_id: uuid.UUID, pm: PaymentMethod, data: PaymentMethodUpdate
 ) -> PaymentMethod:
@@ -118,18 +105,6 @@ async def create_pma(
     await session.commit()
     await session.refresh(pma)
     return pma
-
-
-async def list_pma(session: AsyncSession, pm_id: uuid.UUID) -> list[PaymentMethodAccount]:
-    stmt = (
-        select(PaymentMethodAccount)
-        .where(
-            PaymentMethodAccount.payment_method_id == pm_id,
-            PaymentMethodAccount.deleted_at.is_(None),
-        )
-        .order_by(PaymentMethodAccount.currency)
-    )
-    return list((await session.execute(stmt)).scalars().all())
 
 
 async def get_pma(

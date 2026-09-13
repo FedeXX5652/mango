@@ -7,7 +7,6 @@ from app.api.v1.categories import router as categories_router
 from app.api.v1.exchange_rates import router as exchange_rates_router
 from app.api.v1.payment_methods import router as payment_methods_router
 from app.api.v1.recurring import router as recurring_router
-from app.api.v1.reports import router as reports_router
 from app.api.v1.sync import router as sync_router
 from app.api.v1.tags import router as tags_router
 from app.api.v1.tags import router_tt as transaction_tags_router
@@ -21,7 +20,6 @@ api_router.include_router(accounts_router)
 api_router.include_router(categories_router)
 api_router.include_router(payment_methods_router)
 api_router.include_router(transactions_router)
-api_router.include_router(reports_router)
 api_router.include_router(budgets_router)
 api_router.include_router(budget_rules_router)
 api_router.include_router(exchange_rates_router)

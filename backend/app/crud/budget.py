@@ -68,15 +68,6 @@ async def create_budget(session: AsyncSession, owner_id: uuid.UUID, data: Budget
     return budget
 
 
-async def list_budgets(session: AsyncSession, owner_id: uuid.UUID) -> list[Budget]:
-    stmt = (
-        select(Budget)
-        .where(Budget.owner_id == owner_id, Budget.deleted_at.is_(None))
-        .order_by(Budget.period_start.desc())
-    )
-    return list((await session.execute(stmt)).scalars().all())
-
-
 async def update_budget(session: AsyncSession, budget: Budget, data: BudgetUpdate) -> Budget:
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(budget, field, value)

@@ -64,13 +64,6 @@ async def test_nombre_duplicado_rechazado(api: SimpleNamespace) -> None:
     assert dup.status_code == 422
 
 
-async def test_listado_alfabetico(api: SimpleNamespace) -> None:
-    for nombre in ("Zapatos", "asado", "Mudanza"):
-        assert (await api.client.post("/api/v1/tags", json=_tag(name=nombre))).status_code == 201
-    nombres = [t["name"] for t in (await api.client.get("/api/v1/tags")).json()]
-    assert nombres == ["asado", "Mudanza", "Zapatos"]
-
-
 async def test_renombrar_y_archivar(api: SimpleNamespace) -> None:
     creada = (await api.client.post("/api/v1/tags", json=_tag())).json()
     resp = await api.client.patch(
@@ -81,13 +74,6 @@ async def test_renombrar_y_archivar(api: SimpleNamespace) -> None:
     assert resp.json()["archived"] is True
 
 
-async def test_excluir_archivadas(api: SimpleNamespace) -> None:
-    creada = (await api.client.post("/api/v1/tags", json=_tag())).json()
-    await api.client.patch(f"/api/v1/tags/{creada['id']}", json={"archived": True})
-    activas = (await api.client.get("/api/v1/tags?include_archived=false")).json()
-    assert activas == []
-
-
 async def test_soft_delete_libera_el_nombre(api: SimpleNamespace) -> None:
     creada = (await api.client.post("/api/v1/tags", json=_tag())).json()
     assert (await api.client.delete(f"/api/v1/tags/{creada['id']}")).status_code == 204
@@ -96,7 +82,12 @@ async def test_soft_delete_libera_el_nombre(api: SimpleNamespace) -> None:
 
 
 async def test_other_user_404(api: SimpleNamespace) -> None:
-    assert (await api.client.get(f"/api/v1/tags/{uuid.uuid4()}")).status_code == 404
+    # 404 y no 403: no se revela que exista.
+    faltante = uuid.uuid4()
+    assert (
+        await api.client.patch(f"/api/v1/tags/{faltante}", json={"name": "Mia"})
+    ).status_code == 404
+    assert (await api.client.delete(f"/api/v1/tags/{faltante}")).status_code == 404
 
 
 async def test_etiquetar_movimiento(api: SimpleNamespace) -> None:

@@ -38,9 +38,8 @@ async def test_alta_y_lectura(api):
     assert creada["quote_currency"] == "ARS"
     assert creada["source"] == "oficial"
 
-    resp = await api.client.get(f"/api/v1/exchange-rates/{creada['id']}")
-    assert resp.status_code == 200
-    assert resp.json()["rate_date"] == "2026-09-06"
+    guardada = await api.fila("exchange_rates", creada["id"])
+    assert guardada["rate_date"] == "2026-09-06"
 
 
 async def test_no_pierde_decimales(api):
@@ -84,7 +83,7 @@ async def test_borrado_logico_libera_el_par(api):
     creada = (await api.client.post("/api/v1/exchange-rates", json=_fx())).json()
     assert (await api.client.delete(f"/api/v1/exchange-rates/{creada['id']}")).status_code == 204
     # Ya no se lee...
-    assert (await api.client.get(f"/api/v1/exchange-rates/{creada['id']}")).status_code == 404
+    assert (await api.fila("exchange_rates", creada["id"]))["deleted_at"] is not None
     # ...y el par queda libre para volver a cargarlo (indice unico parcial, 0003).
     assert (await api.client.post("/api/v1/exchange-rates", json=_fx())).status_code == 201
 
@@ -98,84 +97,8 @@ async def test_correccion_de_un_dedazo(api):
     assert Decimal(resp.json()["rate"]) == Decimal("1735.10")
 
 
-async def test_ultima_conocida_no_es_la_del_dia(api):
-    # La serie tiene huecos: "la ultima conocida" es la mas reciente <= fecha.
-    for fecha, valor in [("2026-09-01", "1700.00"), ("2026-09-04", "1730.00")]:
-        assert (
-            await api.client.post("/api/v1/exchange-rates", json=_fx(rate=valor, rate_date=fecha))
-        ).status_code == 201
-
-    resp = await api.client.get(
-        "/api/v1/exchange-rates/latest",
-        params={"base_currency": "usd", "quote_currency": "ars", "as_of": "2026-09-06"},
-    )
-    assert resp.status_code == 200, resp.text
-    assert resp.json()["rate_date"] == "2026-09-04"
-
-    # A una fecha anterior al primer dato no hay nada que devolver.
-    resp = await api.client.get(
-        "/api/v1/exchange-rates/latest",
-        params={"base_currency": "USD", "quote_currency": "ARS", "as_of": "2026-08-31"},
-    )
-    assert resp.status_code == 404
-
-
-async def test_ultima_conocida_por_fuente(api):
-    assert (
-        await api.client.post(
-            "/api/v1/exchange-rates",
-            json=_fx(rate="1735.10", rate_date="2026-09-06", source="oficial"),
-        )
-    ).status_code == 201
-    assert (
-        await api.client.post(
-            "/api/v1/exchange-rates",
-            json=_fx(rate="2100.00", rate_date="2026-09-05", source="mep"),
-        )
-    ).status_code == 201
-
-    resp = await api.client.get(
-        "/api/v1/exchange-rates/latest",
-        params={"base_currency": "USD", "quote_currency": "ARS", "source": "mep"},
-    )
-    assert resp.status_code == 200
-    assert Decimal(resp.json()["rate"]) == Decimal("2100.00")
-
-
-async def test_listado_filtra_por_par_y_rango(api):
-    for fecha in ["2026-09-01", "2026-09-04", "2026-09-06"]:
-        await api.client.post("/api/v1/exchange-rates", json=_fx(rate="1700.00", rate_date=fecha))
-    await api.client.post(
-        "/api/v1/exchange-rates",
-        json=_fx(base_currency="EUR", rate="2000.00", rate_date="2026-09-04"),
-    )
-
-    resp = await api.client.get(
-        "/api/v1/exchange-rates",
-        params={
-            "base_currency": "USD",
-            "quote_currency": "ARS",
-            "desde": "2026-09-02",
-            "hasta": "2026-09-05",
-        },
-    )
-    assert resp.status_code == 200
-    fechas = [r["rate_date"] for r in resp.json()]
-    assert fechas == ["2026-09-04"]
-
-    # Y el listado viene de la fecha mas nueva a la mas vieja, con las dos del
-    # mismo dia conviviendo (pares distintos).
-    resp = await api.client.get(
-        "/api/v1/exchange-rates", params={"desde": "2026-09-01", "hasta": "2026-09-06"}
-    )
-    fechas = [r["rate_date"] for r in resp.json()]
-    assert fechas == sorted(fechas, reverse=True)
-    assert fechas.count("2026-09-04") >= 2
-
-
 async def test_inexistente_da_404(api):
     faltante = str(uuid.uuid4())
-    assert (await api.client.get(f"/api/v1/exchange-rates/{faltante}")).status_code == 404
     assert (
         await api.client.patch(f"/api/v1/exchange-rates/{faltante}", json={"rate": "1"})
     ).status_code == 404

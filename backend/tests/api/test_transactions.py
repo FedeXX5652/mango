@@ -212,7 +212,9 @@ async def test_other_users_transaction_is_404(api: SimpleNamespace) -> None:
         {"id": other_tx, "owner": other_user, "acc": other_acc, "cat": other_cat},
     )
     await api.session.flush()
-    assert (await api.client.get(f"/api/v1/transactions/{other_tx}")).status_code == 404
+    assert (
+        await api.client.patch(f"/api/v1/transactions/{other_tx}", json={"amount": 1})
+    ).status_code == 404
 
 
 async def test_update_amount_and_payee(api: SimpleNamespace) -> None:
@@ -249,32 +251,9 @@ async def test_soft_delete_hides(api: SimpleNamespace) -> None:
         await api.client.post("/api/v1/transactions", json=_tx(account_id=acc, category_id=cat))
     ).json()
     assert (await api.client.delete(f"/api/v1/transactions/{created['id']}")).status_code == 204
-    assert (await api.client.get(f"/api/v1/transactions/{created['id']}")).status_code == 404
-
-
-# --- Listado con filtros ----------------------------------------------------
-
-
-async def test_list_filters_by_kind_and_account(api: SimpleNamespace) -> None:
-    origin = await _account(api)
-    dest = await _account(api)
-    cat = await _category(api)
-    await api.client.post("/api/v1/transactions", json=_tx(account_id=origin, category_id=cat))
-    await api.client.post(
-        "/api/v1/transactions",
-        json=_tx(kind="transfer", account_id=origin, transfer_account_id=dest),
-    )
-
-    only_expense = (await api.client.get("/api/v1/transactions", params={"kind": "expense"})).json()
-    assert all(t["kind"] == "expense" for t in only_expense)
-
-    # Filtrar por la cuenta destino trae la transferencia (origen o destino).
-    by_dest = (await api.client.get("/api/v1/transactions", params={"account_id": dest})).json()
-    assert len(by_dest) == 1
-    assert by_dest[0]["kind"] == "transfer"
-
-
-# --- Conversion cuando la moneda del movimiento no es la de la cuenta (0005)
+    # Borrado logico: la fila queda con deleted_at y la API no la deja tocar mas.
+    assert (await api.fila("transactions", created["id"]))["deleted_at"] is not None
+    assert (await api.client.delete(f"/api/v1/transactions/{created['id']}")).status_code == 404
 
 
 async def test_compra_en_dolares_con_cuenta_en_pesos_deduce_la_cotizacion(api) -> None:

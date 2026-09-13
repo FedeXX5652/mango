@@ -1,6 +1,10 @@
-// Cliente REST contra la API (fase 1). Desde Inc 13 la escritura de datos pasa
-// por PowerSync (escritura local + uploadData que llama a estos endpoints); la
-// lectura de preferencias y el token de sync siguen por aca.
+// Lo poco que la app le pide al servidor.
+//
+// Los datos NO se leen de aca: viven en el SQLite del dispositivo y PowerSync
+// los sincroniza. La API es un buzon de escritura para esa sincronizacion (ver
+// powersync/conector) mas estas cuatro cosas, que el cliente no puede hacer
+// solo: las preferencias del usuario (`users` no se sincroniza), el token de
+// sync, el CSV y el refresco de cotizaciones, que sale a una API publica.
 
 export const API_BASE = (import.meta.env.VITE_API_URL ?? "http://localhost:8000").replace(/\/$/, "")
 const BASE = API_BASE
@@ -33,52 +37,6 @@ export type PrefsUpdate = Partial<
     | "fx_manual"
   >
 >
-
-export type TipoMovimiento = "expense" | "income" | "transfer"
-
-export interface Cuenta {
-  id: string
-  name: string
-  type: string
-  currency: string
-  archived: boolean
-}
-
-export interface Categoria {
-  id: string
-  name: string
-  kind: "expense" | "income"
-  parent_id: string | null
-  archived: boolean
-}
-
-export interface MedioPago {
-  id: string
-  name: string
-  kind: string
-  archived: boolean
-}
-
-export interface TransaccionCrear {
-  id: string
-  kind: TipoMovimiento
-  occurred_at: string
-  amount: number
-  currency: string
-  account_id: string
-  transfer_account_id?: string | null
-  category_id?: string | null
-  payment_method_id?: string | null
-  payee?: string | null
-  notes?: string | null
-}
-
-export interface Transaccion extends TransaccionCrear {
-  status: string
-  source: string
-  created_at: string
-  updated_at: string
-}
 
 // Error de API con el status y el detalle (para mostrar el 422 de dominio).
 export class ApiError extends Error {
@@ -136,12 +94,6 @@ export const api = {
   getSyncToken: () => pedir<CredencialesSync>("/sync/token"),
   updateMe: (data: PrefsUpdate) =>
     pedir<Usuario>("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
-  listAccounts: () => pedir<Cuenta[]>("/accounts"),
-  listCategories: () => pedir<Categoria[]>("/categories"),
-  listPaymentMethods: () => pedir<MedioPago[]>("/payment-methods"),
-  listTransactions: (limite = 100) => pedir<Transaccion[]>(`/transactions?limit=${limite}`),
-  createTransaction: (data: TransaccionCrear) =>
-    pedir<Transaccion>("/transactions", { method: "POST", body: JSON.stringify(data) }),
   // Genera las transacciones de las reglas recurrentes vencidas. Idempotente
   // por fecha (avanza next_run_date), asi que es seguro llamarlo al abrir la app.
   runRecurring: () => pedir<ResultadoRecurrentes>("/recurring/run", { method: "POST" }),
@@ -161,4 +113,3 @@ export const api = {
     return await resp.text()
   },
 }
-

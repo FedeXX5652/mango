@@ -72,13 +72,6 @@ async def create_rule(
     return rule
 
 
-async def list_rules(session: AsyncSession, owner_id: uuid.UUID) -> list[BudgetRule]:
-    stmt = select(BudgetRule).where(
-        BudgetRule.owner_id == owner_id, BudgetRule.deleted_at.is_(None)
-    )
-    return list((await session.execute(stmt)).scalars().all())
-
-
 async def update_rule(
     session: AsyncSession, rule: BudgetRule, data: BudgetRuleUpdate
 ) -> BudgetRule:

@@ -74,13 +74,15 @@ async def test_other_users_pm_is_404(api: SimpleNamespace) -> None:
         {"id": other_pm, "owner": other_user},
     )
     await api.session.flush()
-    assert (await api.client.get(f"/api/v1/payment-methods/{other_pm}")).status_code == 404
+    assert (
+        await api.client.patch(f"/api/v1/payment-methods/{other_pm}", json={"name": "Mio"})
+    ).status_code == 404
 
 
 # --- Asociacion por moneda --------------------------------------------------
 
 
-async def test_add_and_list_mapping(api: SimpleNamespace) -> None:
+async def test_add_mapping(api: SimpleNamespace) -> None:
     pm = await _pm(api)
     acc = await _account(api, "ARS")
     resp = await api.client.post(
@@ -90,9 +92,9 @@ async def test_add_and_list_mapping(api: SimpleNamespace) -> None:
     assert resp.status_code == 201, resp.text
     assert resp.json()["account_id"] == acc
 
-    listed = (await api.client.get(f"/api/v1/payment-methods/{pm['id']}/accounts")).json()
-    assert len(listed) == 1
-    assert listed[0]["currency"] == "ARS"
+    guardada = await api.fila("payment_method_accounts", resp.json()["id"])
+    assert guardada["currency"] == "ARS"
+    assert guardada["payment_method_id"] == pm["id"]
 
 
 async def test_mapping_currency_normalized(api: SimpleNamespace) -> None:

@@ -43,7 +43,3 @@ export async function verificarPin(pin: string): Promise<boolean> {
   const { salt, hash } = JSON.parse(crudo) as PinGuardado
   return (await hashear(pin, salt)) === hash
 }
-
-export function borrarPin(): void {
-  localStorage.removeItem(CLAVE)
-}

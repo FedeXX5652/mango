@@ -70,7 +70,10 @@ async def test_soft_delete_frees_slot(api: SimpleNamespace) -> None:
 
 
 async def test_other_user_404(api: SimpleNamespace) -> None:
-    assert (await api.client.get(f"/api/v1/budgets/{uuid.uuid4()}")).status_code == 404
+    inexistente = uuid.uuid4()
+    assert (
+        await api.client.patch(f"/api/v1/budgets/{inexistente}", json={"amount": 1})
+    ).status_code == 404
 
 
 async def test_dos_monedas_para_el_mismo_sobre_y_mes(api: SimpleNamespace) -> None:

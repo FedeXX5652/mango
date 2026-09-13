@@ -37,27 +37,6 @@ async def create_tag(
         ) from exc
 
 
-@router.get("", response_model=list[TagRead])
-async def list_tags(
-    include_archived: bool = True,
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> list[TagRead]:
-    return await crud.list_tags(session, owner_id, include_archived=include_archived)
-
-
-@router.get("/{tag_id}", response_model=TagRead)
-async def get_tag(
-    tag_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> TagRead:
-    tag = await crud.get_tag(session, owner_id, tag_id)
-    if tag is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
-    return tag
-
-
 @router.patch("/{tag_id}", response_model=TagRead)
 async def update_tag(
     tag_id: uuid.UUID,

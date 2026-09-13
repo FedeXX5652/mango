@@ -47,16 +47,6 @@ async def create_tag(session: AsyncSession, owner_id: uuid.UUID, data: TagCreate
     return tag
 
 
-async def list_tags(
-    session: AsyncSession, owner_id: uuid.UUID, *, include_archived: bool = True
-) -> list[Tag]:
-    # Alfabetico: las etiquetas no tienen orden manual (decision de interfaz).
-    stmt = select(Tag).where(Tag.owner_id == owner_id, Tag.deleted_at.is_(None))
-    if not include_archived:
-        stmt = stmt.where(Tag.archived.is_(False))
-    return list((await session.execute(stmt.order_by(func.lower(Tag.name)))).scalars().all())
-
-
 async def update_tag(session: AsyncSession, owner_id: uuid.UUID, tag: Tag, data: TagUpdate) -> Tag:
     campos = data.model_dump(exclude_unset=True)
     nuevo = campos.get("name")

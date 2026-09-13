@@ -1,9 +1,11 @@
 import uuid
 from collections.abc import AsyncGenerator
+from datetime import date
 from types import SimpleNamespace
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncSession,
@@ -17,6 +19,15 @@ from app.core.config import settings
 from app.db import get_session
 from app.main import app
 from app.models.user import User
+
+
+def _plano(fila: dict) -> dict:
+    """Pasa UUID y fechas a texto, como los devolvia el JSON de la API.
+
+    Asi las pruebas comparan contra los mismos literales de antes ("2026-08-01")
+    y no contra objetos de Postgres.
+    """
+    return {k: (str(v) if isinstance(v, (uuid.UUID, date)) else v) for k, v in fila.items()}
 
 
 @pytest.fixture
@@ -105,10 +116,24 @@ async def api() -> AsyncGenerator[SimpleNamespace, None]:
     app.dependency_overrides[get_current_user_id] = lambda: owner_id
     app.dependency_overrides[get_current_user] = lambda: user
 
+    async def fila(tabla: str, fila_id) -> dict | None:
+        """Lee una fila por id directo de la base.
+
+        La API ya no tiene endpoints de lectura —el cliente lee de su SQLite y
+        el servidor solo recibe escrituras—, asi que verificar "quedo bien
+        guardado" se hace contra la base. El nombre de tabla se interpola porque
+        siempre es un literal de la prueba.
+        """
+        res = await session.execute(
+            text(f"SELECT * FROM {tabla} WHERE id = :id"), {"id": str(fila_id)}
+        )
+        m = res.mappings().first()
+        return _plano(dict(m)) if m else None
+
     transport = ASGITransport(app=app)
     client = AsyncClient(transport=transport, base_url="http://test")
     try:
-        yield SimpleNamespace(client=client, session=session, owner_id=owner_id)
+        yield SimpleNamespace(client=client, session=session, owner_id=owner_id, fila=fila)
     finally:
         await client.aclose()
         app.dependency_overrides.clear()

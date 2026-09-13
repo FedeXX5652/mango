@@ -5,9 +5,8 @@ usuario, para no dejar una entrada sin identificar cuando llegue la auth real.
 """
 
 import uuid
-from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user_id
@@ -57,57 +56,6 @@ async def refresh_rates(
     0005)."""
     res = await servicio_fx.refrescar(session, owner_id, forzar=forzar)
     return RefrescoRead(**vars(res))
-
-
-@router.get("", response_model=list[ExchangeRateRead])
-async def list_rates(
-    base_currency: str | None = None,
-    quote_currency: str | None = None,
-    desde: date | None = None,
-    hasta: date | None = None,
-    limit: int = Query(default=200, ge=1, le=1000),
-    session: AsyncSession = Depends(get_session),
-    _: uuid.UUID = Depends(get_current_user_id),
-) -> list[ExchangeRateRead]:
-    return await crud.list_rates(
-        session,
-        base_currency=base_currency,
-        quote_currency=quote_currency,
-        desde=desde,
-        hasta=hasta,
-        limit=limit,
-    )
-
-
-@router.get("/latest", response_model=ExchangeRateRead)
-async def latest_rate(
-    base_currency: str,
-    quote_currency: str,
-    as_of: date | None = None,
-    source: str | None = None,
-    session: AsyncSession = Depends(get_session),
-    _: uuid.UUID = Depends(get_current_user_id),
-) -> ExchangeRateRead:
-    """La ultima cotizacion conocida del par (no necesariamente la de hoy: la
-    serie tiene huecos y quien la muestre debe exhibir `rate_date`)."""
-    rate = await crud.latest_rate(
-        session, base_currency, quote_currency, as_of=as_of, source=source
-    )
-    if rate is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
-    return rate
-
-
-@router.get("/{rate_id}", response_model=ExchangeRateRead)
-async def get_rate(
-    rate_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-    _: uuid.UUID = Depends(get_current_user_id),
-) -> ExchangeRateRead:
-    rate = await crud.get_rate(session, rate_id)
-    if rate is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
-    return rate
 
 
 @router.patch("/{rate_id}", response_model=ExchangeRateRead)

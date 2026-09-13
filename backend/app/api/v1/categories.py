@@ -28,27 +28,6 @@ async def create_category(
         ) from exc
 
 
-@router.get("", response_model=list[CategoryRead])
-async def list_categories(
-    include_archived: bool = False,
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> list[CategoryRead]:
-    return await crud.list_categories(session, owner_id, include_archived=include_archived)
-
-
-@router.get("/{category_id}", response_model=CategoryRead)
-async def get_category(
-    category_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> CategoryRead:
-    category = await crud.get_category(session, owner_id, category_id)
-    if category is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoria no encontrada")
-    return category
-
-
 @router.patch("/{category_id}", response_model=CategoryRead)
 async def update_category(
     category_id: uuid.UUID,

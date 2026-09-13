@@ -545,6 +545,14 @@ servidor. Si no, no se podria crear nada sin conexion.
 Todo lo demas —cargar, editar, borrar, presupuestar, ver informes— funciona sin
 conexion contra la base local.
 
+**Por eso la API no tiene endpoints de lectura.** El cliente nunca le pregunta
+al servidor por sus datos: los lee del SQLite del dispositivo. Lo que queda es
+un **buzon de escritura** —los POST, PATCH y DELETE por los que la sync sube los
+cambios— mas las excepciones de arriba. Los GET de lista y detalle existieron y
+se borraron: nadie los llamaba, y tener dos implementaciones de la misma
+consulta (una en el servidor, otra en el cliente) es como se desincronizan las
+reglas sin que nadie se entere.
+
 **La regla, para lo que venga**: toda accion del usuario se escribe **local
 primero**, incluso las que tocan muchas filas. Reasignar 300 movimientos a otra
 categoria genera 300 subidas en la cola en vez de un `UPDATE` del servidor, y

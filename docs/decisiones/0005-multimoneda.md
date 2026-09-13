@@ -186,9 +186,9 @@ automatico y cual a mano.
 
 **A igual fecha, lo cargado a mano gana.** Si el usuario tipeo una cotizacion es
 porque la oficial no es la que aplica. El orden es
-`rate_date DESC, (source='auto') ASC, created_at DESC`, y esta escrito **en las
-dos puntas**: en `crud.fx.latest_rate` y en la consulta del cliente. Si estuviera
-en una sola, el servidor y la pantalla mostrarian numeros distintos.
+`rate_date DESC, (source='auto') ASC, created_at DESC`, y vive **en el cliente**,
+que es el unico que lee: el servidor guarda las dos filas (el unico parcial es
+por par, fecha y FUENTE, asi que conviven) y quien muestra elige.
 
 `source` guarda de donde vino cada fila: `auto` la que trae la API, y el texto
 que elija el usuario (`oficial`, `mep`, `tarjeta`) las que carga a mano.

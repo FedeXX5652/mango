@@ -4,6 +4,10 @@ mensual via /recurring/run."""
 import uuid
 from types import SimpleNamespace
 
+from sqlalchemy import text
+
+from tests.conftest import _plano
+
 
 async def _category(api: SimpleNamespace, kind: str = "expense") -> str:
     resp = await api.client.post(
@@ -23,6 +27,15 @@ def _payload(category_id: str, **over) -> dict:
     }
     base.update(over)
     return base
+
+
+async def _budgets(api: SimpleNamespace) -> list[dict]:
+    """Los sobres del usuario, leidos de la base: la API ya no tiene GET."""
+    res = await api.session.execute(
+        text("SELECT * FROM budgets WHERE owner_id = :o AND deleted_at IS NULL"),
+        {"o": api.owner_id},
+    )
+    return [_plano(dict(m)) for m in res.mappings()]
 
 
 async def test_create_rule(api: SimpleNamespace) -> None:
@@ -72,7 +85,10 @@ async def test_soft_delete_frees_slot(api: SimpleNamespace) -> None:
 
 
 async def test_other_user_404(api: SimpleNamespace) -> None:
-    assert (await api.client.get(f"/api/v1/budget-rules/{uuid.uuid4()}")).status_code == 404
+    inexistente = uuid.uuid4()
+    assert (
+        await api.client.patch(f"/api/v1/budget-rules/{inexistente}", json={"amount": 1})
+    ).status_code == 404
 
 
 async def test_large_amount_no_precision_loss(api: SimpleNamespace) -> None:
@@ -83,7 +99,7 @@ async def test_large_amount_no_precision_loss(api: SimpleNamespace) -> None:
         await api.client.post("/api/v1/budget-rules", json=_payload(cat, amount=grande))
     ).json()
     assert created["amount"] == grande
-    fetched = (await api.client.get(f"/api/v1/budget-rules/{created['id']}")).json()
+    fetched = await api.fila("budget_rules", created["id"])
     assert fetched["amount"] == grande
 
 
@@ -95,7 +111,7 @@ async def test_run_applies_rule_once(api: SimpleNamespace) -> None:
     assert r1.status_code == 200, r1.text
     assert r1.json()["budgets_created"] == 1
 
-    budgets = (await api.client.get("/api/v1/budgets")).json()
+    budgets = await _budgets(api)
     asignado = [b for b in budgets if b["category_id"] == cat and b["period_start"] == "2026-08-01"]
     assert len(asignado) == 1
     assert asignado[0]["amount"] == 80000
@@ -120,7 +136,7 @@ async def test_run_respects_manual_assignment(api: SimpleNamespace) -> None:
 
     r = await api.client.post("/api/v1/recurring/run?as_of=2026-09-10")
     assert r.json()["budgets_created"] == 0
-    budgets = (await api.client.get("/api/v1/budgets")).json()
+    budgets = await _budgets(api)
     sept = [b for b in budgets if b["category_id"] == cat and b["period_start"] == "2026-09-01"]
     assert len(sept) == 1
     assert sept[0]["amount"] == 123456
@@ -154,7 +170,7 @@ async def test_run_crea_una_asignacion_por_moneda(api: SimpleNamespace) -> None:
     assert r1.status_code == 200, r1.text
     assert r1.json()["budgets_created"] == 2
 
-    budgets = (await api.client.get("/api/v1/budgets")).json()
+    budgets = await _budgets(api)
     delmes = [b for b in budgets if b["category_id"] == cat and b["period_start"] == "2026-08-01"]
     assert {(b["currency"], b["amount"]) for b in delmes} == {("ARS", 80000), ("USD", 20000)}
 
@@ -179,6 +195,6 @@ async def test_run_no_pisa_la_asignacion_manual_de_otra_moneda(api: SimpleNamesp
 
     r = await api.client.post("/api/v1/recurring/run?as_of=2026-09-10")
     assert r.json()["budgets_created"] == 1
-    budgets = (await api.client.get("/api/v1/budgets")).json()
+    budgets = await _budgets(api)
     delmes = [b for b in budgets if b["category_id"] == cat and b["period_start"] == "2026-09-01"]
     assert {(b["currency"], b["amount"]) for b in delmes} == {("ARS", 80000), ("USD", 4444)}

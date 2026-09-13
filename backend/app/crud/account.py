@@ -32,19 +32,6 @@ async def get_account(
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
-async def list_accounts(
-    session: AsyncSession, owner_id: uuid.UUID, *, include_archived: bool = False
-) -> list[Account]:
-    stmt = select(Account).where(
-        Account.owner_id == owner_id,
-        Account.deleted_at.is_(None),
-    )
-    if not include_archived:
-        stmt = stmt.where(Account.archived.is_(False))
-    stmt = stmt.order_by(Account.sort_order, Account.created_at)
-    return list((await session.execute(stmt)).scalars().all())
-
-
 async def update_account(session: AsyncSession, account: Account, data: AccountUpdate) -> Account:
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(account, field, value)

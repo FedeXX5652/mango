@@ -31,26 +31,6 @@ async def create_rule(
         ) from exc
 
 
-@router.get("", response_model=list[BudgetRuleRead])
-async def list_rules(
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> list[BudgetRuleRead]:
-    return await crud.list_rules(session, owner_id)
-
-
-@router.get("/{rule_id}", response_model=BudgetRuleRead)
-async def get_rule(
-    rule_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> BudgetRuleRead:
-    rule = await crud.get_rule(session, owner_id, rule_id)
-    if rule is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
-    return rule
-
-
 @router.patch("/{rule_id}", response_model=BudgetRuleRead)
 async def update_rule(
     rule_id: uuid.UUID,

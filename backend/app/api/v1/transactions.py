@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user_id
@@ -39,31 +39,6 @@ async def create_transaction(
         raise _domain_422(exc) from exc
 
 
-@router.get("", response_model=list[TransactionRead])
-async def list_transactions(
-    account_id: uuid.UUID | None = None,
-    category_id: uuid.UUID | None = None,
-    kind: TransactionKind | None = None,
-    date_from: datetime | None = None,
-    date_to: datetime | None = None,
-    limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> list[TransactionRead]:
-    return await crud.list_transactions(
-        session,
-        owner_id,
-        account_id=account_id,
-        category_id=category_id,
-        kind=kind,
-        date_from=date_from,
-        date_to=date_to,
-        limit=limit,
-        offset=offset,
-    )
-
-
 @router.get("/export")
 async def export_transactions_csv(
     account_id: uuid.UUID | None = None,
@@ -89,18 +64,6 @@ async def export_transactions_csv(
         media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="mango-transacciones.csv"'},
     )
-
-
-@router.get("/{tx_id}", response_model=TransactionRead)
-async def get_transaction(
-    tx_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> TransactionRead:
-    tx = await crud.get_transaction(session, owner_id, tx_id)
-    if tx is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
-    return tx
 
 
 @router.patch("/{tx_id}", response_model=TransactionRead)

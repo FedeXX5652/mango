@@ -7,6 +7,17 @@ description: Como se agrega un endpoint nuevo a la API de este proyecto. Usar al
 
 Orden de trabajo. No saltear pasos.
 
+## 0. Antes que nada: ¿hace falta?
+
+La API **no tiene endpoints de lectura**. El cliente lee del SQLite del
+dispositivo, no del servidor (ver ESPECIFICACION 3.11). Un endpoint nuevo se
+justifica solo si es una escritura que sube por la sincronizacion, o algo que el
+cliente **no puede hacer solo**: salir a una API externa, armar un archivo,
+guardar algo que no se sincroniza.
+
+Si la respuesta es "para poder consultarlo", no va: esa consulta se escribe en el
+cliente.
+
 ## 1. Esquema Pydantic
 
 En `backend/app/schemas/<recurso>.py`. Separar siempre:

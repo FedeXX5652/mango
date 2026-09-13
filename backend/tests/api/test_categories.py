@@ -83,19 +83,8 @@ async def test_other_users_category_is_404(api: SimpleNamespace) -> None:
         {"id": other_cat, "owner": other_user},
     )
     await api.session.flush()
-    resp = await api.client.get(f"/api/v1/categories/{other_cat}")
+    resp = await api.client.patch(f"/api/v1/categories/{other_cat}", json={"name": "Mia"})
     assert resp.status_code == 404
-
-
-async def test_list_parents_before_children(api: SimpleNamespace) -> None:
-    parent = await _create(api, name="Salud", kind="expense")
-    await _create(api, name="Medicamentos", kind="expense", parent_id=parent["id"])
-    listed = (await api.client.get("/api/v1/categories")).json()
-    ids = [c["id"] for c in listed]
-    # el padre aparece antes que su hija
-    assert ids.index(parent["id"]) < ids.index(
-        next(c["id"] for c in listed if c["parent_id"] == parent["id"])
-    )
 
 
 async def test_update_and_soft_delete(api: SimpleNamespace) -> None:
@@ -105,7 +94,7 @@ async def test_update_and_soft_delete(api: SimpleNamespace) -> None:
     assert upd.json()["name"] == "Movilidad"
 
     assert (await api.client.delete(f"/api/v1/categories/{cat['id']}")).status_code == 204
-    assert (await api.client.get(f"/api/v1/categories/{cat['id']}")).status_code == 404
+    assert (await api.fila("categories", cat["id"]))["deleted_at"] is not None
 
 
 # --- Mover de padre (necesario para "eliminar y mover", ver ESPECIFICACION 3.3)

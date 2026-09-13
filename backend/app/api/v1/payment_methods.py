@@ -41,27 +41,6 @@ async def create_payment_method(
         raise _domain_422(exc) from exc
 
 
-@router.get("", response_model=list[PaymentMethodRead])
-async def list_payment_methods(
-    include_archived: bool = False,
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> list[PaymentMethodRead]:
-    return await crud.list_payment_methods(session, owner_id, include_archived=include_archived)
-
-
-@router.get("/{pm_id}", response_model=PaymentMethodRead)
-async def get_payment_method(
-    pm_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> PaymentMethodRead:
-    pm = await crud.get_payment_method(session, owner_id, pm_id)
-    if pm is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
-    return pm
-
-
 @router.patch("/{pm_id}", response_model=PaymentMethodRead)
 async def update_payment_method(
     pm_id: uuid.UUID,
@@ -116,16 +95,6 @@ async def add_account_mapping(
         return await crud.create_pma(session, owner_id, pm, data)
     except DomainError as exc:
         raise _domain_422(exc) from exc
-
-
-@router.get("/{pm_id}/accounts", response_model=list[PaymentMethodAccountRead])
-async def list_account_mappings(
-    pm_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> list[PaymentMethodAccountRead]:
-    await _require_pm(session, owner_id, pm_id)
-    return await crud.list_pma(session, pm_id)
 
 
 @router.delete("/{pm_id}/accounts/{pma_id}", status_code=status.HTTP_204_NO_CONTENT)

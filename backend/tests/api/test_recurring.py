@@ -3,6 +3,8 @@
 import uuid
 from types import SimpleNamespace
 
+from sqlalchemy import text
+
 
 async def _account(api: SimpleNamespace) -> str:
     resp = await api.client.post(
@@ -60,12 +62,24 @@ async def test_run_generates_and_advances(api: SimpleNamespace) -> None:
     assert resp.json()["generated"] == 1
 
     # next_run_date avanzo un mes.
-    got = (await api.client.get(f"/api/v1/recurring/{rule['id']}")).json()
+    got = await api.fila("recurring_rules", rule["id"])
     assert got["next_run_date"] == "2026-09-01"
 
     # la transaccion generada existe y es source=recurring.
-    txs = (await api.client.get("/api/v1/transactions")).json()
-    assert any(t["source"] == "recurring" and t["amount"] == 500000 for t in txs)
+    generada = (
+        (
+            await api.session.execute(
+                text(
+                    "SELECT source, amount FROM transactions"
+                    " WHERE owner_id = :o AND source = 'recurring' AND deleted_at IS NULL"
+                ),
+                {"o": api.owner_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    assert [dict(g)["amount"] for g in generada] == [500000]
 
 
 async def test_run_catches_up_missed_periods(api: SimpleNamespace) -> None:
@@ -74,7 +88,7 @@ async def test_run_catches_up_missed_periods(api: SimpleNamespace) -> None:
     resp = await api.client.post("/api/v1/recurring/run", params={"as_of": "2026-08-15"})
     # 06-01, 07-01, 08-01 -> 3 generadas
     assert resp.json()["generated"] == 3
-    got = (await api.client.get(f"/api/v1/recurring/{rule['id']}")).json()
+    got = await api.fila("recurring_rules", rule["id"])
     assert got["next_run_date"] == "2026-09-01"
 
 

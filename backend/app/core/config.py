@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     fx_api_url: str = "https://api.exchangerate-api.com/v4/latest/{base}"
     fx_timeout_s: float = 8.0
 
+    # Zona del usuario. Decide en que dia cae una recurrente: generada a las
+    # 23:50 del 31 tiene que quedar en el mes que corresponde (especificacion 8).
+    tz: str = "America/Argentina/Buenos_Aires"
+
     # Usuario semilla (fase 1: un solo usuario, sin auth de servidor).
     # Su id es fijo para que owner_id sea estable entre dispositivos y reinicios.
     # El codigo de acceso (PIN) vive en el cliente, no aca (ver fase 3 para auth real).
