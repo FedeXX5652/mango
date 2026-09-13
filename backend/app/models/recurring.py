@@ -42,7 +42,6 @@ class RecurringRule(Base, IdMixin, TimestampMixin):
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date | None] = mapped_column(Date)
     next_run_date: Mapped[date] = mapped_column(Date, nullable=False)
-    auto_create: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
 
     __table_args__ = (

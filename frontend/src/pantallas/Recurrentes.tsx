@@ -9,7 +9,7 @@ import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
-import { api } from "@/lib/api"
+import { generarVencidas } from "@/lib/generar"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
@@ -25,7 +25,6 @@ interface Regla {
   interval_count: number
   next_run_date: string
   active: number
-  auto_create: number
 }
 interface Opcion {
   id: string
@@ -66,7 +65,7 @@ export function Recurrentes() {
   const navigate = useNavigate()
   const db = usePowerSync()
   const { data: reglas } = useQuery<Regla>(
-    `SELECT id, name, kind, amount, currency, frequency, interval_count, next_run_date, active, auto_create
+    `SELECT id, name, kind, amount, currency, frequency, interval_count, next_run_date, active
      FROM recurring_rules WHERE deleted_at IS NULL ORDER BY active DESC, next_run_date`,
   )
   const [mostrarForm, setMostrarForm] = useState(false)
@@ -74,17 +73,18 @@ export function Recurrentes() {
   const [aviso, setAviso] = useState("")
   const [aBorrar, setABorrar] = useState<Regla | null>(null)
 
+  // Corre contra la base local: no necesita conexion (ver lib/generar).
   async function ejecutar() {
     setCorriendo(true)
     setAviso("")
     try {
-      const r = await api.runRecurring()
+      const r = await generarVencidas(db)
       const partes = []
-      if (r.generated > 0) partes.push(`${r.generated} movimiento(s)`)
-      if (r.budgets_created > 0) partes.push(`${r.budgets_created} asignación(es) de sobre`)
+      if (r.movimientos > 0) partes.push(`${r.movimientos} movimiento(s)`)
+      if (r.sobres > 0) partes.push(`${r.sobres} asignación(es) de sobre`)
       setAviso(partes.length ? `Se generaron ${partes.join(" y ")}.` : "No había nada vencido.")
     } catch {
-      setAviso("No se pudo ejecutar (¿sin conexión?).")
+      setAviso("No se pudo generar.")
     } finally {
       setCorriendo(false)
     }
@@ -100,7 +100,12 @@ export function Recurrentes() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/ajustes")} aria-label="Volver">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/ajustes")}
+          aria-label="Volver"
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-xl font-semibold">Recurrentes</h1>
@@ -140,7 +145,8 @@ export function Recurrentes() {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {etiquetaTipo(r.kind)} · {formatearMonto(r.amount, { moneda: r.currency })} ·{" "}
-                  {etiquetaFrec(r.frequency, r.interval_count)} · próx. {fechaCorta(r.next_run_date)}
+                  {etiquetaFrec(r.frequency, r.interval_count)} · próx.{" "}
+                  {fechaCorta(r.next_run_date)}
                 </p>
               </div>
               <div className="flex shrink-0 items-center">
@@ -205,7 +211,6 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
   const [intervalo, setIntervalo] = useState("1")
   const [desde, setDesde] = useState(hoyISO)
   const [hasta, setHasta] = useState("")
-  const [autoCreate, setAutoCreate] = useState(true)
   const [error, setError] = useState("")
 
   const nombreCat = useMemo(() => new Map(categorias.map((c) => [c.id, c.name])), [categorias])
@@ -237,8 +242,8 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
         `INSERT INTO recurring_rules
            (id, name, kind, account_id, transfer_account_id, category_id, payment_method_id,
             amount, currency, frequency, interval_count, start_date, next_run_date, end_date,
-            auto_create, active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+            active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
         [
           uuidv4(),
           name.trim(),
@@ -254,7 +259,6 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
           desde,
           desde, // next_run_date arranca en la primera fecha
           hasta || null,
-          autoCreate ? 1 : 0,
         ],
       )
       onCerrar()
@@ -266,7 +270,11 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
   return (
     <div className="space-y-3">
       <Campo etiqueta="Nombre">
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Alquiler, Sueldo…" />
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Alquiler, Sueldo…"
+        />
       </Campo>
       <div className="grid grid-cols-2 gap-3">
         <Campo etiqueta="Tipo">
@@ -285,7 +293,12 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
           </Select>
         </Campo>
         <Campo etiqueta="Monto">
-          <Input value={monto} onChange={(e) => setMonto(e.target.value)} inputMode="decimal" placeholder="0" />
+          <Input
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+            inputMode="decimal"
+            placeholder="0"
+          />
         </Campo>
       </div>
 
@@ -365,15 +378,6 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
           <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
         </Campo>
       </div>
-
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={autoCreate}
-          onChange={(e) => setAutoCreate(e.target.checked)}
-        />
-        Generar el movimiento automáticamente
-      </label>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-2">

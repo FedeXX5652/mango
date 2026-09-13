@@ -1,43 +1,20 @@
-"""Reglas recurrentes: sueldo, alquiler, servicios. Se definen una vez y el
-sistema genera las transacciones.
+"""Reglas recurrentes: sueldo, alquiler, servicios. Alta, edicion y baja.
 
-`run_due` recorre las reglas activas con `auto_create` cuya `next_run_date` ya
-vencio, genera una transaccion por cada ocurrencia pendiente (source='recurring')
-y avanza `next_run_date`. Las reglas con `auto_create=False` solo avisarian
-(recordatorio); eso queda para mas adelante y por ahora no se procesan.
+**Generarlas no se hace aca.** La cuenta de que ocurrencia vencio y la creacion
+del movimiento viven en el dispositivo (`lib/recurrentes` en el cliente), porque
+si dependieran del servidor tu alquiler no existiria hasta que te reconectes.
+El servidor solo recibe la regla y los movimientos que la regla produjo, como
+cualquier otra escritura.
 """
 
-import calendar
 import uuid
-from datetime import date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.crud.transaction import _validate_invariants, create_transaction
+from app.crud.transaction import _validate_invariants
 from app.models.recurring import RecurringRule
 from app.schemas.recurring import RecurringCreate, RecurringUpdate
-from app.schemas.transaction import TransactionCreate
-
-
-def _add_period(d: date, freq: str, n: int) -> date:
-    if freq == "daily":
-        return d + timedelta(days=n)
-    if freq == "weekly":
-        return d + timedelta(weeks=n)
-    if freq == "monthly":
-        total = d.month - 1 + n
-        year = d.year + total // 12
-        month = total % 12 + 1
-        day = min(d.day, calendar.monthrange(year, month)[1])
-        return date(year, month, day)
-    # yearly
-    try:
-        return d.replace(year=d.year + n)
-    except ValueError:  # 29/02 -> 28/02
-        return d.replace(year=d.year + n, day=28)
 
 
 async def create_recurring(
@@ -84,46 +61,3 @@ async def update_recurring(
 async def soft_delete_recurring(session: AsyncSession, rule: RecurringRule) -> None:
     rule.deleted_at = func.now()
     await session.commit()
-
-
-def _occurred_at(run_date: date) -> datetime:
-    # Mediodia en la zona del usuario: cae en el dia/mes correcto sin ambiguedad.
-    return datetime.combine(run_date, time(12, 0), tzinfo=ZoneInfo(settings.tz))
-
-
-async def run_due(session: AsyncSession, owner_id: uuid.UUID, as_of: date) -> list[uuid.UUID]:
-    """Genera las transacciones pendientes de las reglas vencidas hasta `as_of`.
-    Devuelve los ids creados. Idempotente por fecha: avanza next_run_date."""
-    stmt = select(RecurringRule).where(
-        RecurringRule.owner_id == owner_id,
-        RecurringRule.deleted_at.is_(None),
-        RecurringRule.active.is_(True),
-        RecurringRule.auto_create.is_(True),
-        RecurringRule.next_run_date <= as_of,
-    )
-    rules = (await session.execute(stmt)).scalars().all()
-
-    created: list[uuid.UUID] = []
-    for rule in rules:
-        run_date = rule.next_run_date
-        while run_date <= as_of and (rule.end_date is None or run_date <= rule.end_date):
-            tx_data = TransactionCreate(
-                id=uuid.uuid4(),  # lo crea el servidor
-                kind=rule.kind,
-                occurred_at=_occurred_at(run_date),
-                amount=rule.amount,
-                currency=rule.currency,
-                account_id=rule.account_id,
-                transfer_account_id=rule.transfer_account_id,
-                category_id=rule.category_id,
-                payment_method_id=rule.payment_method_id,
-                payee=rule.payee,
-                notes=rule.notes,
-            )
-            tx = await create_transaction(session, owner_id, tx_data, source="recurring")
-            created.append(tx.id)
-            run_date = _add_period(run_date, rule.frequency, rule.interval_count)
-
-        rule.next_run_date = run_date
-    await session.commit()
-    return created

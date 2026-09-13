@@ -83,20 +83,11 @@ export interface ResultadoCotizaciones {
   fallidas: string[]
 }
 
-export interface ResultadoRecurrentes {
-  generated: number
-  transaction_ids: string[]
-  budgets_created: number
-}
-
 export const api = {
   getMe: () => pedir<Usuario>("/users/me"),
   getSyncToken: () => pedir<CredencialesSync>("/sync/token"),
   updateMe: (data: PrefsUpdate) =>
     pedir<Usuario>("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
-  // Genera las transacciones de las reglas recurrentes vencidas. Idempotente
-  // por fecha (avanza next_run_date), asi que es seguro llamarlo al abrir la app.
-  runRecurring: () => pedir<ResultadoRecurrentes>("/recurring/run", { method: "POST" }),
   // Trae la cotizacion de cada moneda del usuario contra su moneda base. Es
   // idempotente por fecha (la fuente publica una por dia), asi que es seguro
   // llamarlo al abrir la app.

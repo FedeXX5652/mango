@@ -3,8 +3,6 @@
 import uuid
 from types import SimpleNamespace
 
-from sqlalchemy import text
-
 
 async def _account(api: SimpleNamespace) -> str:
     resp = await api.client.post(
@@ -51,64 +49,3 @@ async def test_recurring_expense_requires_category(api: SimpleNamespace) -> None
     resp = await _rule(api)  # sin category_id
     assert resp.status_code == 422
     assert "categoria" in resp.json()["detail"].lower()
-
-
-async def test_run_generates_and_advances(api: SimpleNamespace) -> None:
-    cat = await _category(api)
-    rule = (await _rule(api, category_id=cat, next_run_date="2026-08-01")).json()
-
-    resp = await api.client.post("/api/v1/recurring/run", params={"as_of": "2026-08-15"})
-    assert resp.status_code == 200, resp.text
-    assert resp.json()["generated"] == 1
-
-    # next_run_date avanzo un mes.
-    got = await api.fila("recurring_rules", rule["id"])
-    assert got["next_run_date"] == "2026-09-01"
-
-    # la transaccion generada existe y es source=recurring.
-    generada = (
-        (
-            await api.session.execute(
-                text(
-                    "SELECT source, amount FROM transactions"
-                    " WHERE owner_id = :o AND source = 'recurring' AND deleted_at IS NULL"
-                ),
-                {"o": api.owner_id},
-            )
-        )
-        .mappings()
-        .all()
-    )
-    assert [dict(g)["amount"] for g in generada] == [500000]
-
-
-async def test_run_catches_up_missed_periods(api: SimpleNamespace) -> None:
-    cat = await _category(api)
-    rule = (await _rule(api, category_id=cat, next_run_date="2026-06-01")).json()
-    resp = await api.client.post("/api/v1/recurring/run", params={"as_of": "2026-08-15"})
-    # 06-01, 07-01, 08-01 -> 3 generadas
-    assert resp.json()["generated"] == 3
-    got = await api.fila("recurring_rules", rule["id"])
-    assert got["next_run_date"] == "2026-09-01"
-
-
-async def test_run_respects_end_date(api: SimpleNamespace) -> None:
-    cat = await _category(api)
-    await _rule(api, category_id=cat, next_run_date="2026-06-01", end_date="2026-07-01")
-    resp = await api.client.post("/api/v1/recurring/run", params={"as_of": "2026-08-15"})
-    # solo 06-01 y 07-01 (<= end_date)
-    assert resp.json()["generated"] == 2
-
-
-async def test_run_skips_non_auto_and_inactive(api: SimpleNamespace) -> None:
-    cat = await _category(api)
-    await _rule(api, category_id=cat, next_run_date="2026-06-01", auto_create=False)
-    await _rule(api, category_id=cat, next_run_date="2026-06-01", active=False)
-    resp = await api.client.post("/api/v1/recurring/run", params={"as_of": "2026-08-15"})
-    assert resp.json()["generated"] == 0
-
-
-async def test_run_route_not_captured_as_id(api: SimpleNamespace) -> None:
-    # /recurring/run no debe interpretarse como /recurring/{rule_id}.
-    resp = await api.client.post("/api/v1/recurring/run", params={"as_of": "2026-08-15"})
-    assert resp.status_code == 200

@@ -473,18 +473,27 @@ mano, y **a igual fecha la que cargo la persona gana** sobre la automatica.
 
 - **Recurrentes** (`recurring_rules`): sueldo, alquiler, seguros, servicios. Se
   definen una vez con su frecuencia (diaria/semanal/mensual/anual + cada N) y el
-  sistema **genera la transaccion sola** cuando vence (`auto_create`), avanzando
-  `next_run_date`. La generacion la dispara `POST /recurring/run` (al abrir la
-  app, idempotente por fecha) o el boton manual "Ejecutar vencidas". Se pueden
-  pausar.
+  sistema **genera la transaccion sola** cuando vence, avanzando `next_run_date`.
+  Se pueden pausar. Una recurrente **siempre es automatica**: si hay que cargarla
+  a mano no es una recurrente, es una plantilla, que ya existe para eso.
 
-  **Pendiente**: con `auto_create` en falso la regla deberia **avisar** en vez de
-  generar ("manana vence el alquiler"), y ese recordatorio no esta construido.
-  Hoy una regla con el interruptor apagado simplemente no hace nada: es una
-  opcion de la interfaz que no cumple lo que promete.
+  **La generacion corre en el dispositivo**, sobre la base local, al abrir la app
+  y con el boton "Ejecutar vencidas". No necesita conexion: antes la hacia el
+  servidor y una semana sin red significaba que el alquiler no existia, que es
+  justo lo contrario de lo que tiene que pasar solo.
+
+  Si varios dias quedaron sin generar, se generan todos (una transaccion por
+  periodo vencido). El **id de cada movimiento generado es determinista**, sale
+  de (regla, fecha): dos dispositivos que generan la misma ocurrencia estando
+  desconectados producen la **misma** fila y al sincronizar se colapsan en una,
+  en vez de duplicar el gasto.
+
+  El monto es el de la regla. Si el mes vino distinto —la luz, el gas— se edita
+  el movimiento: es preferible a que no aparezca nada y el saldo quede mal.
 - **Presupuestos recurrentes** (`budget_rules`): la asignacion recurrente de un
-  sobre (ver 3.6). El mismo `run` las aplica: crea la asignacion del mes que
-  falte. Reemplaza a `default_budget`.
+  sobre (ver 3.6). La misma corrida las aplica, tambien local: crea la asignacion
+  del mes que falte. No pisa la que ya existe, venga de una corrida anterior o
+  cargada a mano. Reemplaza a `default_budget`.
 - **Plantillas** (`templates`): gastos o ingresos frecuentes precargados que se
   cargan con un toque (chips en la pantalla de alta). Pueden estar parciales y
   completarse al aplicarlas.
@@ -531,8 +540,6 @@ servidor. Si no, no se podria crear nada sin conexion.
   (`GET /transactions/export`). Se podria generar desde la base local, pero eso
   duplicaria el formato del CSV en dos lugares y se desincronizarian solos: se
   prefiere **una sola fuente de verdad** y avisar cuando no hay conexion.
-- **Ejecutar recurrentes** (`POST /recurring/run`): genera movimientos y
-  asignaciones en el servidor.
 - **Traer cotizaciones** (`POST /exchange-rates/refresh`): sale a una API
   publica, asi que la conexion es inherente. Sin ella se usa la ultima
   cotizacion conocida, que para eso esta cacheada (ver 0005).

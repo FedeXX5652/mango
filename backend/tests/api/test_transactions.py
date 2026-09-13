@@ -148,17 +148,43 @@ async def test_account_must_exist(api: SimpleNamespace) -> None:
 
 
 async def test_manual_cannot_force_pending(api: SimpleNamespace) -> None:
-    # Enviar status/source en el payload no tiene efecto: la carga manual
-    # siempre queda confirmed/manual (regla 4).
+    # `status` no se acepta del payload: lo pone el servidor (regla 4).
     acc = await _account(api)
     cat = await _category(api)
     resp = await api.client.post(
         "/api/v1/transactions",
-        json=_tx(account_id=acc, category_id=cat, status="pending", source="email_import"),
+        json=_tx(account_id=acc, category_id=cat, status="pending"),
     )
     assert resp.status_code == 201
     assert resp.json()["status"] == "confirmed"
     assert resp.json()["source"] == "manual"
+
+
+async def test_el_cliente_no_puede_hacerse_pasar_por_la_ingesta(api: SimpleNamespace) -> None:
+    # 'email_import' es de la ingesta automatica y es el unico origen que puede
+    # dejar un movimiento en 'pending'. Se rechaza de entrada, no se ignora en
+    # silencio: si el cliente lo manda es un error que hay que ver.
+    acc = await _account(api)
+    cat = await _category(api)
+    resp = await api.client.post(
+        "/api/v1/transactions",
+        json=_tx(account_id=acc, category_id=cat, source="email_import"),
+    )
+    assert resp.status_code == 422
+
+
+async def test_el_cliente_marca_lo_que_genero_una_recurrente(api: SimpleNamespace) -> None:
+    # Las recurrentes las genera el dispositivo (ESPECIFICACION 3.7), asi que
+    # tiene que poder decir de donde salio el movimiento. Sigue siendo confirmed.
+    acc = await _account(api)
+    cat = await _category(api)
+    resp = await api.client.post(
+        "/api/v1/transactions",
+        json=_tx(account_id=acc, category_id=cat, source="recurring"),
+    )
+    assert resp.status_code == 201
+    assert resp.json()["source"] == "recurring"
+    assert resp.json()["status"] == "confirmed"
 
 
 async def test_big_amount_keeps_precision(api: SimpleNamespace) -> None:

@@ -1,7 +1,9 @@
+import { usePowerSync } from "@powersync/react"
 import { useEffect } from "react"
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 
 import { api } from "@/lib/api"
+import { generarVencidas } from "@/lib/generar"
 import { ProveedorBloqueo } from "@/hooks/bloqueo"
 import { ProveedorMonedaBase } from "@/hooks/monedaBase"
 import { ProveedorTema } from "@/hooks/tema"
@@ -52,18 +54,24 @@ function Rutas() {
 }
 
 // Al abrir la app, dispara las reglas recurrentes vencidas (best-effort: si no
-// hay conexion se ignora). Es idempotente por fecha, asi que correr de mas no
-// duplica. Las transacciones generadas bajan por sync.
-// Trabajo del servidor que se dispara al abrir la app. No hay timers ni cron:
-// el servidor no siempre esta prendido, y ambas cosas son idempotentes (las
-// recurrentes por fecha de proxima corrida, las cotizaciones por fecha del
-// dato), asi que llamarlas de mas no hace nada. Si no hay conexion, fallan en
-// silencio y la app sigue con lo que tiene.
-function DisparadorServidor() {
+// Lo que se dispara al abrir la app. No hay timers ni cron.
+//
+// Las recurrentes se generan **en el dispositivo**, contra la base local: no
+// necesitan conexion y por eso van primero. El refresco de cotizaciones si sale
+// a la red, y si no hay, falla en silencio y la app sigue con lo que tiene.
+//
+// Las dos son idempotentes —las recurrentes por su proxima fecha, las
+// cotizaciones por la fecha del dato—, asi que llamarlas de mas no hace nada.
+function DisparadorInicio() {
+  const db = usePowerSync()
   useEffect(() => {
-    api.runRecurring().catch(() => {})
+    generarVencidas(db).catch((e) => {
+      // No se traga el error: si la generacion falla, las recurrentes dejan de
+      // aparecer y desde afuera parece que no habia nada vencido.
+      console.error("No se pudieron generar las recurrentes vencidas", e)
+    })
     api.refrescarCotizaciones().catch(() => {})
-  }, [])
+  }, [db])
   return null
 }
 
@@ -74,7 +82,7 @@ export function App() {
         <ProveedorMonedaBase>
           <ProveedorBloqueo>
             <ProveedorPowerSync>
-              <DisparadorServidor />
+              <DisparadorInicio />
               <Rutas />
             </ProveedorPowerSync>
           </ProveedorBloqueo>

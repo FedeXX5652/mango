@@ -1,19 +1,18 @@
 """Asignaciones recurrentes a sobres (ver 3.6 / 0004).
 
 Una regla dice "asigna este monto a este sobre todos los meses". `apply_due`
-crea la fila de `budgets` del mes de `as_of` para cada regla activa que todavia
+crea la fila de `budgets` del mes para cada regla activa que todavia
 no tenga una: nunca pisa una asignacion hecha a mano. Reemplaza al viejo
 `default_budget`. Se dispara desde `/recurring/run`.
 """
 
 import uuid
-from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
-from app.models.budget import Budget, BudgetRule
+from app.models.budget import BudgetRule
 from app.models.category import Category
 from app.schemas.budget import BudgetRuleCreate, BudgetRuleUpdate
 
@@ -85,46 +84,3 @@ async def update_rule(
 async def soft_delete_rule(session: AsyncSession, rule: BudgetRule) -> None:
     rule.deleted_at = func.now()
     await session.commit()
-
-
-async def apply_due(session: AsyncSession, owner_id: uuid.UUID, as_of: date) -> list[uuid.UUID]:
-    """Crea la asignacion del mes de `as_of` para cada regla activa que aun no
-    tenga una fila de budgets ese mes. Devuelve los ids creados. Idempotente:
-    correr de nuevo no duplica (respeta la asignacion existente, manual o no)."""
-    period_start = as_of.replace(day=1)
-    stmt = select(BudgetRule).where(
-        BudgetRule.owner_id == owner_id,
-        BudgetRule.deleted_at.is_(None),
-        BudgetRule.active.is_(True),
-    )
-    rules = (await session.execute(stmt)).scalars().all()
-
-    created: list[uuid.UUID] = []
-    for rule in rules:
-        existe = (
-            await session.execute(
-                select(Budget.id).where(
-                    Budget.owner_id == owner_id,
-                    Budget.group_id.is_(None),
-                    Budget.category_id == rule.category_id,
-                    # Cada moneda tiene su propia fila del mes.
-                    Budget.currency == rule.currency,
-                    Budget.period_start == period_start,
-                    Budget.deleted_at.is_(None),
-                )
-            )
-        ).scalar_one_or_none()
-        if existe is not None:
-            continue
-        budget = Budget(
-            id=uuid.uuid4(),  # lo crea el servidor, como las recurrentes de tx
-            owner_id=owner_id,
-            category_id=rule.category_id,
-            period_start=period_start,
-            amount=rule.amount,
-            currency=rule.currency,
-        )
-        session.add(budget)
-        created.append(budget.id)
-    await session.commit()
-    return created

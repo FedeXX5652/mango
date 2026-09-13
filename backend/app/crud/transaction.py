@@ -134,12 +134,10 @@ async def create_transaction(
     session: AsyncSession,
     owner_id: uuid.UUID,
     data: TransactionCreate,
-    *,
-    source: str = "manual",
 ) -> Transaction:
-    # `source` distingue el origen: 'manual' (API), 'template' (aplicar
-    # plantilla) o 'recurring' (regla recurrente). Nunca produce 'pending'
-    # (eso es exclusivo de la ingesta automatica, regla 4).
+    # `source` viene en el payload y solo puede ser 'manual' o 'recurring' (lo
+    # acota el esquema). Nunca produce 'pending': eso es exclusivo de la ingesta
+    # automatica (regla 4) y la base lo impone con tx_pending_source_chk.
     await _validate_invariants(
         session,
         owner_id,
@@ -162,7 +160,6 @@ async def create_transaction(
     tx = Transaction(
         owner_id=owner_id,
         status="confirmed",
-        source=source,
         **campos,
     )
     session.add(tx)

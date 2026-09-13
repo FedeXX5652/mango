@@ -1,22 +1,19 @@
-"""Rutas de reglas recurrentes. `run` genera las transacciones vencidas."""
+"""Rutas de reglas recurrentes: alta, edicion y baja.
+
+Generarlas es cosa del dispositivo (ver crud/recurring)."""
 
 import uuid
-from datetime import date, datetime
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user_id
-from app.core.config import settings
 from app.core.errors import DomainError
-from app.crud import budget_rule as budget_rule_crud
 from app.crud import recurring as crud
 from app.db import get_session
 from app.schemas.recurring import (
     RecurringCreate,
     RecurringRead,
-    RecurringRunResult,
     RecurringUpdate,
 )
 
@@ -37,21 +34,6 @@ async def create_recurring(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         ) from exc
-
-
-@router.post("/run", response_model=RecurringRunResult)
-async def run_recurring(
-    as_of: date | None = None,
-    session: AsyncSession = Depends(get_session),
-    owner_id: uuid.UUID = Depends(get_current_user_id),
-) -> RecurringRunResult:
-    if as_of is None:
-        as_of = datetime.now(ZoneInfo(settings.tz)).date()
-    ids = await crud.run_due(session, owner_id, as_of)
-    budget_ids = await budget_rule_crud.apply_due(session, owner_id, as_of)
-    return RecurringRunResult(
-        generated=len(ids), transaction_ids=ids, budgets_created=len(budget_ids)
-    )
 
 
 @router.patch("/{rule_id}", response_model=RecurringRead)

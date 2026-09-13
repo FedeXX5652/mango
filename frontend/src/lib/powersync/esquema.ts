@@ -168,7 +168,6 @@ const recurring_rules = new Table({
   start_date: column.text,
   end_date: column.text,
   next_run_date: column.text,
-  auto_create: column.integer,
   active: column.integer,
   created_at: column.text,
   updated_at: column.text,

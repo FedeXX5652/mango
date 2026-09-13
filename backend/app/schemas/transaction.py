@@ -26,6 +26,11 @@ class TransactionCreate(BaseModel):
     payee: str | None = None
     notes: str | None = None
     visibility: Visibility = "private"
+    # De donde sale el movimiento. El cliente genera dos cosas: lo que carga una
+    # persona y lo que produce una regla recurrente (ver ESPECIFICACION 3.7).
+    # 'email_import' es de la ingesta automatica y no se acepta por aca: es lo
+    # unico que puede dejar un movimiento en 'pending' (regla 4).
+    source: Literal["manual", "recurring"] = "manual"
     # Conversion, cuando la moneda del movimiento no es la de la cuenta
     # debitada (ver 0005). **Dos de tres determinan el tercero**: alcanza con
     # mandar uno de estos dos y el servidor completa el otro. Si vienen los dos

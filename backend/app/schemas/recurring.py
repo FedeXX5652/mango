@@ -28,7 +28,6 @@ class RecurringCreate(BaseModel):
     start_date: date
     end_date: date | None = None
     next_run_date: date
-    auto_create: bool = True
     active: bool = True
 
 
@@ -42,7 +41,6 @@ class RecurringUpdate(BaseModel):
     day_of_period: int | None = None
     end_date: date | None = None
     next_run_date: date | None = None
-    auto_create: bool | None = None
     active: bool | None = None
 
 
@@ -66,14 +64,6 @@ class RecurringRead(BaseModel):
     start_date: date
     end_date: date | None
     next_run_date: date
-    auto_create: bool
     active: bool
     created_at: datetime
     updated_at: datetime
-
-
-class RecurringRunResult(BaseModel):
-    generated: int
-    transaction_ids: list[uuid.UUID]
-    # Asignaciones de sobre creadas por las reglas de presupuesto recurrente.
-    budgets_created: int = 0

@@ -62,7 +62,8 @@ asumir un modelo con mas invariantes (todo tiene que cerrar).
 - **Sin "asignacion por defecto".** Se evaluo un `default_budget` por sobre pero
   se descarto: la asignacion recurrente la cubre el **sistema de recurrentes** via
   `budget_rules` (migracion `4a6d083495f0`): una regla por sobre que crea la fila
-  de `budgets` de cada mes desde `/recurring/run`, sin pisar lo asignado a mano.
+  de `budgets` de cada mes en la corrida de recurrentes, que pasa **en el
+  dispositivo** (ver 3.7), sin pisar lo asignado a mano.
   Un sobre = una categoria que se **agrega a mano** (tiene alguna fila de
   `budgets`); no se muestran todas las categorias.
 - **`budgets` = asignacion mensual** (una fila por sobre/mes). Se **quitaron**
