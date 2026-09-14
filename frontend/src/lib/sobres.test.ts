@@ -12,7 +12,12 @@ function saldo(r: ReturnType<typeof calcularMes>, id: string): number {
 describe("sobres", () => {
   it("cierra el invariante del ejemplo verificado", () => {
     const d: DatosSobres = {
-      sobres: [sinRollover("comida"), sinRollover("delivery"), sinRollover("super"), sinRollover("transporte")],
+      sobres: [
+        sinRollover("comida"),
+        sinRollover("delivery"),
+        sinRollover("super"),
+        sinRollover("transporte"),
+      ],
       asignado: new Map([
         ["comida|2026-08", 100000],
         ["delivery|2026-08", 30000],
@@ -53,7 +58,10 @@ describe("sobres", () => {
   it("sin rollover: el positivo vuelve a por asignar, el negativo arrastra en rojo", () => {
     const positivo: DatosSobres = {
       sobres: [sinRollover("a")],
-      asignado: new Map([["a|2026-08", 10000], ["a|2026-09", 10000]]),
+      asignado: new Map([
+        ["a|2026-08", 10000],
+        ["a|2026-09", 10000],
+      ]),
       gastado: new Map([["a|2026-08", 3000]]),
       fondos: 0,
       meses: ["2026-08", "2026-09"],
@@ -63,7 +71,10 @@ describe("sobres", () => {
 
     const rojo: DatosSobres = {
       sobres: [sinRollover("a")],
-      asignado: new Map([["a|2026-08", 10000], ["a|2026-09", 10000]]),
+      asignado: new Map([
+        ["a|2026-08", 10000],
+        ["a|2026-09", 10000],
+      ]),
       gastado: new Map([["a|2026-08", 15000]]),
       fondos: 0,
       meses: ["2026-08", "2026-09"],

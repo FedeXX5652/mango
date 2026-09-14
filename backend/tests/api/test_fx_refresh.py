@@ -135,7 +135,7 @@ async def test_una_moneda_marcada_manual_no_se_toca(api: SimpleNamespace) -> Non
     # En Argentina el dolar oficial de la API no es el que uno paga: se maneja
     # a mano y queda fuera del automatico.
     assert (
-        await api.client.patch("/api/v1/users/me", json={"fx_manual": ["USD"]})
+        await api.client.patch(f"/api/v1/users/{api.owner_id}", json={"fx_manual": ["USD"]})
     ).status_code == 200
 
     pedidos: list = []
@@ -239,7 +239,7 @@ async def test_guarda_el_par_en_la_direccion_del_numero_grande(api: SimpleNamesp
     Con base USD y una cuenta en pesos, la direccion "natural" (1 ARS = X USD)
     da 0.000663 y hay que dar vuelta la consulta."""
     assert (
-        await api.client.patch("/api/v1/users/me", json={"base_currency": "USD"})
+        await api.client.patch(f"/api/v1/users/{api.owner_id}", json={"base_currency": "USD"})
     ).status_code == 200
     await _cuenta(api, "ARS")
 

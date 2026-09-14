@@ -37,8 +37,18 @@ export default defineConfig({
         // enmascarable tiene margen para el recorte (no compartir con purpose
         // "any maskable"). El de 512 es obligatorio para que Chrome ofrezca instalar.
         icons: [
-          { src: "icons/png/mango-any-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: "icons/png/mango-any-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          {
+            src: "icons/png/mango-any-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "icons/png/mango-any-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
           {
             src: "icons/png/mango-maskable-192.png",
             sizes: "192x192",

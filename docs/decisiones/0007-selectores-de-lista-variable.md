@@ -1,4 +1,4 @@
-# 0007 - Selectores de opciones que crecen con los datos: hasta 2 chips, 3 o mas desplegable
+# 0007 - Selectores de opciones que crecen con los datos: hasta 2 chips, 3 o mas lista
 
 - **Fecha**: 2026-09-07
 - **Estado**: aceptada
@@ -40,7 +40,7 @@ del usuario:
 |---|---|---|
 | 1 | **no se dibuja** | No hay nada que elegir; un control de una opcion es ruido |
 | 2 | **chips** (`Segmentado`) | Las dos a la vista, un toque, y entran en 390 px |
-| 3 o mas | **desplegable** (`Select`) | Los chips ya no entran sin achicar el texto ni apilarse |
+| 3 o mas | **lista en una hoja** (`SelectorEntidad`) | Los chips ya no entran sin achicar el texto ni apilarse |
 
 El corte esta en dos y no en tres porque tres codigos ISO en una fila de telefono
 ya obligan a ceder algo, y a partir de ahi empeora con cada moneda.
@@ -49,7 +49,7 @@ Vive en **un solo componente**, `componentes/SelectorMoneda.tsx`, que decide el
 control segun `monedas.length`. Las pantallas no eligen: le pasan la lista. Asi
 la regla no puede derivar entre Estadisticas, Presupuesto y Patrimonio.
 
-Cuando no hay etiqueta visible al lado, el desplegable lleva
+Cuando no hay etiqueta visible al lado, el selector lleva
 `aria-label="Moneda"`: el `Segmentado` se lee por sus opciones, el `Select` no.
 
 ### Lo que NO cambia: los vocabularios fijos
@@ -83,3 +83,14 @@ mismo criterio.
   logica en vez de encapsularla, va a derivar.
 - Si alguna vez hay muchas monedas (mas de ~10), el `Select` nativo tampoco
   alcanza y habra que pasar a un dialogo con buscador, como el de etiquetas.
+
+## Actualizacion (2026-09-14)
+
+El caso de "3 o mas" era un `<select>` nativo. Paso a la **lista en una hoja**
+(`SelectorEntidad`) cuando quedo claro que el desplegable del sistema es lo unico
+de la pantalla que no se puede pintar con los tokens de Mango: lo dibuja el
+sistema operativo. El estandar que lo permitiria (`appearance: base-select`)
+todavia no funciona en varios navegadores muy usados.
+
+El corte sigue siendo el mismo —hasta 2 chips, de 3 en adelante lista—: lo que
+cambio es como se ve el segundo caso, no cuando aplica.

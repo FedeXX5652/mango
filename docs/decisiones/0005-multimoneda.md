@@ -273,7 +273,8 @@ completa**; lo que falta es un dato derivado del banco, no del movimiento.
 ### 7. La cache de cotizaciones sirve para estimar, nunca para registrar
 
 `exchange_rates` es una tabla del esquema y PowerSync la replica al SQLite del
-dispositivo: esa copia local **es** la cache, no hace falta nada nuevo salvo
+dispositivo —**compartida entre usuarios a proposito**, ver 0009— : esa copia
+local **es** la cache, no hace falta nada nuevo salvo
 incluirla en las reglas de sincronizacion (y darle `updated_at`/`deleted_at`,
 que hoy no tiene y son obligatorias para sincronizar).
 

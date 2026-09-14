@@ -22,6 +22,10 @@ class Tag(Base, IdMixin, TimestampMixin):
 class TransactionTag(Base, IdMixin, TimestampMixin):
     __tablename__ = "transaction_tags"
 
+    # Dueño propio, aunque se deduzca del movimiento: las reglas de sync no
+    # hacen JOIN, asi que sin esta columna no hay forma de mandarle a cada
+    # persona solo lo suyo (ver infra/powersync/sync-config.yaml).
+    owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     transaction_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("transactions.id"), nullable=False)
     tag_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tags.id"), nullable=False)
 

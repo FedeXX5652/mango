@@ -1,23 +1,16 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import {
-  Archive,
-  ArchiveRestore,
-  ArrowLeft,
-  ChevronDown,
-  ChevronUp,
-  Trash2,
-} from "lucide-react"
+import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronUp, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { HojaReasignar } from "@/componentes/HojaReasignar"
 import { Button } from "@/componentes/ui/button"
+import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
-import { Select } from "@/componentes/ui/select"
 import { moverEnOrden } from "@/lib/orden"
 import { planMedio } from "@/lib/reasignar"
 import { uuidv4 } from "@/lib/uuid"
@@ -168,7 +161,12 @@ export function MediosPago() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/ajustes")} aria-label="Volver">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/ajustes")}
+          aria-label="Volver"
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-xl font-semibold">Medios de pago</h1>
@@ -238,7 +236,6 @@ export function MediosPago() {
           plan={(destino) => planMedio(reasignando.id, destino)}
         />
       )}
-
     </div>
   )
 }
@@ -271,16 +268,20 @@ function FormularioMedio({ onCerrar }: { onCerrar: () => void }) {
       </Campo>
       <div className="grid grid-cols-2 gap-3">
         <Campo etiqueta="Tipo">
-          <Select value={kind} onChange={(e) => setKind(e.target.value)}>
-            {Object.entries(KINDS).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </Select>
+          <SelectorEntidad
+            titulo="Tipo de medio"
+            placeholder="Elegí un tipo"
+            opciones={Object.entries(KINDS).map(([v, l]) => ({ id: v, nombre: l }))}
+            valor={kind}
+            onCambio={setKind}
+          />
         </Campo>
         <Campo etiqueta="Últimos 4 (opcional)">
-          <Input value={last4} onChange={(e) => setLast4(e.target.value.replace(/\D/g, ""))} maxLength={4} />
+          <Input
+            value={last4}
+            onChange={(e) => setLast4(e.target.value.replace(/\D/g, ""))}
+            maxLength={4}
+          />
         </Campo>
       </div>
       <Campo etiqueta="Marca (opcional)">

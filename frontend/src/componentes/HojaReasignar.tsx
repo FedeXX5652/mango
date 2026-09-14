@@ -2,9 +2,9 @@ import { usePowerSync } from "@powersync/react"
 import { useEffect, useState } from "react"
 
 import { Button } from "@/componentes/ui/button"
+import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Campo } from "@/componentes/ui/campo"
 import { Hoja } from "@/componentes/ui/hoja"
-import { Select } from "@/componentes/ui/select"
 import type { Plan } from "@/lib/reasignar"
 
 export interface Destino {
@@ -82,8 +82,8 @@ export function HojaReasignar({
     <Hoja abierta={abierta} onOpenChange={onOpenChange} titulo={titulo}>
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Se elimina <strong className="text-foreground">{nombre}</strong> y {detalle} pasan a
-          otra. Es lo mismo que tenerlas juntas desde el principio: el historial no pierde nada.
+          Se elimina <strong className="text-foreground">{nombre}</strong> y {detalle} pasan a otra.
+          Es lo mismo que tenerlas juntas desde el principio: el historial no pierde nada.
         </p>
 
         {destinos.length === 0 ? (
@@ -93,13 +93,13 @@ export function HojaReasignar({
         ) : (
           <>
             <Campo etiqueta="Mover a">
-              <Select value={destino} onChange={(e) => setDestino(e.target.value)}>
-                {destinos.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.nombre}
-                  </option>
-                ))}
-              </Select>
+              <SelectorEntidad
+                titulo="Mover a"
+                placeholder="Elegí a dónde mover"
+                opciones={destinos.map((d) => ({ id: d.id, nombre: d.nombre }))}
+                valor={destino}
+                onCambio={setDestino}
+              />
             </Campo>
 
             {advertencias.length > 0 && (

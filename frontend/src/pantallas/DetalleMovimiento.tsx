@@ -7,8 +7,9 @@ import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
-import { Select } from "@/componentes/ui/select"
 import { ordenarJerarquico } from "@/lib/categorias"
+import { SelectorCategoria } from "@/componentes/SelectorCategoria"
+import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
@@ -33,6 +34,7 @@ interface Opcion {
   currency?: string
   kind?: string
   parent_id?: string | null
+  icon?: string | null
 }
 
 const KIND_LABEL = { expense: "Gasto", income: "Ingreso", transfer: "Transferencia" }
@@ -54,9 +56,8 @@ export function DetalleMovimiento() {
     "SELECT id, name, currency FROM accounts WHERE deleted_at IS NULL ORDER BY name",
   )
   const { data: categorias } = useQuery<Opcion>(
-    "SELECT id, name, kind, parent_id FROM categories WHERE deleted_at IS NULL AND archived = 0 ORDER BY name",
+    "SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0",
   )
-  const nombreCat = useMemo(() => new Map(categorias.map((c) => [c.id, c.name])), [categorias])
 
   // Etiquetas ya asociadas a este movimiento (ver 3.5.1).
   const { data: etiquetasActuales } = useQuery<{ tag_id: string }>(
@@ -222,41 +223,41 @@ export function DetalleMovimiento() {
       )}
 
       <Campo etiqueta={tx.kind === "transfer" ? "Desde" : "Cuenta"}>
-        <Select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)}>
-          <option value="">Elegí una cuenta</option>
-          {cuentas.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
+        <SelectorEntidad
+          titulo="Cuenta"
+          placeholder="Elegí una cuenta"
+          opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency ?? null }))}
+          valor={cuentaId}
+          onCambio={setCuentaId}
+        />
       </Campo>
 
       {tx.kind === "transfer" && (
         <Campo etiqueta="Hacia">
-          <Select value={destinoId} onChange={(e) => setDestinoId(e.target.value)}>
-            <option value="">Elegí la cuenta de destino</option>
-            {cuentas
+          <SelectorEntidad
+            titulo="Cuenta"
+            placeholder="Elegí una cuenta"
+            opciones={cuentas
               .filter((c) => c.id !== cuentaId)
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-          </Select>
+              .map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency ?? null }))}
+            valor={destinoId}
+            onCambio={setDestinoId}
+          />
         </Campo>
       )}
 
       {tx.kind !== "transfer" && (
         <Campo etiqueta="Categoría">
-          <Select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
-            <option value="">Elegí una categoría</option>
-            {categoriasDelTipo.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.parent_id ? `${nombreCat.get(c.parent_id) ?? "—"} › ${c.name}` : c.name}
-              </option>
-            ))}
-          </Select>
+          <SelectorCategoria
+            categorias={categoriasDelTipo.map((c) => ({
+              id: c.id,
+              name: c.name,
+              parent_id: c.parent_id ?? null,
+              icon: c.icon ?? null,
+            }))}
+            valor={categoriaId}
+            onCambio={setCategoriaId}
+          />
         </Campo>
       )}
 

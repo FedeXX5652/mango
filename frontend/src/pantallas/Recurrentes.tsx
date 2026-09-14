@@ -9,6 +9,8 @@ import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
+import { SelectorCategoria } from "@/componentes/SelectorCategoria"
+import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { generarVencidas } from "@/lib/generar"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
@@ -32,6 +34,7 @@ interface Opcion {
   currency?: string
   kind?: string
   parent_id?: string | null
+  icon?: string | null
 }
 
 const TIPOS: { valor: string; etiqueta: string }[] = [
@@ -194,7 +197,7 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
     "SELECT id, name, currency FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
   )
   const { data: categorias } = useQuery<Opcion>(
-    "SELECT id, name, kind, parent_id FROM categories WHERE deleted_at IS NULL AND archived = 0",
+    "SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0",
   )
   const { data: medios } = useQuery<Opcion>(
     "SELECT id, name FROM payment_methods WHERE deleted_at IS NULL AND archived = 0",
@@ -213,7 +216,6 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
   const [hasta, setHasta] = useState("")
   const [error, setError] = useState("")
 
-  const nombreCat = useMemo(() => new Map(categorias.map((c) => [c.id, c.name])), [categorias])
   const cats = useMemo(
     () =>
       ordenarJerarquico(categorias).filter(
@@ -303,51 +305,51 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
       </div>
 
       <Campo etiqueta={kind === "transfer" ? "Desde" : "Cuenta"}>
-        <Select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)}>
-          <option value="">Elegí una cuenta</option>
-          {cuentas.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
+        <SelectorEntidad
+          titulo="Cuenta"
+          placeholder="Elegí una cuenta"
+          opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency ?? null }))}
+          valor={cuentaId}
+          onCambio={setCuentaId}
+        />
       </Campo>
 
       {kind === "transfer" ? (
         <Campo etiqueta="Hacia">
-          <Select value={cuentaDestinoId} onChange={(e) => setCuentaDestinoId(e.target.value)}>
-            <option value="">Elegí la cuenta de destino</option>
-            {cuentas
+          <SelectorEntidad
+            titulo="Cuenta de destino"
+            placeholder="Elegí la cuenta de destino"
+            opciones={cuentas
               .filter((c) => c.id !== cuentaId)
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-          </Select>
+              .map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency ?? null }))}
+            valor={cuentaDestinoId}
+            onCambio={setCuentaDestinoId}
+          />
         </Campo>
       ) : (
         <Campo etiqueta="Categoría">
-          <Select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
-            <option value="">Elegí una categoría</option>
-            {cats.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.parent_id ? `${nombreCat.get(c.parent_id) ?? "—"} › ${c.name}` : c.name}
-              </option>
-            ))}
-          </Select>
+          <SelectorCategoria
+            categorias={cats.map((c) => ({
+              id: c.id,
+              name: c.name,
+              parent_id: c.parent_id ?? null,
+              icon: c.icon ?? null,
+            }))}
+            valor={categoriaId}
+            onCambio={setCategoriaId}
+          />
         </Campo>
       )}
 
       <Campo etiqueta="Medio de pago (opcional)">
-        <Select value={medioId} onChange={(e) => setMedioId(e.target.value)}>
-          <option value="">Sin medio</option>
-          {medios.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </Select>
+        <SelectorEntidad
+          titulo="Medio de pago"
+          placeholder="Sin medio"
+          vacio="Sin medio"
+          opciones={medios.map((m) => ({ id: m.id, nombre: m.name }))}
+          valor={medioId}
+          onCambio={setMedioId}
+        />
       </Campo>
 
       <div className="grid grid-cols-2 gap-3">

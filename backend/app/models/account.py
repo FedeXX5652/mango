@@ -80,6 +80,8 @@ class PaymentMethod(Base, IdMixin, TimestampMixin):
 class PaymentMethodAccount(Base, IdMixin, TimestampMixin):
     __tablename__ = "payment_method_accounts"
 
+    # Dueño propio: las reglas de sync no hacen JOIN (ver sync-config.yaml).
+    owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     payment_method_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("payment_methods.id"), nullable=False
     )

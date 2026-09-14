@@ -25,6 +25,9 @@ const RUTA: Record<string, string> = {
   templates: "/templates",
   recurring_rules: "/recurring",
   exchange_rates: "/exchange-rates",
+  // Preferencias. Solo se modifican: crear o borrar un usuario no es cosa del
+  // cliente, y por eso las otras dos operaciones se descartan abajo.
+  users: "/users",
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" }
@@ -45,6 +48,13 @@ async function aplicar(entry: CrudEntry): Promise<void> {
   } else {
     const ruta = RUTA[entry.table]
     if (!ruta) throw new Error(`Tabla sin mapeo de subida: ${entry.table}`)
+    if (entry.table === "users" && entry.op !== UpdateType.PATCH) {
+      // Un alta o una baja de usuario no sale del cliente. Si llegara una, se
+      // descarta en vez de mandarla: el servidor la rechazaria igual, pero un
+      // 4xx traba la cola.
+      console.error("Operacion no permitida sobre users:", entry.op)
+      return
+    }
     if (entry.op === UpdateType.PUT) {
       resp = await fetch(`${base}${ruta}`, {
         method: "POST",

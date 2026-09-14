@@ -13,12 +13,12 @@ import { useNavigate } from "react-router-dom"
 
 import { HojaReasignar } from "@/componentes/HojaReasignar"
 import { Button } from "@/componentes/ui/button"
+import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
-import { Select } from "@/componentes/ui/select"
 import { iconoCuenta } from "@/lib/cuentas"
 import { moverEnOrden } from "@/lib/orden"
 import { aCentavos, formatearSaldo } from "@/lib/dinero"
@@ -100,7 +100,8 @@ export function Cuentas() {
       .map((x) => ({ id: x.id, nombre: x.name }))
   }
   function alArchivar(c: Cuenta) {
-    if (c.archived) archivar(c, 0) // desarchivar es reversible: directo
+    if (c.archived)
+      archivar(c, 0) // desarchivar es reversible: directo
     else setAccion({ tipo: "archivar", c })
   }
 
@@ -198,7 +199,12 @@ export function Cuentas() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/ajustes")} aria-label="Volver">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/ajustes")}
+          aria-label="Volver"
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-xl font-semibold">Cuentas</h1>
@@ -231,9 +237,7 @@ export function Cuentas() {
         )}
       </Hoja>
 
-      {activas.length > 0 && (
-        <ListaInset>{activas.map((c, i) => filaCuenta(c, i))}</ListaInset>
-      )}
+      {activas.length > 0 && <ListaInset>{activas.map((c, i) => filaCuenta(c, i))}</ListaInset>}
 
       {archivadas.length > 0 && (
         <section className="space-y-2 pt-2">
@@ -281,7 +285,6 @@ export function Cuentas() {
           plan={(destino) => planCuenta(reasignando.id, destino)}
         />
       )}
-
     </div>
   )
 }
@@ -325,27 +328,40 @@ function FormularioCuenta({ inicial, onCerrar }: { inicial: Cuenta | null; onCer
   return (
     <div className="space-y-3">
       <Campo etiqueta="Nombre">
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Caja de ahorro" />
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Caja de ahorro"
+        />
       </Campo>
       <div className="grid grid-cols-2 gap-3">
         <Campo etiqueta="Tipo">
-          <Select value={type} onChange={(e) => setType(e.target.value)}>
-            {Object.entries(TIPOS).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </Select>
+          <SelectorEntidad
+            titulo="Tipo de cuenta"
+            placeholder="Elegí un tipo"
+            opciones={Object.entries(TIPOS).map(([v, l]) => ({ id: v, nombre: l }))}
+            valor={type}
+            onCambio={setType}
+          />
         </Campo>
         <Campo etiqueta="Moneda">
           <Input value={currency} onChange={(e) => setCurrency(e.target.value)} maxLength={3} />
         </Campo>
       </div>
       <Campo etiqueta="Saldo inicial (opcional)">
-        <Input value={apertura} onChange={(e) => setApertura(e.target.value)} placeholder="0" inputMode="decimal" />
+        <Input
+          value={apertura}
+          onChange={(e) => setApertura(e.target.value)}
+          placeholder="0"
+          inputMode="decimal"
+        />
       </Campo>
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={offBudget} onChange={(e) => setOffBudget(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={offBudget}
+          onChange={(e) => setOffBudget(e.target.checked)}
+        />
         No contar en el patrimonio (plata de terceros)
       </label>
       {error && <p className="text-sm text-destructive">{error}</p>}

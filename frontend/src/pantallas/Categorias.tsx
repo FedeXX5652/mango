@@ -13,6 +13,8 @@ import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
 import { planCategoria } from "@/lib/reasignar"
 import { uuidv4 } from "@/lib/uuid"
+import { SelectorIcono } from "@/componentes/SelectorIcono"
+import { ordenarJerarquico } from "@/lib/categorias"
 import { cn } from "@/lib/utils"
 
 interface Categoria {
@@ -21,13 +23,14 @@ interface Categoria {
   kind: string
   parent_id: string | null
   archived: number
+  icon: string | null
 }
 
 export function Categorias() {
   const navigate = useNavigate()
   const db = usePowerSync()
   const { data: categorias } = useQuery<Categoria>(
-    "SELECT id, name, kind, parent_id, archived FROM categories WHERE deleted_at IS NULL ORDER BY sort_order, name",
+    "SELECT id, name, kind, parent_id, archived, icon FROM categories WHERE deleted_at IS NULL ORDER BY sort_order, name",
   )
   const [mostrarForm, setMostrarForm] = useState(false)
   const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; c: Categoria } | null>(null)
@@ -56,6 +59,12 @@ export function Categorias() {
 
   async function archivar(c: Categoria, valor: number) {
     await db.execute("UPDATE categories SET archived = ? WHERE id = ?", [valor, c.id])
+  }
+
+  // Escritura local y directa: tocar el icono de la fila lo guarda, sin un
+  // formulario de edicion en el medio.
+  async function alIcono(c: Categoria, clave: string | null) {
+    await db.execute("UPDATE categories SET icon = ? WHERE id = ?", [clave, c.id])
   }
   async function borrar(c: Categoria) {
     await db.execute("DELETE FROM categories WHERE id = ?", [c.id])
@@ -94,14 +103,13 @@ export function Categorias() {
       }))
   }
   function alArchivar(c: Categoria) {
-    if (c.archived) archivar(c, 0) // desarchivar es reversible: directo
+    if (c.archived)
+      archivar(c, 0) // desarchivar es reversible: directo
     else setAccion({ tipo: "archivar", c })
   }
 
   const activas = categorias.filter((c) => !c.archived)
   const archivadas = categorias.filter((c) => c.archived)
-  const idsPadresActivos = new Set(activas.filter((c) => !c.parent_id).map((c) => c.id))
-  const hijasActivasDe = (id: string) => activas.filter((c) => c.parent_id === id)
 
   const fila = (c: Categoria, sangria?: boolean) => (
     <Fila
@@ -110,24 +118,29 @@ export function Categorias() {
       sangria={sangria}
       onArchivar={alArchivar}
       onEliminar={alTacho}
+      onIcono={alIcono}
     />
   )
 
+  // Mismo orden que en el resto de la app: padres alfabeticos y, dentro de cada
+  // uno, sus hijas alfabeticas. Se usa `ordenarJerarquico` y no el ORDER BY de
+  // la consulta porque el de SQL usa la colacion de Postgres, que no es la
+  // española: con eso, "Ñandu" o los acentos caen donde no va.
   function filasActivas(kind: string) {
-    const padres = activas.filter((c) => !c.parent_id && c.kind === kind)
-    const huerfanas = activas.filter(
-      (c) => c.parent_id && c.kind === kind && !idsPadresActivos.has(c.parent_id),
+    return ordenarJerarquico(activas.filter((c) => c.kind === kind)).map((c) =>
+      fila(c, Boolean(c.parent_id)),
     )
-    return [
-      ...padres.flatMap((p) => [fila(p), ...hijasActivasDe(p.id).map((h) => fila(h, true))]),
-      ...huerfanas.map((h) => fila(h)),
-    ]
   }
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/ajustes")} aria-label="Volver">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/ajustes")}
+          aria-label="Volver"
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-xl font-semibold">Categorías</h1>
@@ -157,7 +170,9 @@ export function Categorias() {
         {archivadas.length > 0 && (
           <section className="pt-2">
             <h2 className="mb-1 text-sm font-semibold text-muted-foreground">Archivadas</h2>
-            <ListaInset>{archivadas.map((c) => fila(c, !!c.parent_id))}</ListaInset>
+            <ListaInset>
+              {ordenarJerarquico(archivadas).map((c) => fila(c, Boolean(c.parent_id)))}
+            </ListaInset>
           </section>
         )}
       </div>
@@ -201,7 +216,6 @@ export function Categorias() {
           plan={(destino) => planCategoria(reasignando.id, destino)}
         />
       )}
-
     </div>
   )
 }
@@ -211,22 +225,27 @@ function Fila({
   sangria,
   onArchivar,
   onEliminar,
+  onIcono,
 }: {
   c: Categoria
   sangria?: boolean
   onArchivar: (c: Categoria) => void
   onEliminar: (c: Categoria) => void
+  onIcono: (c: Categoria, clave: string | null) => void
 }) {
   return (
     <FilaInset>
-      <span
-        className={cn(
-          "truncate",
-          sangria && "pl-6 text-sm",
-          c.archived && "text-muted-foreground line-through",
-        )}
-      >
-        {c.name}
+      <span className={cn("flex min-w-0 items-center gap-2.5", sangria && "pl-6")}>
+        <SelectorIcono variante="fila" valor={c.icon} onCambio={(clave) => onIcono(c, clave)} />
+        <span
+          className={cn(
+            "truncate",
+            sangria && "text-sm",
+            c.archived && "text-muted-foreground line-through",
+          )}
+        >
+          {c.name}
+        </span>
       </span>
       <div className="flex shrink-0 items-center gap-0.5">
         <Button
@@ -262,6 +281,7 @@ function FormularioCategoria({
   const [name, setName] = useState("")
   const [kind, setKind] = useState<"expense" | "income">("expense")
   const [parentId, setParentId] = useState("")
+  const [icono, setIcono] = useState<string | null>(null)
   const [error, setError] = useState("")
 
   // Si es subcategoria, hereda el kind del padre.
@@ -274,8 +294,8 @@ function FormularioCategoria({
     if (!name.trim()) return setError("Poné un nombre")
     try {
       await db.execute(
-        "INSERT INTO categories (id, name, kind, parent_id, archived, sort_order) VALUES (?, ?, ?, ?, 0, 0)",
-        [uuidv4(), name.trim(), kind, parentId || null],
+        "INSERT INTO categories (id, name, kind, parent_id, icon, archived, sort_order) VALUES (?, ?, ?, ?, ?, 0, 0)",
+        [uuidv4(), name.trim(), kind, parentId || null, icono],
       )
       onCerrar()
     } catch {
@@ -286,7 +306,10 @@ function FormularioCategoria({
   return (
     <div className="space-y-3">
       <Campo etiqueta="Nombre">
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Transporte" />
+        <div className="flex items-center gap-2">
+          <SelectorIcono valor={icono} onCambio={setIcono} />
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Transporte" />
+        </div>
       </Campo>
       <div className="grid grid-cols-2 gap-3">
         <Campo etiqueta="Tipo">

@@ -40,7 +40,13 @@ export function useDemora(activo: boolean, ms: number = UMBRAL_MS): boolean {
 // falta, y no hay progreso que mostrar: inventar un porcentaje seria mentir).
 // Usa `currentColor`, asi toma el color del contexto y por lo tanto el token
 // del tema activo sin configurar nada.
-export function Puntos({ className, etiqueta = "Cargando" }: { className?: string; etiqueta?: string }) {
+export function Puntos({
+  className,
+  etiqueta = "Cargando",
+}: {
+  className?: string
+  etiqueta?: string
+}) {
   return (
     <span role="status" className={cn("inline-flex items-center gap-1.5", className)}>
       {[0, 1, 2].map((i) => (
@@ -62,10 +68,7 @@ export function Puntos({ className, etiqueta = "Cargando" }: { className?: strin
 // del contenedor.
 export function Esqueleto({ className }: { className?: string }) {
   return (
-    <div
-      aria-hidden
-      className={cn("rounded-md bg-muted motion-safe:animate-pulse", className)}
-    />
+    <div aria-hidden className={cn("rounded-md bg-muted motion-safe:animate-pulse", className)} />
   )
 }
 

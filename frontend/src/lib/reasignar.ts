@@ -34,8 +34,14 @@ export interface Plan {
 export function planCategoria(origen: string, destino: string): Plan {
   return {
     sentencias: [
-      { sql: "UPDATE transactions SET category_id = ? WHERE category_id = ?", params: [destino, origen] },
-      { sql: "UPDATE templates SET category_id = ? WHERE category_id = ?", params: [destino, origen] },
+      {
+        sql: "UPDATE transactions SET category_id = ? WHERE category_id = ?",
+        params: [destino, origen],
+      },
+      {
+        sql: "UPDATE templates SET category_id = ? WHERE category_id = ?",
+        params: [destino, origen],
+      },
       {
         sql: "UPDATE recurring_rules SET category_id = ? WHERE category_id = ?",
         params: [destino, origen],
@@ -61,7 +67,8 @@ export function planCategoria(origen: string, destino: string): Plan {
     advertencias: [
       {
         que: "Las asignaciones de presupuesto de esta categoría",
-        porque: "el sobre es categoría, moneda y mes: no se pueden sumar a otro sin cambiar lo asignado",
+        porque:
+          "el sobre es categoría, moneda y mes: no se pueden sumar a otro sin cambiar lo asignado",
       },
     ],
   }
@@ -72,12 +79,18 @@ export function planCategoria(origen: string, destino: string): Plan {
 export function planCuenta(origen: string, destino: string): Plan {
   return {
     sentencias: [
-      { sql: "UPDATE transactions SET account_id = ? WHERE account_id = ?", params: [destino, origen] },
+      {
+        sql: "UPDATE transactions SET account_id = ? WHERE account_id = ?",
+        params: [destino, origen],
+      },
       {
         sql: "UPDATE transactions SET transfer_account_id = ? WHERE transfer_account_id = ?",
         params: [destino, origen],
       },
-      { sql: "UPDATE templates SET account_id = ? WHERE account_id = ?", params: [destino, origen] },
+      {
+        sql: "UPDATE templates SET account_id = ? WHERE account_id = ?",
+        params: [destino, origen],
+      },
       {
         sql: "UPDATE recurring_rules SET account_id = ? WHERE account_id = ?",
         params: [destino, origen],

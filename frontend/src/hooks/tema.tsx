@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 
 import { TEMA_POR_DEFECTO, temaValido } from "@/config/temas"
-import { api } from "@/lib/api"
+import { guardarPreferencias, observarPreferencias } from "@/lib/preferencias"
 
 export type ColorScheme = "light" | "dark" | "system"
 
@@ -51,37 +51,33 @@ export function ProveedorTema({ children }: { children: React.ReactNode }) {
     return () => mq.removeEventListener("change", alCambiar)
   }, [colorScheme, temaId])
 
-  // Reconcilia con el servidor: sus valores son la fuente de verdad y viajan
-  // con la sync. Si no hay backend (offline), se queda con lo local.
-  useEffect(() => {
-    let vigente = true
-    api
-      .getMe()
-      .then((u) => {
-        if (!vigente) return
-        if (temaValido(u.theme_id)) {
-          setTemaId(u.theme_id)
-          localStorage.setItem(LS_TEMA, u.theme_id)
+  // Reconcilia con la fila sincronizada. localStorage sigue existiendo para el
+  // primer pintado —la base local todavia no esta lista y el tema no puede
+  // parpadear—, pero la fuente de verdad es `users`, que viaja entre
+  // dispositivos y se escribe sin conexion.
+  useEffect(
+    () =>
+      observarPreferencias((p) => {
+        if (temaValido(p.theme_id)) {
+          setTemaId(p.theme_id)
+          localStorage.setItem(LS_TEMA, p.theme_id)
         }
-        setColorSchemeState(u.color_scheme)
-        localStorage.setItem(LS_MODO, u.color_scheme)
-      })
-      .catch(() => {})
-    return () => {
-      vigente = false
-    }
-  }, [])
+        setColorSchemeState(p.color_scheme)
+        localStorage.setItem(LS_MODO, p.color_scheme)
+      }),
+    [],
+  )
 
   const setTema = useCallback((id: string) => {
     setTemaId(id)
     localStorage.setItem(LS_TEMA, id)
-    api.updateMe({ theme_id: id }).catch(() => {})
+    guardarPreferencias({ theme_id: id }).catch(() => {})
   }, [])
 
   const setColorScheme = useCallback((cs: ColorScheme) => {
     setColorSchemeState(cs)
     localStorage.setItem(LS_MODO, cs)
-    api.updateMe({ color_scheme: cs }).catch(() => {})
+    guardarPreferencias({ color_scheme: cs }).catch(() => {})
   }, [])
 
   const valor = useMemo(

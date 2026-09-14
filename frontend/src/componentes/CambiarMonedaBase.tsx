@@ -5,9 +5,9 @@ import { useMemo, useState } from "react"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
-import { useConexion } from "@/hooks/conexion"
 import { useCambiarMonedaBase, useMonedaBase } from "@/hooks/monedaBase"
 import { api } from "@/lib/api"
+import { guardarPreferencias } from "@/lib/preferencias"
 import { type MonedaListada, filtrarMonedas, listarMonedas } from "@/lib/monedas"
 
 // Cambiar la moneda base: la de LECTURA. Es lo que hace falta al mudarse de
@@ -19,14 +19,12 @@ import { type MonedaListada, filtrarMonedas, listarMonedas } from "@/lib/monedas
 // vuelta a euros no convierte nada, reinterpreta el historial. Mudarse es
 // abrir una cuenta nueva en la moneda nueva, como en la vida real.
 //
-// **Necesita conexion**, y es una de las pocas cosas que no: `users` no se
-// sincroniza, asi que la preferencia la guarda el servidor (ver ESPECIFICACION
-// 3.11). Por eso el boton de confirmar se apaga sin conexion en vez de fallar
-// despues de que la persona ya dijo que si.
+// **Funciona sin conexion.** `users` se sincroniza (con las columnas contadas,
+// ver infra/powersync/sync-config.yaml), asi que cambiar la moneda base es una
+// escritura local mas y viaja sola a tus otros dispositivos.
 export function CambiarMonedaBase() {
   const base = useMonedaBase()
   const aplicar = useCambiarMonedaBase()
-  const hayConexion = useConexion()
 
   const [abierta, setAbierta] = useState(false)
   const [elegida, setElegida] = useState<MonedaListada | null>(null)
@@ -43,17 +41,11 @@ export function CambiarMonedaBase() {
 
   const actual = todas.find((m) => m.codigo === base)
 
-  // La señal combinada de hooks/conexion: `status.connected` solo tardaba
-  // demasiado en enterarse. Aun asi el boton habilitado es una prediccion, no
-  // una garantia (puede haber red y estar caido el server), asi que el fallo
-  // del PATCH se informa igual.
-  const sinConexion = !hayConexion
-
   async function confirmar() {
     if (!elegida) return
     setError("")
     try {
-      await api.updateMe({ base_currency: elegida.codigo })
+      await guardarPreferencias({ base_currency: elegida.codigo })
       aplicar(elegida.codigo)
       // Las cotizaciones ahora se piden contra la base nueva. No se espera:
       // llegan por la sync y la pantalla ya sabe componer las que hay.
@@ -61,7 +53,7 @@ export function CambiarMonedaBase() {
       setElegida(null)
       setAbierta(false)
     } catch {
-      setError("No se pudo cambiar. Probá de nuevo cuando haya conexión.")
+      setError("No se pudo cambiar.")
     }
   }
 
@@ -86,7 +78,7 @@ export function CambiarMonedaBase() {
             )}
           </span>
           <span className="block text-xs text-muted-foreground">
-            En qué moneda se leen los totales. La guarda el servidor.
+            En qué moneda se leen los totales.
           </span>
         </span>
       </button>
@@ -131,12 +123,6 @@ export function CambiarMonedaBase() {
         onOpenChange={(v) => !v && setElegida(null)}
         titulo={`Leer todo en ${elegida?.codigo ?? ""}`}
         etiqueta={`Cambiar a ${elegida?.codigo ?? ""}`}
-        deshabilitado={sinConexion}
-        nota={
-          sinConexion
-            ? "Sin conexión no se puede: esta preferencia la guarda el servidor."
-            : undefined
-        }
         onConfirmar={confirmar}
       >
         <ul className="mb-4 space-y-2 text-sm text-muted-foreground">

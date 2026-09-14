@@ -14,6 +14,7 @@ import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { api } from "@/lib/api"
+import { guardarPreferencias, observarPreferencias } from "@/lib/preferencias"
 import { fechaISO, formatearFechaCorta } from "@/lib/fecha"
 import { ordenarMonedas } from "@/lib/monedas"
 import { uuidv4 } from "@/lib/uuid"
@@ -48,7 +49,11 @@ export function Cotizaciones() {
     "SELECT DISTINCT currency FROM accounts WHERE deleted_at IS NULL",
   )
   const extranjeras = useMemo(
-    () => ordenarMonedas(monedaRows.map((r) => r.currency), base).filter((m) => m !== base),
+    () =>
+      ordenarMonedas(
+        monedaRows.map((r) => r.currency),
+        base,
+      ).filter((m) => m !== base),
     [monedaRows, base],
   )
 
@@ -66,7 +71,11 @@ export function Cotizaciones() {
     }
     // `filas` ya viene ordenada por fecha desc y con la manual antes que la
     // automatica a igual fecha, asi que la primera de cada par es la vigente.
-    return [...m.entries()].map(([clave, lista]) => ({ clave, vigente: lista[0], historial: lista }))
+    return [...m.entries()].map(([clave, lista]) => ({
+      clave,
+      vigente: lista[0],
+      historial: lista,
+    }))
   }, [filas])
 
   const [editando, setEditando] = useState<Cotizacion | "nueva" | null>(null)
@@ -80,32 +89,21 @@ export function Cotizaciones() {
   const [refrescando, setRefrescando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
 
-  useEffect(() => {
-    let vigente = true
-    api
-      .getMe()
-      .then((u) => {
-        if (vigente) setManuales(u.fx_manual ?? [])
-      })
-      .catch(() => {
-        if (vigente) setManuales([])
-      })
-    return () => {
-      vigente = false
-    }
-  }, [])
+  useEffect(() => observarPreferencias((p) => setManuales(p.fx_manual)), [])
 
   async function alternarAuto(moneda: string, auto: boolean) {
     const actuales = manuales ?? []
     const siguiente = auto ? actuales.filter((m) => m !== moneda) : [...actuales, moneda]
     setManuales(siguiente)
     try {
-      await api.updateMe({ fx_manual: siguiente })
-      // Al pasar una moneda a automatica conviene traerla ya.
+      // Escritura local: funciona sin conexion y sube despues.
+      await guardarPreferencias({ fx_manual: siguiente })
+      // Al pasar una moneda a automatica conviene traerla ya. Esto SI necesita
+      // red (sale a la API publica), asi que se intenta y no se insiste.
       if (auto) await api.refrescarCotizaciones()
     } catch {
       setManuales(actuales)
-      setAviso("No se pudo guardar la preferencia: hace falta conexión.")
+      setAviso("No se pudo guardar la preferencia.")
     }
   }
 
@@ -134,7 +132,12 @@ export function Cotizaciones() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/ajustes")} aria-label="Volver">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/ajustes")}
+          aria-label="Volver"
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-xl font-semibold">Cotizaciones</h1>
@@ -173,10 +176,7 @@ export function Cotizaciones() {
                   </span>
                   <div className="flex items-center gap-2">
                     <span
-                      className={cn(
-                        "text-xs",
-                        auto ? "text-muted-foreground" : "text-foreground",
-                      )}
+                      className={cn("text-xs", auto ? "text-muted-foreground" : "text-foreground")}
                     >
                       {auto ? "Automática" : "A mano"}
                     </span>
@@ -240,8 +240,7 @@ export function Cotizaciones() {
             <FilaInset key={clave} onClick={() => setVerPar(clave)}>
               <div className="min-w-0">
                 <p className="truncate font-medium">
-                  1 {vigente.base_currency} = {formatearRate(vigente.rate)}{" "}
-                  {vigente.quote_currency}
+                  1 {vigente.base_currency} = {formatearRate(vigente.rate)} {vigente.quote_currency}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {formatearFechaCorta(vigente.rate_date)} ·{" "}
@@ -269,9 +268,7 @@ export function Cotizaciones() {
               <div className="min-w-0">
                 <p className="tabular truncate text-sm">
                   {formatearRate(c.rate)} {c.quote_currency}
-                  {i === 0 && (
-                    <span className="ml-2 text-xs text-muted-foreground">vigente</span>
-                  )}
+                  {i === 0 && <span className="ml-2 text-xs text-muted-foreground">vigente</span>}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {formatearFechaCorta(c.rate_date)} ·{" "}

@@ -23,7 +23,7 @@ storage:
 port: !env PS_PORT
 
 sync_config:
-  path: sync-rules.yaml
+  path: sync-config.yaml
 
 # Validacion de los JWT que emite la API. HS256 con clave simetrica compartida
 # (JWK oct); la 'k' es el secreto en base64url. La API firma con el mismo secreto.

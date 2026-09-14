@@ -31,9 +31,9 @@ import {
   type GastoEtiquetaRow,
   agruparPorEtiqueta,
 } from "@/lib/etiquetas"
-import { mesAnio } from "@/lib/fecha"
 import { type MovimientoConvertible, convertirTodos } from "@/lib/historico"
 import { monedaPorDefecto, ordenarMonedas } from "@/lib/monedas"
+import { type TipoPeriodo, correr, etiquetaCorta, serie, ventanaDe } from "@/lib/periodo"
 import type { CotizacionConocida } from "@/lib/patrimonio"
 import { PALETA } from "@/lib/paleta"
 import { cn } from "@/lib/utils"
@@ -73,6 +73,7 @@ interface TagRow extends MovimientoConvertible {
 // Lo que no se puede convertir queda AFUERA del total y se informa al pie; nunca
 // se estima. El modo se guarda por dispositivo: es una preferencia de lectura.
 const LS_VISTA = "mango.statsVista"
+const LS_PERIODO = "mango.statsPeriodo"
 
 type Vista = "global" | "moneda"
 
@@ -213,7 +214,7 @@ function Variacion({ pct }: { pct: number | null }) {
   )
 }
 
-// Barra de progreso comparativa (ingresos vs egresos del mes).
+// Barra de progreso comparativa (ingresos vs egresos del periodo).
 function BarraMes({
   etiqueta,
   valor,
@@ -246,8 +247,14 @@ function BarraMes({
 export function Estadisticas() {
   const colores = useColoresTokens()
   const hoy = new Date()
-  const [anio, setAnio] = useState(hoy.getFullYear())
-  const [mes, setMes] = useState(hoy.getMonth())
+  // La ventana que mira toda la pantalla. El tipo se guarda por dispositivo: es
+  // una preferencia de lectura, como el modo del resumen.
+  const [tipo, setTipo] = useState<TipoPeriodo>(
+    () => (localStorage.getItem(LS_PERIODO) as TipoPeriodo) ?? "mes",
+  )
+  const [ancla, setAncla] = useState(hoy)
+  const ventana = useMemo(() => ventanaDe(tipo, ancla), [tipo, ancla])
+  const anterior = useMemo(() => ventanaDe(tipo, correr(tipo, ancla, -1)), [tipo, ancla])
 
   // Monedas con datos, para el selector. La pantalla se abre en la base.
   const base = useMonedaBase()
@@ -284,15 +291,14 @@ export function Estadisticas() {
   )
   const catById = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
 
-  const inicioMes = new Date(anio, mes, 1).toISOString()
-  const finMes = new Date(anio, mes + 1, 1).toISOString()
-  const inicioMesAnterior = new Date(anio, mes - 1, 1).toISOString()
-
   // Las consultas NO filtran por moneda: traen todo y el modo se resuelve al
   // convertir. Asi hay una sola forma de consulta en vez de dos condicionales,
   // y cambiar de modo no vuelve a pegarle a la base.
-  const { data: mesRows, isLoading: cargaMes } = useQuery<MovRow>(SQL_MES, [inicioMes, finMes])
-  const { data: mesAnteriorRows } = useQuery<MovRow>(SQL_MES, [inicioMesAnterior, inicioMes])
+  const { data: mesRows, isLoading: cargaMes } = useQuery<MovRow>(SQL_MES, [
+    ventana.inicio,
+    ventana.fin,
+  ])
+  const { data: mesAnteriorRows } = useQuery<MovRow>(SQL_MES, [anterior.inicio, anterior.fin])
 
   const valoresMes = useValores(mesRows, moneda, global, cotizaciones)
   const valoresAnterior = useValores(mesAnteriorRows, moneda, global, cotizaciones)
@@ -306,7 +312,7 @@ export function Estadisticas() {
     [valoresAnterior],
   )
 
-  // Totales del mes elegido, para las barras de ingresos vs egresos.
+  // Totales del periodo elegido, para las barras de ingresos vs egresos.
   const sumar = (kind: MovRow["kind"]) =>
     valoresMes.filas.reduce((s, f) => (f.kind === kind ? s + f.valor : s), 0)
   const ingresosMes = sumar("income")
@@ -315,7 +321,7 @@ export function Estadisticas() {
   const topeMes = Math.max(ingresosMes, egresosMes, 1)
 
   // Gasto por categoria principal (las subcategorias suman al padre), ordenado
-  // de mayor a menor y con la variacion contra el mes anterior.
+  // de mayor a menor y con la variacion contra el periodo anterior.
   const torta = useMemo(() => {
     const agrupar = (rows: GastoRow[]) => {
       const acc = new Map<string, { name: string; value: number }>()
@@ -443,12 +449,12 @@ export function Estadisticas() {
   }
 
   // Gasto por etiqueta. Un proyecto (un viaje, una refaccion) cruza meses, asi
-  // que el default es el acumulado; el selector permite acotarlo al mes que se
+  // que el default es el acumulado; el selector permite acotarlo al periodo que se
   // esta viendo arriba. Los limites se pasan siempre como parametros para no
   // tener dos consultas condicionales.
   const [alcanceEtiquetas, setAlcanceEtiquetas] = useState<"todo" | "mes">("todo")
-  const desdeTags = alcanceEtiquetas === "mes" ? inicioMes : "0000-01-01T00:00:00.000Z"
-  const hastaTags = alcanceEtiquetas === "mes" ? finMes : "9999-12-31T00:00:00.000Z"
+  const desdeTags = alcanceEtiquetas === "mes" ? ventana.inicio : "0000-01-01T00:00:00.000Z"
+  const hastaTags = alcanceEtiquetas === "mes" ? ventana.fin : "9999-12-31T00:00:00.000Z"
 
   // Se traen tambien las archivadas: un movimiento viejo puede llevar una
   // etiqueta ya archivada y ese gasto igual cuenta.
@@ -474,34 +480,33 @@ export function Estadisticas() {
   const topeEtiquetas = Math.max(...porEtiqueta.map((e) => e.total), 1)
   const [verTodasEtiquetas, setVerTodasEtiquetas] = useState(false)
 
-  // Evolucion: ultimos 6 meses.
-  const inicioEvo = new Date(hoy.getFullYear(), hoy.getMonth() - 5, 1).toISOString()
+  // Evolucion: los ultimos 6 periodos. Sigue al elegido arriba, asi que con
+  // "Semana" son semanas y no meses.
+  const periodosEvo = useMemo(() => serie(tipo, ancla, 6), [tipo, ancla])
+  const inicioEvo = periodosEvo[0].inicio
   const { data: evoRowsCrudas } = useQuery<EvoRow>(SQL_EVO, [inicioEvo])
   const valoresEvo = useValores(evoRowsCrudas, moneda, global, cotizaciones)
   const evoRows = valoresEvo.filas
   const evolucion = useMemo(() => {
-    const meses = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(hoy.getFullYear(), hoy.getMonth() - (5 - i), 1)
-      return {
-        clave: `${d.getFullYear()}-${d.getMonth()}`,
-        etiqueta: d.toLocaleDateString("es-AR", { month: "short" }),
-        ingresos: 0,
-        gastos: 0,
-      }
-    })
-    const idx = new Map(meses.map((m, i) => [m.clave, i]))
+    const cubos = periodosEvo.map((v) => ({
+      etiqueta: etiquetaCorta(tipo, v),
+      desde: v.inicio,
+      hasta: v.fin,
+      ingresos: 0,
+      gastos: 0,
+    }))
+    // Se ubica cada movimiento por sus limites y no por una clave armada a
+    // mano: la clave "año-mes" no sirve para semanas, que cruzan de mes.
     for (const r of evoRows) {
-      const d = new Date(r.occurred_at)
-      const i = idx.get(`${d.getFullYear()}-${d.getMonth()}`)
-      if (i === undefined) continue
-      if (r.kind === "income") meses[i].ingresos += r.valor
-      else meses[i].gastos += r.valor
+      const cubo = cubos.find((c) => r.occurred_at >= c.desde && r.occurred_at < c.hasta)
+      if (!cubo) continue
+      if (r.kind === "income") cubo.ingresos += r.valor
+      else cubo.gastos += r.valor
     }
-    return meses.map((m) => ({ ...m, neto: m.ingresos - m.gastos }))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [evoRows])
+    return cubos.map((c) => ({ ...c, neto: c.ingresos - c.gastos }))
+  }, [evoRows, periodosEvo, tipo])
 
-  const etiquetaMes = mesAnio(anio, mes)
+  const etiquetaMes = ventana.etiqueta
 
   // Lo que no se pudo convertir queda afuera del total y se dice; nunca se
   // estima. Y se pide la cotizacion en el momento: una moneda nueva no deberia
@@ -521,7 +526,7 @@ export function Estadisticas() {
   useRefrescoCotizaciones(faltantes)
 
   // Mientras la primera consulta no volvio, la pantalla NO afirma nada: sin
-  // este corte se dibuja "Sin gastos este mes" y "$ 0,00", y despues todo
+  // este corte se dibuja "Sin gastos en este periodo" y "$ 0,00", y despues todo
   // salta (ver 0008). Solo entran las consultas que deciden la estructura;
   // las de detalle (etiquetas, evolucion) llegan dentro del mismo render.
   const cargando = cargaMonedas || cargaCats || cargaMes
@@ -530,9 +535,14 @@ export function Estadisticas() {
   const tip = (v: number) => formatearMonto(v, { moneda })
 
   function cambiarMes(delta: number) {
-    const d = new Date(anio, mes + delta, 1)
-    setAnio(d.getFullYear())
-    setMes(d.getMonth())
+    setAncla((a) => correr(tipo, a, delta))
+  }
+
+  function cambiarTipo(t: TipoPeriodo) {
+    setTipo(t)
+    localStorage.setItem(LS_PERIODO, t)
+    // El ancla se queda donde estaba: pasar de "Mensual" a "Semanal" muestra la
+    // semana de ese mes, no la de hoy.
   }
 
   if (cargando) {
@@ -575,7 +585,17 @@ export function Estadisticas() {
       </div>
       {/* El modo ya lo dicen los chips y la moneda el selector: no hace falta
           explicarlo abajo (DESIGN.md 7). Solo se avisa lo que quedo afuera. */}
-      <div className="-mt-6 space-y-1">
+      <div className="-mt-6 space-y-2">
+        <Segmentado
+          opciones={[
+            { valor: "dia", etiqueta: "Día" },
+            { valor: "semana", etiqueta: "Semana" },
+            { valor: "mes", etiqueta: "Mes" },
+            { valor: "anio", etiqueta: "Año" },
+          ]}
+          valor={tipo}
+          onCambio={cambiarTipo}
+        />
         <SelectorMoneda monedas={monedas} valor={moneda} onCambio={setMonedaElegida} />
         {faltantes.length > 0 && (
           <p className="text-xs text-muted-foreground">
@@ -589,7 +609,7 @@ export function Estadisticas() {
       </div>
 
       <section className="space-y-3">
-        {/* flex-wrap + nowrap: si no entran en una linea, el selector de mes baja
+        {/* flex-wrap + nowrap: si no entran en una linea, el selector de periodo baja
             entero en vez de partir el titulo al medio. */}
         <div className="flex flex-wrap items-center justify-between gap-x-2">
           <h2 className="whitespace-nowrap text-sm font-semibold text-muted-foreground">
@@ -617,7 +637,9 @@ export function Estadisticas() {
         </div>
 
         {torta.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">Sin gastos este mes.</p>
+          <p className="p-8 text-center text-sm text-muted-foreground">
+            Sin gastos en este período.
+          </p>
         ) : (
           <>
             {/* Tamano fijo, sin ResponsiveContainer: los radios de la dona ya
@@ -646,7 +668,7 @@ export function Estadisticas() {
                 <Tooltip formatter={(v) => tip(Number(v))} />
               </PieChart>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-xs text-muted-foreground">Gasto del mes</span>
+                <span className="text-xs text-muted-foreground">Gasto del período</span>
                 <Monto centavos={totalMes} moneda={moneda} className="text-xl font-semibold" />
               </div>
             </div>
@@ -682,7 +704,7 @@ export function Estadisticas() {
           {porEtiqueta.length === 0 ? (
             <p className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
               {alcanceEtiquetas === "mes"
-                ? "Sin gastos etiquetados en este mes."
+                ? "Sin gastos etiquetados en este período."
                 : "Sin gastos etiquetados todavía."}
             </p>
           ) : (
@@ -722,7 +744,7 @@ export function Estadisticas() {
       )}
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-muted-foreground">Ingresos y egresos del mes</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground">Ingresos y egresos</h2>
         <BarraMes
           etiqueta="Ingresos"
           valor={ingresosMes}
@@ -818,7 +840,7 @@ export function Estadisticas() {
               <Tooltip formatter={(v) => tip(Number(v))} />
               <Bar isAnimationActive={false} dataKey="neto" name="Resultado" radius={6}>
                 {evolucion.map((m) => (
-                  <Cell key={m.clave} fill={m.neto < 0 ? colores.expense : colores.income} />
+                  <Cell key={m.desde} fill={m.neto < 0 ? colores.expense : colores.income} />
                 ))}
               </Bar>
             </BarChart>

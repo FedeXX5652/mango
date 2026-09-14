@@ -93,9 +93,7 @@ export function Inicio() {
       if (c.off_budget || c.archived) continue
       porMoneda.set(c.currency, (porMoneda.get(c.currency) ?? 0) + c.balance)
     }
-    return [...porMoneda.entries()]
-      .sort()
-      .map(([moneda, saldo]) => ({ moneda, saldo }))
+    return [...porMoneda.entries()].sort().map(([moneda, saldo]) => ({ moneda, saldo }))
   }, [cuentas])
 
   const activas = cuentas.filter((c) => !c.archived)

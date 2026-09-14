@@ -153,3 +153,30 @@ describe("aCentavos", () => {
     expect(aCentavos("1235", "ARS")).toBe(123500)
   })
 })
+
+describe("espacio no-separable", () => {
+  // `Intl` separa el simbolo del numero con U+00A0. Se normaliza a un espacio
+  // comun para que el texto sea estable en pruebas y en el DOM.
+  //
+  // Esto no estaba cubierto, y se noto: al reescribir el regex quedo matcheando
+  // el texto literal "00a0" en vez del caracter, y las 27 pruebas de este
+  // archivo pasaron igual. La normalizacion es invisible hasta que alguien
+  // compara dos strings que se ven iguales y no lo son.
+  const NBSP = String.fromCharCode(0xa0)
+
+  it("no queda ningun U+00A0 en el monto formateado", () => {
+    expect(formatearMonto(230272, { moneda: "ARS" })).not.toContain(NBSP)
+    expect(formatearMonto(158000, { moneda: "USD" })).not.toContain(NBSP)
+  })
+
+  it("el separador es un espacio comun", () => {
+    expect(formatearMonto(230272, { moneda: "ARS" })).toBe("$ 2.302,72")
+  })
+
+  it("tampoco queda en las partes sueltas", () => {
+    const p = partesMonto(230272, { moneda: "ARS" })
+    for (const v of [p.simbolo, p.entero, p.separador, p.fraccion, p.numero]) {
+      expect(v).not.toContain(NBSP)
+    }
+  })
+})

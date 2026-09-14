@@ -8,11 +8,11 @@ devuelto `#F9B804`. Las proporciones y el detalle son los de la foto.
 
 ## Colores
 
-| Elemento | Hex |
-|---|---|
-| Cuerpo | `#FDBE02` |
-| Hoja | `#4E7A1E` |
-| Tallo | `#4A3118` |
+| Elemento | Hex       |
+| -------- | --------- |
+| Cuerpo   | `#FDBE02` |
+| Hoja     | `#4E7A1E` |
+| Tallo    | `#4A3118` |
 
 Todas las variantes en color usan exactamente estos tres. La unica excepcion es
 el monocromo, que por definicion usa un solo color.
@@ -36,26 +36,26 @@ y 48 pixeles.
 
 ### SVG
 
-| Archivo | Fondo | Uso |
-|---|---|---|
-| `mango.svg` | transparente | Logo. Interfaz, encabezados, documentacion |
-| `mango-any.svg` | blanco opaco | Icono estandar del manifiesto |
-| `mango-maskable.svg` | blanco opaco | Android adaptativo |
-| `mango-apple.svg` | blanco opaco | `apple-touch-icon` de iOS |
-| `mango-mono.svg` | transparente | Bandeja de notificaciones de Android |
+| Archivo              | Fondo        | Uso                                        |
+| -------------------- | ------------ | ------------------------------------------ |
+| `mango.svg`          | transparente | Logo. Interfaz, encabezados, documentacion |
+| `mango-any.svg`      | blanco opaco | Icono estandar del manifiesto              |
+| `mango-maskable.svg` | blanco opaco | Android adaptativo                         |
+| `mango-apple.svg`    | blanco opaco | `apple-touch-icon` de iOS                  |
+| `mango-mono.svg`     | transparente | Bandeja de notificaciones de Android       |
 
 ### PNG
 
-| Archivo | Para que |
-|---|---|
-| `favicon-16.png`, `favicon-32.png` | Pestana del navegador |
-| `mango-any-48` a `-512` | Manifiesto, atajos, escritorio |
-| `mango-maskable-192`, `-512` | Android adaptativo |
-| `mango-apple-120/152/167/180` | iPhone, iPad y iPad Pro |
-| `mango-mono-24/48/96` | Notificaciones |
-| `mango-512`, `mango-1024` | Logo con transparencia |
-| `og-1200x630.png` | Vista previa al compartir el enlace |
-| `favicon.ico` | Contenedor con 16, 32 y 48 |
+| Archivo                            | Para que                            |
+| ---------------------------------- | ----------------------------------- |
+| `favicon-16.png`, `favicon-32.png` | Pestana del navegador               |
+| `mango-any-48` a `-512`            | Manifiesto, atajos, escritorio      |
+| `mango-maskable-192`, `-512`       | Android adaptativo                  |
+| `mango-apple-120/152/167/180`      | iPhone, iPad y iPad Pro             |
+| `mango-mono-24/48/96`              | Notificaciones                      |
+| `mango-512`, `mango-1024`          | Logo con transparencia              |
+| `og-1200x630.png`                  | Vista previa al compartir el enlace |
+| `favicon.ico`                      | Contenedor con 16, 32 y 48          |
 
 ## Por que cada variante existe
 
@@ -97,11 +97,11 @@ El de 512 es obligatorio: sin el, Chrome no ofrece instalar la aplicacion.
 ## En el HTML
 
 ```html
-<link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="icon" href="/icons/mango.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/icons/mango-apple-180.png">
-<link rel="manifest" href="/manifest.webmanifest">
-<meta property="og:image" content="/icons/og-1200x630.png">
+<link rel="icon" href="/favicon.ico" sizes="any" />
+<link rel="icon" href="/icons/mango.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/icons/mango-apple-180.png" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<meta property="og:image" content="/icons/og-1200x630.png" />
 ```
 
 iOS ignora los iconos del manifiesto y lee unicamente `apple-touch-icon`.

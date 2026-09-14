@@ -15,11 +15,11 @@ import { Monto } from "@/componentes/Monto"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { SelectorMoneda } from "@/componentes/SelectorMoneda"
 import { Button } from "@/componentes/ui/button"
+import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
-import { Select } from "@/componentes/ui/select"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, formatearCentavos, formatearMonto } from "@/lib/dinero"
@@ -34,6 +34,7 @@ interface Cat {
   id: string
   name: string
   parent_id: string | null
+  icon: string | null
   rollover: number | null
 }
 interface BudgetRow {
@@ -76,7 +77,11 @@ export function Presupuestos() {
      WHERE deleted_at IS NULL AND archived = 0 AND COALESCE(off_budget,0) = 0`,
   )
   const monedas = useMemo(
-    () => ordenarMonedas(monedaRows.map((r) => r.currency), base),
+    () =>
+      ordenarMonedas(
+        monedaRows.map((r) => r.currency),
+        base,
+      ),
     [monedaRows, base],
   )
   const [monedaElegida, setMonedaElegida] = useState<string | null>(null)
@@ -87,7 +92,7 @@ export function Presupuestos() {
   const finMesISO = new Date(anio, mes + 1, 1).toISOString()
 
   const { data: categorias, isLoading: cargaCats } = useQuery<Cat>(
-    "SELECT id, name, parent_id, rollover FROM categories WHERE kind='expense' AND deleted_at IS NULL AND archived = 0 ORDER BY sort_order, name",
+    "SELECT id, name, parent_id, rollover, icon FROM categories WHERE kind='expense' AND deleted_at IS NULL AND archived = 0",
   )
   const catById = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
   const { data: budgetRows, isLoading: cargaBudgets } = useQuery<BudgetRow>(
@@ -103,10 +108,7 @@ export function Presupuestos() {
     "SELECT id, category_id, amount, active FROM budget_rules WHERE deleted_at IS NULL AND currency = ?",
     [moneda],
   )
-  const reglaPorCat = useMemo(
-    () => new Map(reglaRows.map((r) => [r.category_id, r])),
-    [reglaRows],
-  )
+  const reglaPorCat = useMemo(() => new Map(reglaRows.map((r) => [r.category_id, r])), [reglaRows])
   // Fondos presupuestables DE ESTA MONEDA. El ancla es la moneda de la cuenta,
   // y el monto que se suma del lado `account_id` es
   // `COALESCE(amount_account, amount)`: con una compra en otra moneda, lo que
@@ -291,9 +293,7 @@ export function Presupuestos() {
           (ver 0005). Con una sola no hay nada que elegir. */}
       {monedas.length > 1 && (
         <div className="flex items-center justify-between gap-2">
-          <h1 className="text-sm font-semibold text-muted-foreground">
-            Presupuesto en {moneda}
-          </h1>
+          <h1 className="text-sm font-semibold text-muted-foreground">Presupuesto en {moneda}</h1>
           <SelectorMoneda monedas={monedas} valor={moneda} onCambio={setMonedaElegida} />
         </div>
       )}
@@ -303,20 +303,20 @@ export function Presupuestos() {
               ResponsiveContainer dejaba el anillo vacio al entrar (ver 0008). */}
           <div className="relative h-28 w-28 shrink-0">
             <PieChart width={112} height={112}>
-                <Pie
-                  isAnimationActive={false}
-                  data={donut}
-                  dataKey="value"
-                  innerRadius={40}
-                  outerRadius={54}
-                  startAngle={90}
-                  endAngle={-270}
-                  paddingAngle={totalAsignado > 0 ? 2 : 0}
-                  cornerRadius={4}
-                  stroke="none"
-                >
-                  <Cell fill={excedido ? colores.expense : colores.primary} />
-                  <Cell fill={colores.muted} />
+              <Pie
+                isAnimationActive={false}
+                data={donut}
+                dataKey="value"
+                innerRadius={40}
+                outerRadius={54}
+                startAngle={90}
+                endAngle={-270}
+                paddingAngle={totalAsignado > 0 ? 2 : 0}
+                cornerRadius={4}
+                stroke="none"
+              >
+                <Cell fill={excedido ? colores.expense : colores.primary} />
+                <Cell fill={colores.muted} />
               </Pie>
             </PieChart>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
@@ -364,11 +364,21 @@ export function Presupuestos() {
       </div>
 
       <div className="flex items-center justify-center gap-1">
-        <Button variant="ghost" size="icon" onClick={() => cambiarMes(-1)} aria-label="Mes anterior">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => cambiarMes(-1)}
+          aria-label="Mes anterior"
+        >
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <span className="min-w-40 text-center text-sm font-medium">{etiquetaMes}</span>
-        <Button variant="ghost" size="icon" onClick={() => cambiarMes(1)} aria-label="Mes siguiente">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => cambiarMes(1)}
+          aria-label="Mes siguiente"
+        >
           <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
@@ -384,7 +394,6 @@ export function Presupuestos() {
       <Hoja abierta={agregando} onOpenChange={setAgregando} titulo="Agregar sobre">
         <FormAgregar
           candidatas={noSobres}
-          catById={catById}
           onCerrar={() => setAgregando(false)}
           onAgregar={async (catId, ahorro, centavos) => {
             if (ahorro) await toggleAhorro(catId, true)
@@ -427,7 +436,8 @@ export function Presupuestos() {
                 <div className="flex items-center justify-between px-1 text-sm font-semibold">
                   <span>{rootCat?.name ?? "—"}</span>
                   <span className="text-xs text-muted-foreground">
-                    {formatearMonto(asigTot, { moneda })} · {formatearMonto(gastTot, { moneda })} gast.
+                    {formatearMonto(asigTot, { moneda })} · {formatearMonto(gastTot, { moneda })}{" "}
+                    gast.
                   </span>
                 </div>
                 {rootEsSobre && rootCat && (
@@ -650,12 +660,10 @@ function FilaSobre({
 
 function FormAgregar({
   candidatas,
-  catById,
   onCerrar,
   onAgregar,
 }: {
   candidatas: Cat[]
-  catById: Map<string, Cat>
   onCerrar: () => void
   onAgregar: (catId: string, ahorro: boolean, centavos: number) => void
 }) {
@@ -664,24 +672,27 @@ function FormAgregar({
   const [monto, setMonto] = useState("")
   const [error, setError] = useState("")
 
-  function etiqueta(c: Cat): string {
-    return c.parent_id ? `${catById.get(c.parent_id)?.name ?? "—"} › ${c.name}` : c.name
-  }
-
   return (
     <div className="space-y-3">
       <Campo etiqueta="Categoría">
-        <Select value={catId} onChange={(e) => setCatId(e.target.value)}>
-          <option value="">Elegí una categoría</option>
-          {candidatas.map((c) => (
-            <option key={c.id} value={c.id}>
-              {etiqueta(c)}
-            </option>
-          ))}
-        </Select>
+        <SelectorCategoria
+          categorias={candidatas.map((c) => ({
+            id: c.id,
+            name: c.name,
+            parent_id: c.parent_id ?? null,
+            icon: c.icon ?? null,
+          }))}
+          valor={catId}
+          onCambio={setCatId}
+        />
       </Campo>
       <Campo etiqueta="Asignación de este mes (opcional)">
-        <Input value={monto} onChange={(e) => setMonto(e.target.value)} inputMode="decimal" placeholder="0" />
+        <Input
+          value={monto}
+          onChange={(e) => setMonto(e.target.value)}
+          inputMode="decimal"
+          placeholder="0"
+        />
       </Campo>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={ahorro} onChange={(e) => setAhorro(e.target.checked)} />

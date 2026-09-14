@@ -100,7 +100,7 @@ async def create_pma(
     if dup is not None:
         raise DomainError(f"Ya hay una cuenta asociada para {data.currency}")
 
-    pma = PaymentMethodAccount(payment_method_id=pm.id, **data.model_dump())
+    pma = PaymentMethodAccount(owner_id=pm.owner_id, payment_method_id=pm.id, **data.model_dump())
     session.add(pma)
     await session.commit()
     await session.refresh(pma)

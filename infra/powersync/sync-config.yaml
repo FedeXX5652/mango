@@ -1,0 +1,71 @@
+# Reglas de sincronizacion: que filas ve cada cliente.
+#
+# Formato **Sync Streams** (edition 3). Reemplaza al de `bucket_definitions`,
+# que PowerSync sigue soportando pero marca como legacy.
+#
+# PowerSync usa la columna `id` (UUID) como identificador de cada fila.
+#
+# OJO, dos trampas:
+#
+# 1. El servicio lee este archivo AL ARRANCAR. Si se agrega o se saca una tabla
+#    hay que reiniciarlo (`docker compose restart powersync`), o el cliente
+#    escribe local, sube bien y despues pierde su copia local cuando confirma el
+#    checkpoint: para el servidor esa tabla no esta en ningun stream.
+#
+# 2. Un stream **no se auto-suscribe por defecto**. Sin `auto_subscribe: true`
+#    la tabla deja de llegar y la app la muestra vacia, sin ningun error. Es el
+#    modo de fallar mas silencioso que tiene esto: despues de tocar el archivo,
+#    contar filas tabla por tabla, no mirar la pantalla.
+
+config:
+  edition: 3
+
+streams:
+  # Todo lo del usuario del token, y nada mas. Va en UN stream con varias
+  # consultas y no en varios streams: cada combinacion de stream y parametro es
+  # un bucket, y conviene tener pocos.
+  #
+  # Esto **no es autenticacion**: hoy la API firma el token del usuario semilla.
+  # Lo que resuelve es la particion, que es la mitad de lo que fase 3 necesita;
+  # la otra mitad es un stream de grupo, parametrizado por la tabla de miembros,
+  # que va a convivir con este sin reemplazarlo.
+  mio:
+    auto_subscribe: true
+    queries:
+      # Las tablas que el cliente materializa en su esquema local
+      # (frontend/src/lib/powersync/esquema.ts). Al construir el front de
+      # splits/reglas de ingesta, re-agregar aca: category_rules,
+      # transaction_splits. Los datos siguen en Postgres.
+      - SELECT * FROM accounts WHERE owner_id = auth.user_id()
+      - SELECT * FROM categories WHERE owner_id = auth.user_id()
+      - SELECT * FROM payment_methods WHERE owner_id = auth.user_id()
+      - SELECT * FROM payment_method_accounts WHERE owner_id = auth.user_id()
+      - SELECT * FROM transactions WHERE owner_id = auth.user_id()
+      - SELECT * FROM budgets WHERE owner_id = auth.user_id()
+      - SELECT * FROM budget_rules WHERE owner_id = auth.user_id()
+      - SELECT * FROM recurring_rules WHERE owner_id = auth.user_id()
+      - SELECT * FROM templates WHERE owner_id = auth.user_id()
+      - SELECT * FROM tags WHERE owner_id = auth.user_id()
+      - SELECT * FROM transaction_tags WHERE owner_id = auth.user_id()
+
+      # Las preferencias, para que se puedan leer y escribir sin conexion y
+      # viajen entre dispositivos.
+      #
+      # **Las columnas van una por una a proposito.** `password_hash` no esta en
+      # la lista, y por eso no puede salir del servidor: no es una lista negra
+      # que alguien tenga que acordarse de actualizar, es que no se selecciona.
+      # Si algun dia se agrega una columna sensible a `users`, no llega sola.
+      - SELECT id, display_name, base_currency, theme_id, color_scheme, fx_manual
+        FROM users WHERE id = auth.user_id()
+
+  # Las cotizaciones son **compartidas y a proposito**: el dolar del 12/09 es el
+  # mismo para todos, y que uno cargue el MEP y lo vean los demas es la gracia.
+  # No tienen dueño en el esquema y no se lo vamos a inventar (0005 dejaba la
+  # pregunta abierta; esta es la respuesta).
+  cotizaciones:
+    auto_subscribe: true
+    # Sin filtro por usuario, deliberado: ver arriba. Sin esto el servicio avisa
+    # que la consulta expone las filas a cualquier cliente, y tiene razon, pero
+    # es justamente lo que se quiere.
+    accept_potentially_dangerous_queries: true
+    query: SELECT * FROM exchange_rates

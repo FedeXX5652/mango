@@ -24,6 +24,7 @@ import { Select } from "@/componentes/ui/select"
 import { useConexion } from "@/hooks/conexion"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { ordenarJerarquico } from "@/lib/categorias"
+import { iconoDe } from "@/lib/iconos"
 import { type Direccion } from "@/lib/dinero"
 import { mesAnio } from "@/lib/fecha"
 import { monedaPorDefecto, ordenarMonedas } from "@/lib/monedas"
@@ -38,6 +39,7 @@ interface Fila {
   payee: string | null
   status: string
   categoria: string | null
+  categoria_icon: string | null
   cuenta: string | null
 }
 interface Opcion {
@@ -201,7 +203,7 @@ export function Movimientos() {
     }
     return {
       sql: `SELECT t.id, t.kind, t.amount, t.currency, t.occurred_at, t.payee, t.status,
-                   c.name AS categoria, a.name AS cuenta
+                   c.name AS categoria, c.icon AS categoria_icon, a.name AS cuenta
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN accounts a ON a.id = t.account_id
@@ -417,7 +419,11 @@ export function Movimientos() {
                   </h3>
                   <ListaInset>
                     {filas.map((f) => {
-                      const Icono = ICONO_MOV[f.kind]
+                      // El icono de la categoria dice mas que el del tipo, que
+                      // ya lo comunican el signo y el color del monto. Sin
+                      // categoria (una transferencia, por ejemplo) se cae al
+                      // del tipo.
+                      const Icono = f.categoria_icon ? iconoDe(f.categoria_icon) : ICONO_MOV[f.kind]
                       const titulo =
                         f.payee || f.categoria || (f.kind === "transfer" ? "Transferencia" : "—")
                       const sub = [f.payee ? f.categoria : null, f.cuenta].filter(Boolean)

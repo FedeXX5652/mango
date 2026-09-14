@@ -10,8 +10,9 @@ import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
 import { Segmentado } from "@/componentes/ui/segmentado"
-import { Select } from "@/componentes/ui/select"
 import { useMonedaBase } from "@/hooks/monedaBase"
+import { SelectorCategoria } from "@/componentes/SelectorCategoria"
+import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
 import { aCentavos } from "@/lib/dinero"
@@ -30,6 +31,7 @@ interface CategoriaLocal {
   name: string
   kind: string
   parent_id: string | null
+  icon: string | null
 }
 interface MedioLocal {
   id: string
@@ -75,7 +77,7 @@ export function FormularioMovimiento({
     "SELECT id, name, currency FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
   )
   const { data: categorias } = useQuery<CategoriaLocal>(
-    "SELECT id, name, kind, parent_id FROM categories WHERE deleted_at IS NULL AND archived = 0",
+    "SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0",
   )
   const { data: medios } = useQuery<MedioLocal>(
     "SELECT id, name FROM payment_methods WHERE deleted_at IS NULL AND archived = 0",
@@ -133,7 +135,6 @@ export function FormularioMovimiento({
       ? cotizacionDe(centavos, moneda, centavosDebitado, monedaCuenta)
       : null
 
-  const nombrePorId = useMemo(() => new Map(categorias.map((c) => [c.id, c.name])), [categorias])
   const categoriasDelTipo = useMemo(
     () =>
       ordenarJerarquico(categorias).filter(
@@ -141,10 +142,6 @@ export function FormularioMovimiento({
       ),
     [categorias, tipo],
   )
-
-  function etiquetaCat(c: CategoriaLocal): string {
-    return c.parent_id ? `${nombrePorId.get(c.parent_id) ?? "—"} › ${c.name}` : c.name
-  }
 
   const aplicarPlantilla = useCallback((t: PlantillaLocal) => {
     setTipo(t.kind as TipoMovimiento)
@@ -288,53 +285,48 @@ export function FormularioMovimiento({
       ) : (
         <div className="space-y-4">
           <Campo etiqueta={tipo === "transfer" ? "Desde" : "Cuenta"}>
-            <Select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)}>
-              <option value="">Elegí una cuenta</option>
-              {cuentas.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.currency})
-                </option>
-              ))}
-            </Select>
+            <SelectorEntidad
+              titulo={tipo === "transfer" ? "Cuenta de origen" : "Cuenta"}
+              placeholder="Elegí una cuenta"
+              opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency }))}
+              valor={cuentaId}
+              onCambio={setCuentaId}
+            />
           </Campo>
 
           {tipo === "transfer" && (
             <Campo etiqueta="Hacia">
-              <Select value={cuentaDestinoId} onChange={(e) => setCuentaDestinoId(e.target.value)}>
-                <option value="">Elegí la cuenta de destino</option>
-                {cuentas
+              <SelectorEntidad
+                titulo="Cuenta de destino"
+                placeholder="Elegí la cuenta de destino"
+                opciones={cuentas
                   .filter((c) => c.id !== cuentaId)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.currency})
-                    </option>
-                  ))}
-              </Select>
+                  .map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency }))}
+                valor={cuentaDestinoId}
+                onCambio={setCuentaDestinoId}
+              />
             </Campo>
           )}
 
           {tipo !== "transfer" && (
             <Campo etiqueta="Categoría">
-              <Select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
-                <option value="">Elegí una categoría</option>
-                {categoriasDelTipo.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {etiquetaCat(c)}
-                  </option>
-                ))}
-              </Select>
+              <SelectorCategoria
+                categorias={categoriasDelTipo}
+                valor={categoriaId}
+                onCambio={setCategoriaId}
+              />
             </Campo>
           )}
 
           <Campo etiqueta="Medio de pago (opcional)">
-            <Select value={medioId} onChange={(e) => setMedioId(e.target.value)}>
-              <option value="">Sin medio</option>
-              {medios.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </Select>
+            <SelectorEntidad
+              titulo="Medio de pago"
+              placeholder="Sin medio"
+              vacio="Sin medio"
+              opciones={medios.map((m) => ({ id: m.id, nombre: m.name }))}
+              valor={medioId}
+              onCambio={setMedioId}
+            />
           </Campo>
 
           <Campo etiqueta="Comercio / contraparte (opcional)">

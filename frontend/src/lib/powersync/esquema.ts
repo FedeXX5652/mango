@@ -25,6 +25,9 @@ const categories = new Table(
     parent_id: column.text,
     name: column.text,
     kind: column.text,
+    // Clave del catalogo de lib/iconos, no un nombre de lucide: si se saca uno
+    // del catalogo, la categoria cae al icono por defecto en vez de romper.
+    icon: column.text,
     archived: column.integer,
     sort_order: column.integer,
     // Ajuste de sobre (ver 3.6 / 0004). rollover = sobre de ahorro (acumula).
@@ -191,6 +194,19 @@ const exchange_rates = new Table(
   { indexes: { por_par: ["base_currency", "quote_currency", "rate_date"] } },
 )
 
+// Preferencias del usuario. Solo las columnas que la regla de sync manda: el
+// hash de la contraseña no esta ahi y no puede llegar aca (ver sync-config).
+//
+// `fx_manual` es un JSONB en Postgres, asi que baja como TEXTO con el JSON
+// adentro. Se parsea al leerlo.
+const users = new Table({
+  display_name: column.text,
+  base_currency: column.text,
+  theme_id: column.text,
+  color_scheme: column.text,
+  fx_manual: column.text,
+})
+
 export const AppSchema = new Schema({
   accounts,
   categories,
@@ -204,6 +220,7 @@ export const AppSchema = new Schema({
   templates,
   recurring_rules,
   exchange_rates,
+  users,
 })
 
 export type BaseDatos = (typeof AppSchema)["types"]

@@ -94,10 +94,7 @@ export function Calendario({
                       <ArrowUp className="h-2.5 w-2.5 shrink-0 text-income" aria-hidden />
                     )}
                     <span
-                      className={cn(
-                        "h-1 rounded-full",
-                        neto < 0 ? "bg-expense" : "bg-income",
-                      )}
+                      className={cn("h-1 rounded-full", neto < 0 ? "bg-expense" : "bg-income")}
                       style={{ width: `${Math.max(12, (Math.abs(neto) / tope) * 100)}%` }}
                     />
                   </span>
@@ -117,8 +114,7 @@ export function Calendario({
         })}
       </div>
       <p className="mt-2 text-xs text-muted-foreground">
-        Neto por día en {moneda}.
-        {otraMoneda && " Los movimientos en otra moneda no se suman acá."}
+        Neto por día en {moneda}.{otraMoneda && " Los movimientos en otra moneda no se suman acá."}
       </p>
     </div>
   )

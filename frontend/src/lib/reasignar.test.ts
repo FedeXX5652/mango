@@ -24,7 +24,14 @@ describe("planCategoria", () => {
     // Las mismas tablas que chequea el "en uso" de la pantalla, mas categories
     // por las subcategorias. `category_rules` no entra: no se sincroniza.
     expect(new Set(tablas(plan))).toEqual(
-      new Set(["transactions", "templates", "recurring_rules", "categories", "budgets", "budget_rules"]),
+      new Set([
+        "transactions",
+        "templates",
+        "recurring_rules",
+        "categories",
+        "budgets",
+        "budget_rules",
+      ]),
     )
   })
 
@@ -62,7 +69,13 @@ describe("planCuenta", () => {
 
   it("cubre todo lo que referencia una cuenta, incluidas las dos puntas de una transferencia", () => {
     expect(new Set(tablas(plan))).toEqual(
-      new Set(["transactions", "templates", "recurring_rules", "payment_method_accounts", "accounts"]),
+      new Set([
+        "transactions",
+        "templates",
+        "recurring_rules",
+        "payment_method_accounts",
+        "accounts",
+      ]),
     )
     const puntas = plan.sentencias.filter((x) => x.sql.startsWith("UPDATE transactions"))
     expect(puntas.map((p) => p.sql.includes("transfer_account_id"))).toEqual([false, true])
@@ -78,7 +91,13 @@ describe("planMedio", () => {
 
   it("cubre todo lo que referencia un medio de pago", () => {
     expect(new Set(tablas(plan))).toEqual(
-      new Set(["transactions", "templates", "recurring_rules", "payment_method_accounts", "payment_methods"]),
+      new Set([
+        "transactions",
+        "templates",
+        "recurring_rules",
+        "payment_method_accounts",
+        "payment_methods",
+      ]),
     )
   })
 

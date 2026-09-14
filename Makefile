@@ -8,16 +8,18 @@ help:
 	@echo "make migrate  aplica migraciones"
 
 dev:
-	docker compose -f infra/docker-compose.yml up -d
+	docker compose --env-file .env -f infra/docker-compose.yml up -d
 
 down:
-	docker compose -f infra/docker-compose.yml down
+	docker compose --env-file .env -f infra/docker-compose.yml down
 
 test:
 	cd backend && pytest -q
+	cd frontend && npm test
 
 lint:
 	cd backend && ruff format . && ruff check .
+	cd frontend && npm run lint
 
 migrate:
 	cd backend && alembic upgrade head

@@ -464,10 +464,13 @@ y la fuente, no el par ni la fecha, porque eso ya es otra cotizacion.
 por dia, y hay un boton para forzarlo. No hay cron: el servidor no siempre esta
 prendido y el refresco es idempotente por fecha (ver 0005).
 
-**Cada moneda puede pasarse a manual** con un interruptor. En Argentina es el
-caso normal para el dolar: la API publica la cotizacion oficial y lo que uno
-paga es otra (MEP, tarjeta). La pantalla dice cual esta en automatico y cual a
-mano, y **a igual fecha la que cargo la persona gana** sobre la automatica.
+**La fuente automatica es la oficial, y es el estandar.** No se van a agregar
+fuentes alternativas (MEP, tarjeta): quien quiera otra, la carga a mano.
+
+**Cada moneda puede pasarse a manual** con un interruptor, y ese es el camino
+para el dolar en Argentina, donde lo que uno paga no es la oficial. La pantalla
+dice cual esta en automatico y cual a mano, y **a igual fecha la que cargo la
+persona gana** sobre la automatica.
 
 ### 3.7 Recurrentes y plantillas
 
@@ -503,8 +506,39 @@ mano, y **a igual fecha la que cargo la persona gana** sobre la automatica.
 - Lista de movimientos con busqueda y filtros
 - Vista de calendario con total por dia, en una sola moneda (ver 3.6.1)
 - Torta de gasto por categoria
-- Evolucion mensual de ingresos, gastos y saldo
+- Evolucion de ingresos, gastos y saldo
 - Saldos por cuenta y patrimonio total
+
+**Estadisticas se lee por periodo**: dia, semana, mes o año. El periodo elegido
+manda sobre toda la pantalla —la dona por categoria, ingresos contra egresos, el
+gasto por etiqueta— y tambien sobre la evolucion, que muestra los ultimos seis
+**de ese periodo**: con "Semana" son semanas, no meses. La semana arranca el
+lunes. La eleccion se guarda por dispositivo: es una preferencia de lectura.
+
+**Cada categoria puede tener un icono**, que aparece en la lista de categorias,
+al elegir la categoria de un movimiento y en cada fila de movimiento.
+
+**La categoria de un movimiento se elige de una lista, no de un desplegable.**
+El `<select>` nativo no dibuja iconos ni sangria, asi que la jerarquia habia que
+simularla con "Padre › Hija" en el texto. Ahora se ve igual que la pantalla de
+categorias, que es donde uno las conoce, con buscador (una hija se encuentra
+tambien por el nombre de su madre).
+
+**El orden es alfabetico en los dos niveles** —padres, y dentro de cada padre sus
+hijas— comparando en español, y es el mismo en todos lados: sale de una sola
+funcion. No se usa el `ORDER BY` de la consulta porque la colacion de Postgres no
+es la española y los acentos caen donde no va. En la fila el icono de la categoria reemplaza al del
+tipo de movimiento, que era redundante: el signo y el color del monto ya dicen si
+es gasto o ingreso. Un movimiento sin categoria (una transferencia) muestra el
+del tipo.
+
+Los iconos salen de un **subconjunto elegido a mano** de la libreria que ya usa
+toda la interfaz, agrupado por tema y con buscador por sinonimos en español
+("supermercado" encuentra el carrito). Es un subconjunto y no la libreria entera
+—son ~1.700— porque elegir entre 1.700 no es elegir, es buscar. Se amplia cuando
+falte alguno, no antes. Lo que se guarda es una clave propia, no el nombre del
+icono en la libreria: si se saca uno del catalogo, esa categoria cae al icono por
+defecto en vez de romper.
 
 ### 3.9 Bandeja de pendientes
 
@@ -543,14 +577,14 @@ servidor. Si no, no se podria crear nada sin conexion.
 - **Traer cotizaciones** (`POST /exchange-rates/refresh`): sale a una API
   publica, asi que la conexion es inherente. Sin ella se usa la ultima
   cotizacion conocida, que para eso esta cacheada (ver 0005).
-- **Guardar las preferencias del usuario** (moneda base, tema, monedas
-  manuales): viven en `users`, que **no se sincroniza**, asi que se leen de una
-  copia en el dispositivo y se guardan por REST. Es la unica excepcion que
-  incomoda: cambiar la moneda base sin conexion no persiste. Cuando llegue el
-  multiusuario habra que decidir si `users` entra a la sync.
 
 Todo lo demas —cargar, editar, borrar, presupuestar, ver informes— funciona sin
 conexion contra la base local.
+
+Las **preferencias del usuario** (moneda base, tema, monedas manuales) estuvieron
+un tiempo en esta lista y ya no: `users` se sincroniza —con las columnas
+contadas, sin el hash de la contraseña— asi que se leen y se escriben local como
+cualquier otra tabla, y viajan entre dispositivos (ver 0009).
 
 **Por eso la API no tiene endpoints de lectura.** El cliente nunca le pregunta
 al servidor por sus datos: los lee del SQLite del dispositivo. Lo que queda es
@@ -934,6 +968,51 @@ sugerencias con IA. Integracion con n8n.
 
 Registro, autenticacion, grupos familiares, visibilidad por transaccion,
 reportes del grupo, presupuestos compartidos.
+
+**Sin correo electronico**: la identidad es un **nombre de usuario** y una clave.
+El mail sirve para probar que sos dueño de una direccion, que importa cuando
+cualquiera se registra solo; aca las cuentas las crea quien administra la
+instancia, que ya sabe quien es cada uno. Sin mail no hay verificacion ni
+recuperacion automatica de clave, asi que hace falta que **quien administra
+pueda resetear una clave**. La columna `users.email` pasa a ser `username`
+cuando se construya esto; hoy no se toca porque la forma puede cambiar.
+
+Lo que si hay que resolver, y pesa mas que el mail:
+
+- **Hasheo real de la clave, con Argon2id.** `password_hash` hoy guarda un `"!"`
+  de relleno, que no puede coincidir con ningun hash y por eso es un placeholder
+  seguro. Ojo con el nombre: hashear **no es encriptar**. Un hash no se
+  desencripta ni con la clave del servidor, y eso es justamente lo que se quiere:
+  ni quien administra puede leer la contraseña de otro.
+
+  Argon2id sobre bcrypt porque es el recomendado hoy, es resistente a ataques por
+  GPU y no tiene el tope de 72 bytes que trunca las frases largas. Dependencia:
+  `argon2-cffi`.
+
+- **Reset sin mail: clave temporal, no "cuenta sin clave".** Quien administra le
+  pone una clave temporal a la persona y marca `must_change_password`; al entrar,
+  la app la obliga a cambiarla antes de hacer nada.
+
+  Se descarto la variante de "dejar la cuenta sin clave y que la app pida crear
+  una al abrirla" por dos motivos. Uno, **la ventana**: mientras la cuenta este
+  sin clave, quien abra la app primero se la queda, y antes del login no hay
+  sesion que pruebe quien es. Dos, **para saber que esta sin clave** el cliente
+  tendria que preguntarselo al servidor sin estar autenticado, y esa consulta
+  dice que usuarios existen y cuales estan reseteables.
+- **Transporte.** Hacia afuera de la casa todo va por **Tailscale**, que cifra
+  punta a punta: ahi no hay problema. Adentro, por LAN pelada y HTTP, la clave y
+  el token viajarian en claro, y quien este en el Wi-Fi los ve. La mejora mas
+  barata no es poner TLS: es **entrar por el nombre de Tailscale tambien desde
+  casa**, que funciona igual en la LAN y no cuesta una linea de codigo.
+
+  **Mientras tanto esto ya esta expuesto, y mas:** hoy la API **no tiene auth**
+  (`get_current_user_id` devuelve el usuario semilla sin mirar nada), asi que
+  cualquiera que llegue al puerto 8000 lee y escribe todo. No publicar ese puerto
+  fuera del tailnet hasta que exista el login.
+- **Limite de intentos** en el login.
+
+La particion de la sincronizacion **ya esta hecha** (ver 0009): falta el stream
+de grupo, que convive con el personal.
 
 ### Fase 4 - Multimoneda y reparto
 

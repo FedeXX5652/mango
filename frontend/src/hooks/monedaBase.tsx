@@ -1,11 +1,11 @@
 import { createContext, useContext, useEffect, useState } from "react"
 
-import { api } from "@/lib/api"
+import { observarPreferencias } from "@/lib/preferencias"
 import { configurarMonedaBase } from "@/lib/dinero"
 
-// Moneda base del usuario (`users.base_currency`). El servidor es la fuente de
-// verdad, pero la app tiene que arrancar sin conexion: se guarda en
-// localStorage y se reconcilia cuando hay red, igual que el tema.
+// Moneda base del usuario (`users.base_currency`). Vive en la base local y
+// viaja por la sync; localStorage queda como copia para el primer pintado,
+// antes de que la base este lista.
 //
 // Ademas de exponerla por contexto, la escribe en el modulo de formateo: las
 // funciones de `lib/dinero` se llaman desde JSX en decenas de lugares y no
@@ -33,26 +33,21 @@ export function ProveedorMonedaBase({ children }: { children: React.ReactNode })
   // asignacion, no tiene costo.
   configurarMonedaBase(moneda)
 
-  useEffect(() => {
-    let vigente = true
-    api
-      .getMe()
-      .then((u) => {
-        if (!vigente || !u.base_currency) return
-        const cur = u.base_currency.toUpperCase()
+  useEffect(
+    () =>
+      observarPreferencias((p) => {
+        if (!p.base_currency) return
+        const cur = p.base_currency.toUpperCase()
         localStorage.setItem(LS_MONEDA, cur)
         // El setState re-renderiza el arbol, que es lo que hace que los montos
         // ya dibujados se rearmen con la moneda nueva.
         setMoneda(cur)
-      })
-      .catch(() => {})
-    return () => {
-      vigente = false
-    }
-  }, [])
+      }),
+    [],
+  )
 
-  // Aplica una moneda base nueva en el dispositivo. El servidor sigue siendo la
-  // fuente de verdad: esto corre DESPUES de que el PATCH salio bien, no antes.
+  // Aplica una moneda base nueva en el dispositivo. Quien la cambia escribe la
+  // fila; esto solo refleja el cambio sin esperar a que vuelva por la sync.
   function aplicar(nueva: string) {
     const cur = nueva.trim().toUpperCase()
     localStorage.setItem(LS_MONEDA, cur)

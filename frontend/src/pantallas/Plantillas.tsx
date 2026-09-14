@@ -9,6 +9,8 @@ import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
+import { SelectorCategoria } from "@/componentes/SelectorCategoria"
+import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, formatearCentavos } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
@@ -25,6 +27,7 @@ interface Opcion {
   currency?: string
   kind?: string
   parent_id?: string | null
+  icon?: string | null
 }
 
 const TIPOS: { valor: string; etiqueta: string }[] = [
@@ -53,7 +56,12 @@ export function Plantillas() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/ajustes")} aria-label="Volver">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/ajustes")}
+          aria-label="Volver"
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-xl font-semibold">Plantillas</h1>
@@ -123,7 +131,7 @@ function FormPlantilla({ onCerrar }: { onCerrar: () => void }) {
     "SELECT id, name, currency FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
   )
   const { data: categorias } = useQuery<Opcion>(
-    "SELECT id, name, kind, parent_id FROM categories WHERE deleted_at IS NULL AND archived = 0",
+    "SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0",
   )
   const { data: medios } = useQuery<Opcion>(
     "SELECT id, name FROM payment_methods WHERE deleted_at IS NULL AND archived = 0",
@@ -139,7 +147,6 @@ function FormPlantilla({ onCerrar }: { onCerrar: () => void }) {
   const [notas, setNotas] = useState("")
   const [error, setError] = useState("")
 
-  const nombreCat = useMemo(() => new Map(categorias.map((c) => [c.id, c.name])), [categorias])
   const cats = useMemo(
     () =>
       ordenarJerarquico(categorias).filter(
@@ -153,7 +160,8 @@ function FormPlantilla({ onCerrar }: { onCerrar: () => void }) {
     if (!name.trim()) return setError("Poné un nombre")
     const centavos = aCentavos(monto)
     const importe = centavos && centavos > 0 ? centavos : null
-    const moneda = importe != null ? (cuentas.find((c) => c.id === cuentaId)?.currency ?? "ARS") : null
+    const moneda =
+      importe != null ? (cuentas.find((c) => c.id === cuentaId)?.currency ?? "ARS") : null
     try {
       await db.execute(
         `INSERT INTO templates
@@ -181,7 +189,11 @@ function FormPlantilla({ onCerrar }: { onCerrar: () => void }) {
   return (
     <div className="space-y-3">
       <Campo etiqueta="Nombre">
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Alquiler, Súper…" />
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Alquiler, Súper…"
+        />
       </Campo>
       <div className="grid grid-cols-2 gap-3">
         <Campo etiqueta="Tipo">
@@ -200,40 +212,49 @@ function FormPlantilla({ onCerrar }: { onCerrar: () => void }) {
           </Select>
         </Campo>
         <Campo etiqueta="Monto (opcional)">
-          <Input value={monto} onChange={(e) => setMonto(e.target.value)} inputMode="decimal" placeholder="0" />
+          <Input
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+            inputMode="decimal"
+            placeholder="0"
+          />
         </Campo>
       </div>
       <Campo etiqueta="Cuenta (opcional)">
-        <Select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)}>
-          <option value="">Sin cuenta</option>
-          {cuentas.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
+        <SelectorEntidad
+          titulo="Cuenta"
+          placeholder="Sin cuenta"
+          vacio="Sin cuenta"
+          opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency ?? null }))}
+          valor={cuentaId}
+          onCambio={setCuentaId}
+        />
       </Campo>
       {kind !== "transfer" && (
         <Campo etiqueta="Categoría (opcional)">
-          <Select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
-            <option value="">Sin categoría</option>
-            {cats.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.parent_id ? `${nombreCat.get(c.parent_id) ?? "—"} › ${c.name}` : c.name}
-              </option>
-            ))}
-          </Select>
+          <SelectorCategoria
+            categorias={cats.map((c) => ({
+              id: c.id,
+              name: c.name,
+              parent_id: c.parent_id ?? null,
+              icon: c.icon ?? null,
+            }))}
+            valor={categoriaId}
+            onCambio={setCategoriaId}
+            placeholder="Sin categoría"
+            vacio="Sin categoría"
+          />
         </Campo>
       )}
       <Campo etiqueta="Medio de pago (opcional)">
-        <Select value={medioId} onChange={(e) => setMedioId(e.target.value)}>
-          <option value="">Sin medio</option>
-          {medios.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </Select>
+        <SelectorEntidad
+          titulo="Medio de pago"
+          placeholder="Sin medio"
+          vacio="Sin medio"
+          opciones={medios.map((m) => ({ id: m.id, nombre: m.name }))}
+          valor={medioId}
+          onCambio={setMedioId}
+        />
       </Campo>
       <Campo etiqueta="Comercio / contraparte (opcional)">
         <Input value={payee} onChange={(e) => setPayee(e.target.value)} />

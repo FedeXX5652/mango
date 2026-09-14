@@ -122,7 +122,7 @@ async def create_transaction_tag(
     if dup is not None:
         raise DomainError("El movimiento ya tiene esa etiqueta")
 
-    tt = TransactionTag(**data.model_dump())
+    tt = TransactionTag(owner_id=owner_id, **data.model_dump())
     session.add(tt)
     await session.commit()
     await session.refresh(tt)

@@ -9,24 +9,6 @@
 export const API_BASE = (import.meta.env.VITE_API_URL ?? "http://localhost:8000").replace(/\/$/, "")
 const BASE = API_BASE
 
-export interface Usuario {
-  id: string
-  email: string
-  display_name: string
-  base_currency: string
-  theme_id: string
-  color_scheme: "light" | "dark" | "system"
-  // Monedas que el usuario carga a mano: quedan fuera del refresco automatico
-  // de cotizaciones (ver 0005).
-  fx_manual: string[] | null
-  created_at: string
-  updated_at: string
-}
-
-export type PrefsUpdate = Partial<
-  Pick<Usuario, "display_name" | "base_currency" | "theme_id" | "color_scheme" | "fx_manual">
->
-
 // Error de API con el status y el detalle (para mostrar el 422 de dominio).
 export class ApiError extends Error {
   constructor(
@@ -73,10 +55,7 @@ export interface ResultadoCotizaciones {
 }
 
 export const api = {
-  getMe: () => pedir<Usuario>("/users/me"),
   getSyncToken: () => pedir<CredencialesSync>("/sync/token"),
-  updateMe: (data: PrefsUpdate) =>
-    pedir<Usuario>("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
   // Trae la cotizacion de cada moneda del usuario contra su moneda base. Es
   // idempotente por fecha (la fuente publica una por dia), asi que es seguro
   // llamarlo al abrir la app.

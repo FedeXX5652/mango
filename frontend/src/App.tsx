@@ -65,6 +65,13 @@ function Rutas() {
 function DisparadorInicio() {
   const db = usePowerSync()
   useEffect(() => {
+    // Mano para verificar la sincronizacion desde la consola del navegador:
+    // `__db.getAll("SELECT count(*) FROM accounts")`. Una tabla que dejo de
+    // sincronizar se ve igual que una tabla vacia, y esta es la unica forma de
+    // distinguirlas sin adivinar. Solo en desarrollo.
+    if (import.meta.env.DEV) {
+      ;(window as unknown as { __db?: unknown }).__db = db
+    }
     generarVencidas(db).catch((e) => {
       // No se traga el error: si la generacion falla, las recurrentes dejan de
       // aparecer y desde afuera parece que no habia nada vencido.

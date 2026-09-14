@@ -437,6 +437,30 @@ Cada fila tiene tres zonas:
 Es la **misma lista en movil y escritorio** (solo cambia el ancho): mantener una
 sola presentacion evita dos verdades sobre el mismo dato.
 
+### Elegir una opcion: chips, lista o desplegable
+
+Tres controles, y cual va depende de **que** se elige, no de cuantos hay:
+
+- **Hasta 4 opciones fijas de una palabra** (Gasto/Ingreso/Transferencia,
+  Dia/Semana/Mes/Año): `Segmentado`. Se ven todas sin abrir nada.
+- **Entidades** —cuentas, categorias, medios, etiquetas, monedas, plantillas—:
+  **`SelectorEntidad`**, una lista en una `Hoja`. Las creas vos, la lista crece, y
+  cada opcion lleva mas que un nombre: la cuenta su moneda, la categoria su icono
+  y su jerarquia. El `<select>` nativo no puede dibujar nada de eso y terminabas
+  simulandolo con texto ("Padre › Hija").
+- **El resto**: `<select>` nativo. Quedan los filtros, donde se cambia rapido y
+  seguido, y abrir un panel por cada uno seria peor.
+
+**El desplegable de un `<select>` no se puede estilar**: lo dibuja el sistema
+operativo. Existe `appearance: base-select` para eso, pero todavia no funciona en
+varios navegadores muy usados. En el telefono no importa —el nativo abre la rueda
+de iOS o el dialogo de Android, que se ven bien—; en escritorio desentona con
+todo lo demas. Por eso las listas largas las dibujamos nosotros.
+
+El disparador de `SelectorEntidad` usa **los mismos tokens que `ui/select`**: en
+un formulario tiene que verse como un campo mas. Lo unico distinto es la flecha,
+y a proposito: `›` abre un panel, `▾` despliega en el lugar.
+
 ### Presentacion modal: `Hoja`
 
 Un unico componente decide la presentacion segun el layout (nunca se copia y

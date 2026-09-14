@@ -130,7 +130,13 @@ function Tecla({
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const variant = variante === "igual" ? "default" : variante === "op" ? "secondary" : "outline"
   return (
-    <Button type="button" variant={variant} className="h-12 w-full font-mono text-lg" onClick={onClick} {...props}>
+    <Button
+      type="button"
+      variant={variant}
+      className="h-12 w-full font-mono text-lg"
+      onClick={onClick}
+      {...props}
+    >
       {children}
     </Button>
   )

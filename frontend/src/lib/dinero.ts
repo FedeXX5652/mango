@@ -8,14 +8,10 @@
 // La direccion (gasto/ingreso) la comunica el signo, nunca solo el color
 // (DESIGN.md 3, advertencia de accesibilidad).
 
-// Locale unico por ahora. `users.locale` existe en el esquema; cuando se use,
-// entra por aca. El armado de `<Monto>` asume simbolo antes del numero, que es
-// lo que hace es-AR.
+// Locale unico. Hubo una columna `users.locale` y se borro: nadie la leia y
+// todo esta en es-AR. Si algun dia hace falta que sea configurable, entra por
+// aca. El armado de `<Monto>` asume simbolo antes del numero, que es lo de es-AR.
 const LOCALE = "es-AR"
-
-// Intl separa con espacio no-separable (U+00A0). Se normaliza para que el texto
-// sea estable en pruebas y en el DOM.
-const NBSP = / /g
 
 // Moneda base: la del usuario (`users.base_currency`). La configura una sola vez
 // el proveedor de moneda base al arrancar (hooks/monedaBase.tsx); las funciones
@@ -57,7 +53,7 @@ export function decimalesDe(moneda: string): number {
   const cur = moneda.toUpperCase()
   const guardado = cacheDecimales.get(cur)
   if (guardado !== undefined) return guardado
-  let dec = 2
+  let dec: number
   try {
     dec =
       new Intl.NumberFormat(LOCALE, { style: "currency", currency: cur }).resolvedOptions()
@@ -149,7 +145,11 @@ function descomponer(centavos: number, moneda: string, direccion: Direccion): Pa
       .filter((p) => tipos.includes(p.type))
       .map((p) => p.value)
       .join("")
-      .replace(NBSP, " ")
+  // `Intl` separa el simbolo del numero con un espacio no-separable (U+00A0).
+  // Lo saca el `trim()`, y el texto final se arma con un espacio comun en
+  // `armar()`: asi el resultado es estable en pruebas y en el DOM. Hubo un
+  // `.replace()` explicito para esto y era codigo muerto —el trim llegaba
+  // primero—; la prueba de "no queda ningun U+00A0" cuida el invariante.
   const simbolo = tomar("currency").trim()
   const entero = tomar("integer", "group").trim()
   const fraccion = tomar("fraction")

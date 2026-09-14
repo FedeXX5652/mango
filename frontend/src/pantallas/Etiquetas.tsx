@@ -63,7 +63,8 @@ export function Etiquetas() {
     setAccion({ tipo: "eliminar", e })
   }
   function alArchivar(e: Etiqueta) {
-    if (e.archived) archivar(e, 0) // desarchivar es reversible: directo
+    if (e.archived)
+      archivar(e, 0) // desarchivar es reversible: directo
     else setAccion({ tipo: "archivar", e })
   }
 
@@ -117,7 +118,12 @@ export function Etiquetas() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/ajustes")} aria-label="Volver">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/ajustes")}
+          aria-label="Volver"
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-xl font-semibold">Etiquetas</h1>
