@@ -5,6 +5,20 @@ description: Como se crea y aplica una migracion de base de datos en este proyec
 
 # Crear una migracion
 
+## Antes que nada: ¿rompe a un cliente viejo?
+
+La app es local-first: hay escrituras en la cola que un cliente **una version
+atras** va a subir contra el servidor **nuevo**. Antes de tocar el esquema,
+mirar la decision **0012**:
+
+- **Aditivo** (columna opcional con default, sacar una columna, aflojar una
+  validacion): se hace en un paso.
+- **No aditivo** (renombrar, columna obligatoria nueva, apretar validacion,
+  indice unico nuevo): va en dos releases, **expandir y contraer**. No en uno.
+
+Regla dura: **un campo nunca cambia de significado; si cambia, es un nombre
+nuevo.**
+
 ## Reglas del esquema
 
 Toda tabla nueva lleva, sin excepcion:
@@ -40,7 +54,12 @@ dinero.**
 
 ## Si la tabla se sincroniza a los dispositivos
 
-Agregarla tambien a la configuracion de PowerSync en
-`infra/powersync/sync-rules.yaml`, con la regla de que filas ve cada usuario.
+Cuatro cosas en el **mismo** deploy, o la tabla no llega y el cliente pierde su
+copia local en el proximo checkpoint:
 
-Una tabla que no este ahi no llega a los clientes.
+1. La migracion (esto).
+2. La consulta en `infra/powersync/sync-config.yaml`, filtrando por
+   `auth.user_id()` como las demas (ver 0009).
+3. **Reiniciar PowerSync** (`docker compose restart powersync`): lee el archivo
+   al arrancar.
+4. La tabla en el `AppSchema` del cliente (`frontend/src/lib/powersync/esquema.ts`).
