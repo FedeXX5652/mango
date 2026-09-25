@@ -93,6 +93,26 @@ que cambió de unidad. Por eso la regla es innegociable.
   archivo al arrancar) y el `AppSchema` del cliente. Una tabla que no esté en las
   cuatro no llega, y el cliente pierde su copia local en el próximo checkpoint.
 
+## Cómo se verifica: el banco de compatibilidad
+
+Que un cliente viejo siga subiendo bien no se confía a la disciplina sola: se
+prueba. En dos caras.
+
+**Payloads (todos los días, en `make test`).** Lo que rompe en un deploy es la
+FORMA del JSON que el cliente manda, no el cliente entero. `tests/compat/` guarda
+fixtures con esa forma —secuencias auto-contenidas de escrituras, tal cual las
+arma el conector— y las reproduce contra la API de hoy afirmando que entran.
+Hoy hay uno, el baseline. Cuando llegue un cambio no aditivo, se agrega el
+fixture con la forma vieja y una prueba de que el servidor nuevo lo acepta (cara
+"expandir") o que el normalizador lo traduce. Verificado: un campo obligatorio
+nuevo pone el banco en rojo con 422.
+
+**Cliente entero (manual, raro).** `scripts/banco-compat.mjs <git-ref>` compila
+y sirve el frontend de una version anterior apuntando a la API de hoy. Es para
+lo que los payloads no cubren: sobre todo la migracion de la base local que hace
+PowerSync cuando cambia el `AppSchema`. Se corre a mano cuando un cambio lo
+amerita.
+
 ## Consecuencias
 
 - Los cambios aditivos son la mayoría y no necesitan ceremonia: se despliega y
