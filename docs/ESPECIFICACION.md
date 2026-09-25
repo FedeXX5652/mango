@@ -966,8 +966,12 @@ sugerencias con IA. Integracion con n8n.
 
 ### Fase 3 - Multiusuario y compartido
 
-Registro, autenticacion, grupos familiares, visibilidad por transaccion,
-reportes del grupo, presupuestos compartidos.
+**Fase 3a (autenticacion): HECHA.** Login con username + clave (Argon2id),
+sesion hasta cerrar sesion, reset por CLI del admin, y el PIN del dispositivo
+conviviendo con el login de servidor. El detalle y las decisiones estan en la
+**decision 0013**. Falta la **3b**: grupos familiares, visibilidad por
+transaccion, reportes y presupuestos del grupo, sobre la particion de la sync
+que ya existe (0009).
 
 **Sin correo electronico**: la identidad es un **nombre de usuario** y una clave.
 El mail sirve para probar que sos dueño de una direccion, que importa cuando

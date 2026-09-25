@@ -20,8 +20,15 @@ from app.models._base import IdMixin, TimestampMixin
 class User(Base, IdMixin, TimestampMixin):
     __tablename__ = "users"
 
-    email: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    # `username` reemplaza a `email` como identidad de login (fase 3a). Renombre
+    # por expandir/contraer (0012): se agrega y se rellena desde `email`, que
+    # queda opcional hasta el release que lo borre. El login usa `username`.
+    username: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    email: Mapped[str | None] = mapped_column(Text, unique=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    # true = clave temporal puesta por el admin; el cliente obliga a cambiarla
+    # antes de hacer nada (reset sin mail, ver ESPECIFICACION §7).
+    must_change_password: Mapped[bool] = mapped_column(nullable=False, server_default=text("false"))
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     base_currency: Mapped[str] = mapped_column(
         CHAR(3), nullable=False, server_default=text("'ARS'")

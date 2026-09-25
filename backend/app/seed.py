@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.seguridad import hashear
 from app.db import SessionLocal
 from app.models.category import Category
 from app.models.user import User
@@ -38,10 +39,12 @@ async def seed_default_user(session: AsyncSession) -> User:
     if user is None:
         user = User(
             id=settings.seed_user_id,
+            username=settings.seed_user_username,
             email=settings.seed_user_email,
-            # El acceso se controla con el PIN del cliente; no hay password de
-            # servidor en fase 1. Placeholder no usable como hash.
-            password_hash="!",
+            # Clave temporal + must_change: se entra con ella y el cliente
+            # obliga a cambiarla antes de hacer nada (fase 3a, ver §7).
+            password_hash=hashear(settings.seed_user_password),
+            must_change_password=True,
             display_name=settings.seed_user_name,
         )
         session.add(user)

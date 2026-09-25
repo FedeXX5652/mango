@@ -5,10 +5,12 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 import { api } from "@/lib/api"
 import { generarVencidas } from "@/lib/generar"
 import { ProveedorBloqueo } from "@/hooks/bloqueo"
+import { ProveedorSesion } from "@/hooks/sesion"
 import { ProveedorMonedaBase } from "@/hooks/monedaBase"
 import { ProveedorTema } from "@/hooks/tema"
 import { useLayout } from "@/hooks/useLayout"
 import { ProveedorPowerSync } from "@/lib/powersync/proveedor"
+import { Sesion } from "@/componentes/Sesion"
 import { LayoutEscritorio } from "@/layouts/escritorio/LayoutEscritorio"
 import { LayoutMovil } from "@/layouts/movil/LayoutMovil"
 import { Rechazados } from "@/pantallas/Rechazados"
@@ -88,14 +90,20 @@ export function App() {
   return (
     <BrowserRouter>
       <ProveedorTema>
-        <ProveedorMonedaBase>
-          <ProveedorBloqueo>
-            <ProveedorPowerSync>
-              <DisparadorInicio />
-              <Rutas />
-            </ProveedorPowerSync>
-          </ProveedorBloqueo>
-        </ProveedorMonedaBase>
+        <ProveedorSesion>
+          {/* Sesión primero: sin login no se monta PowerSync ni se ve un dato.
+              Después el PIN (lock de dispositivo), después la sync. */}
+          <Sesion>
+            <ProveedorMonedaBase>
+              <ProveedorBloqueo>
+                <ProveedorPowerSync>
+                  <DisparadorInicio />
+                  <Rutas />
+                </ProveedorPowerSync>
+              </ProveedorBloqueo>
+            </ProveedorMonedaBase>
+          </Sesion>
+        </ProveedorSesion>
       </ProveedorTema>
     </BrowserRouter>
   )

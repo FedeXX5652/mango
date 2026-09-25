@@ -1,4 +1,4 @@
-import { useQuery } from "@powersync/react"
+import { usePowerSync, useQuery } from "@powersync/react"
 import {
   Check,
   AlertTriangle,
@@ -16,6 +16,7 @@ import { Link } from "react-router-dom"
 
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
+import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Segmentado } from "@/componentes/ui/segmentado"
@@ -27,6 +28,7 @@ import { descargarTexto } from "@/lib/descargar"
 import { type RangoExport, nombreExport, parametrosExport, tieneFilas } from "@/lib/exportar"
 import { type ColorScheme, useTema } from "@/hooks/tema"
 import { useBloqueo } from "@/hooks/bloqueo"
+import { useSesion } from "@/hooks/sesion"
 import {
   activarBiometria,
   biometriaActivada,
@@ -54,6 +56,9 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
 export function Ajustes() {
   const { temaId, colorScheme, setTema, setColorScheme } = useTema()
   const { bloquear } = useBloqueo()
+  const { salir } = useSesion()
+  const db = usePowerSync()
+  const [confirmarSalir, setConfirmarSalir] = useState(false)
   const [bioDisponible, setBioDisponible] = useState(false)
   const [bioActiva, setBioActiva] = useState(biometriaActivada())
   const [mostrarExport, setMostrarExport] = useState(false)
@@ -190,7 +195,31 @@ export function Ajustes() {
         <Button variant="secondary" className="w-full" onClick={bloquear}>
           Bloquear ahora
         </Button>
+        {/* Cerrar sesión: distinto de bloquear. Bloquear pide el PIN; esto
+            cierra la sesión de servidor y borra los datos locales, así que para
+            volver hace falta la clave. `disconnectAndClear` no deja rastro de
+            la sesión anterior en el dispositivo. */}
+        <Button
+          variant="ghost"
+          className="w-full text-destructive"
+          onClick={() => setConfirmarSalir(true)}
+        >
+          Cerrar sesión
+        </Button>
       </Seccion>
+
+      <Confirmar
+        abierta={confirmarSalir}
+        onOpenChange={setConfirmarSalir}
+        titulo="Cerrar sesión"
+        detalle="Se borran los datos de este dispositivo y vas a tener que volver a entrar con tu usuario y clave. Lo que ya se sincronizó no se pierde."
+        etiqueta="Cerrar sesión"
+        destructivo
+        onConfirmar={async () => {
+          await db.disconnectAndClear()
+          salir()
+        }}
+      />
     </div>
   )
 }

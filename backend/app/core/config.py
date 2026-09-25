@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     seed_user_id: uuid.UUID = uuid.UUID("00000000-0000-0000-0000-000000000001")
     seed_user_email: str = "yo@mango.local"
     seed_user_name: str = "Yo"
+    # Identidad de login del usuario semilla (fase 3a). En una instalacion nueva,
+    # el seed crea la cuenta con esta clave temporal y `must_change_password`:
+    # se entra con ella y hay que cambiarla de una. Cambiar el default por env.
+    seed_user_username: str = "yo"
+    seed_user_password: str = "mango"
 
     # PowerSync: la API emite JWT HS256 que el servicio valida. El secreto es la
     # misma clave (base64url) que va en el JWK 'oct' de service.yaml.

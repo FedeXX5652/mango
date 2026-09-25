@@ -70,8 +70,8 @@ async def test_other_users_category_is_404(api: SimpleNamespace) -> None:
     other_cat = uuid.uuid4()
     await api.session.execute(
         text(
-            "INSERT INTO users (id, email, password_hash, display_name) "
-            "VALUES (:id, :email, 'x', 'Otro')"
+            "INSERT INTO users (id, username, email, password_hash, display_name) "
+            "VALUES (:id, :email, :email, 'x', 'Otro')"
         ),
         {"id": other_user, "email": f"{other_user}@test.local"},
     )

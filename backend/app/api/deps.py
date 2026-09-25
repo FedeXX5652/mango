@@ -1,35 +1,57 @@
 """Dependencias compartidas de la API.
 
-Fase 1: un solo usuario, sin auth de servidor. `get_current_user` resuelve
-siempre al usuario semilla. Cuando llegue la auth real (fase 3), se cambia
-aca sin tocar los endpoints que dependen de esto.
+Fase 3a: auth real. El cliente manda `Authorization: Bearer <token>` con la
+sesion que le dio el login; estas dependencias lo leen y resuelven el usuario.
+Sin token valido, 401.
+
+Las pruebas de la API sobreescriben `get_current_user_id`/`get_current_user`
+enteras (ver conftest), asi que no mandan token: ese camino solo lo ejercitan
+las pruebas de auth.
 """
 
 import uuid
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
+from app.core.sesion import leer_sesion
 from app.db import get_session
 from app.models.user import User
 
+_NO_AUTORIZADO = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="No autenticado",
+    headers={"WWW-Authenticate": "Bearer"},
+)
 
-def get_current_user_id() -> uuid.UUID:
-    """El owner de todo lo que se crea en fase 1. No toca la base."""
-    return settings.seed_user_id
+
+def _token_de(authorization: str | None) -> str:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise _NO_AUTORIZADO
+    return authorization[7:].strip()
 
 
-async def get_current_user(session: AsyncSession = Depends(get_session)) -> User:
-    """El usuario semilla, cargado de la base.
+def get_current_user_id(authorization: str | None = Header(default=None)) -> uuid.UUID:
+    """Id del usuario de la sesion. No toca la base: sirve para los endpoints
+    que solo necesitan el owner (la mayoria de las escrituras)."""
+    user_id = leer_sesion(_token_de(authorization))
+    if user_id is None:
+        raise _NO_AUTORIZADO
+    return user_id
 
-    Si falta, es un error de arranque (no se corrio la semilla), no del cliente:
-    503, no 401.
-    """
-    user = await session.get(User, settings.seed_user_id)
+
+async def get_current_user(
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> User:
+    """El usuario de la sesion, cargado de la base. Para lo que necesita mas que
+    el id (cambiar la clave, leer `must_change_password`)."""
+    user_id = leer_sesion(_token_de(authorization))
+    if user_id is None:
+        raise _NO_AUTORIZADO
+    user = await session.get(User, user_id)
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Usuario semilla ausente. Corre: python -m app.seed",
-        )
+        # Token valido de un usuario que ya no existe (borrado). No es 503: es
+        # una sesion que dejo de valer.
+        raise _NO_AUTORIZADO
     return user

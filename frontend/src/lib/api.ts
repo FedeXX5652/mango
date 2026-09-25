@@ -6,8 +6,17 @@
 // solo: las preferencias del usuario (`users` no se sincroniza), el token de
 // sync, el CSV y el refresco de cotizaciones, que sale a una API publica.
 
+import { borrarToken, tokenActual } from "@/lib/sesion"
+
 export const API_BASE = (import.meta.env.VITE_API_URL ?? "http://localhost:8000").replace(/\/$/, "")
 const BASE = API_BASE
+
+// Cabeceras con el Bearer de la sesión, si hay. Todo lo que llama a la API pasa
+// por acá para no olvidarse el token en ningún lado.
+function conAuth(extra: Record<string, string> = {}): Record<string, string> {
+  const token = tokenActual()
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra
+}
 
 // Error de API con el status y el detalle (para mostrar el 422 de dominio).
 export class ApiError extends Error {
@@ -22,9 +31,15 @@ export class ApiError extends Error {
 
 async function pedir<T>(path: string, init?: RequestInit): Promise<T> {
   const resp = await fetch(`${BASE}/api/v1${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: conAuth({ "Content-Type": "application/json", ...(init?.headers as object) }),
   })
+  // 401: la sesión no vale más (vencida, revocada, esquema nuevo). Se borra el
+  // token; el proveedor de sesión reacciona y manda a login. No aplica al
+  // propio login, que maneja su 401 como "credenciales mal".
+  if (resp.status === 401 && !path.startsWith("/auth/login")) {
+    borrarToken()
+  }
   if (!resp.ok) {
     let detalle = `Error ${resp.status}`
     try {
@@ -54,7 +69,24 @@ export interface ResultadoCotizaciones {
   fallidas: string[]
 }
 
+export interface ResultadoLogin {
+  token: string
+  must_change_password: boolean
+}
+
 export const api = {
+  // Login: devuelve el token de sesión. Su 401 es "credenciales incorrectas",
+  // no "sesión vencida", así que no borra nada (lo maneja quien llama).
+  login: (username: string, password: string) =>
+    pedir<ResultadoLogin>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    }),
+  cambiarClave: (actual: string, nueva: string) =>
+    pedir<void>("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ actual, nueva }),
+    }),
   getSyncToken: () => pedir<CredencialesSync>("/sync/token"),
   // Trae la cotizacion de cada moneda del usuario contra su moneda base. Es
   // idempotente por fecha (la fuente publica una por dia), asi que es seguro
@@ -67,7 +99,10 @@ export const api = {
   // asi que necesita conexion. Devuelve el texto crudo, no JSON.
   exportarCsv: async (params: Record<string, string>): Promise<string> => {
     const qs = new URLSearchParams(params).toString()
-    const resp = await fetch(`${BASE}/api/v1/transactions/export${qs ? `?${qs}` : ""}`)
+    const resp = await fetch(`${BASE}/api/v1/transactions/export${qs ? `?${qs}` : ""}`, {
+      headers: conAuth(),
+    })
+    if (resp.status === 401) borrarToken()
     if (!resp.ok) throw new ApiError(resp.status, `Error ${resp.status}`)
     return await resp.text()
   },

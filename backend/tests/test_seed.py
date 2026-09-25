@@ -1,14 +1,17 @@
-"""Usuario semilla y dependencia current_user (Inc 2)."""
+"""Usuario semilla y siembra de categorías (Inc 2, actualizado en fase 3a).
+
+La auth por token (login, `get_current_user` con Bearer) se prueba en
+`tests/api/test_auth.py`: este archivo cubre solo la siembra.
+"""
 
 import uuid
 
 import pytest
-from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_current_user_id
 from app.core.config import settings
+from app.core.seguridad import verificar
 from app.models.category import Category
 from app.models.user import User
 from app.seed import seed_default_categories, seed_default_user
@@ -27,36 +30,35 @@ async def test_seed_is_idempotent(session: AsyncSession) -> None:
     assert count == 1
 
 
-async def test_get_current_user_returns_seed(session: AsyncSession) -> None:
-    await seed_default_user(session)
-    user = await get_current_user(session)
-    assert user.id == settings.seed_user_id
-    assert user.email == settings.seed_user_email
-
-
-async def test_get_current_user_missing_raises(
+async def test_seed_user_arranca_con_clave_temporal(
     session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Apunto el id semilla a uno inexistente en vez de borrar el real (que ya
-    # tiene datos que lo referencian por FK).
+    # El semilla nace con username, clave temporal usable y must_change: se
+    # entra y el cliente obliga a cambiarla (fase 3a).
+    #
+    # Se apunta el id a uno fresco: el semilla real ya existe en la DB de dev
+    # (creado en fase 1) y `seed_default_user` lo devolveria tal cual, sin la
+    # clave nueva. `users` no tiene owner_id, asi que el fixture no lo aisla.
     monkeypatch.setattr(settings, "seed_user_id", uuid.uuid4())
-    try:
-        await get_current_user(session)
-    except HTTPException as exc:
-        assert exc.status_code == 503
-    else:
-        raise AssertionError("se esperaba HTTPException 503")
-
-
-def test_get_current_user_id_is_stable() -> None:
-    assert get_current_user_id() == settings.seed_user_id
+    monkeypatch.setattr(settings, "seed_user_username", f"seed-{uuid.uuid4()}")
+    monkeypatch.setattr(settings, "seed_user_email", f"{uuid.uuid4()}@test.local")
+    user = await seed_default_user(session)
+    assert user.username == settings.seed_user_username
+    assert user.must_change_password is True
+    assert verificar(settings.seed_user_password, user.password_hash)
 
 
 async def test_seed_categories_idempotent(session: AsyncSession) -> None:
     # Usuario fresco: el arbol no depende del estado de la DB de dev.
     owner = uuid.uuid4()
     session.add(
-        User(id=owner, email=f"{owner}@test.local", password_hash="!", display_name="Fresh")
+        User(
+            id=owner,
+            username=f"fresh-{owner}",
+            email=f"{owner}@test.local",
+            password_hash="!",
+            display_name="Fresh",
+        )
     )
     await session.flush()
 
