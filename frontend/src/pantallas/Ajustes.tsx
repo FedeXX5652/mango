@@ -1,6 +1,7 @@
 import { useQuery } from "@powersync/react"
 import {
   Check,
+  AlertTriangle,
   Coins,
   CreditCard,
   Download,
@@ -56,6 +57,8 @@ export function Ajustes() {
   const [bioDisponible, setBioDisponible] = useState(false)
   const [bioActiva, setBioActiva] = useState(biometriaActivada())
   const [mostrarExport, setMostrarExport] = useState(false)
+  const { data: rech } = useQuery<{ n: number }>("SELECT count(*) AS n FROM subidas_rechazadas")
+  const nRechazadas = rech[0]?.n ?? 0
 
   useEffect(() => {
     biometriaDisponible().then(setBioDisponible)
@@ -98,6 +101,27 @@ export function Ajustes() {
           ))}
         </div>
       </Seccion>
+
+      {nRechazadas > 0 && (
+        <Seccion titulo="Sincronización">
+          <Link
+            to="/rechazados"
+            className="flex w-full items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-left transition-colors hover:bg-destructive/10"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/15 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">
+                {nRechazadas} cambio{nRechazadas === 1 ? "" : "s"} sin guardar
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                El servidor los rechazó. Tocá para reintentar o descartar.
+              </span>
+            </span>
+          </Link>
+        </Seccion>
+      )}
 
       <Seccion titulo="Moneda">
         <CambiarMonedaBase />

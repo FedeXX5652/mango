@@ -11,6 +11,7 @@ import { useLayout } from "@/hooks/useLayout"
 import { ProveedorPowerSync } from "@/lib/powersync/proveedor"
 import { LayoutEscritorio } from "@/layouts/escritorio/LayoutEscritorio"
 import { LayoutMovil } from "@/layouts/movil/LayoutMovil"
+import { Rechazados } from "@/pantallas/Rechazados"
 import { Ajustes } from "@/pantallas/Ajustes"
 import { Alta } from "@/pantallas/Alta"
 import { Categorias } from "@/pantallas/Categorias"
@@ -39,6 +40,7 @@ function Rutas() {
         <Route path="movimientos/:id" element={<DetalleMovimiento />} />
         <Route path="estadisticas" element={<Estadisticas />} />
         <Route path="ajustes" element={<Ajustes />} />
+        <Route path="rechazados" element={<Rechazados />} />
         <Route path="cuentas" element={<Cuentas />} />
         <Route path="categorias" element={<Categorias />} />
         <Route path="medios" element={<MediosPago />} />

@@ -97,10 +97,30 @@ function horaCorta(iso: string): string {
 
 function EstadoSync() {
   const status = useStatus()
+  const navigate = useNavigate()
   // `status.connected` solo no alcanza: tarda demasiado en enterarse de que se
   // corto la red y el indicador se queda diciendo "Al día" sin serlo. Ver
   // hooks/conexion.
   const hayConexion = useConexion()
+  // Rechazadas: reactivo, es una tabla local normal. Si hay, es lo mas urgente
+  // que puede decir el indicador, y se toca para ir a resolverlas (ver 0011).
+  const { data: rechazadas } = useQuery<{ n: number }>(
+    "SELECT count(*) AS n FROM subidas_rechazadas",
+  )
+  const nRechazadas = rechazadas[0]?.n ?? 0
+
+  if (nRechazadas > 0) {
+    return (
+      <button
+        type="button"
+        onClick={() => navigate("/rechazados")}
+        className="text-xs font-medium text-destructive underline-offset-2 hover:underline"
+      >
+        {nRechazadas} no se {nRechazadas === 1 ? "guardó" : "guardaron"}
+      </button>
+    )
+  }
+
   const texto = !hayConexion
     ? "Sin conexión"
     : status.dataFlowStatus.downloading || status.dataFlowStatus.uploading

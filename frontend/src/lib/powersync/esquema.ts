@@ -207,6 +207,25 @@ const users = new Table({
   fx_manual: column.text,
 })
 
+// Subidas que el servidor rechazo con un 4xx. `localOnly`: vive solo en este
+// dispositivo, no sincroniza ni genera entradas en la cola. Es la red de
+// seguridad de la escritura local — sin esto, un rechazo se descarta y el dato
+// desaparece sin dejar rastro (ver 0011).
+//
+// `datos` es el payload original en JSON (texto): guarda lo que se quiso subir
+// para poder reintentarlo o transformarlo mas adelante.
+const subidas_rechazadas = new Table(
+  {
+    tabla: column.text,
+    op: column.text,
+    fila_id: column.text,
+    datos: column.text,
+    motivo: column.text,
+    rechazada_en: column.text,
+  },
+  { localOnly: true, indexes: { por_fecha: ["rechazada_en"] } },
+)
+
 export const AppSchema = new Schema({
   accounts,
   categories,
@@ -221,6 +240,7 @@ export const AppSchema = new Schema({
   recurring_rules,
   exchange_rates,
   users,
+  subidas_rechazadas,
 })
 
 export type BaseDatos = (typeof AppSchema)["types"]
