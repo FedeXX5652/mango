@@ -68,6 +68,67 @@ services:
       timeout: 2s
       retries: 15
 
+  # API de la app. Migra y siembra al arrancar (docker-entrypoint.sh).
+  backend:
+    build:
+      context: ../backend
+    container_name: mango-backend
+    profiles: ["app"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Dentro de docker la base es `postgres`, no localhost, y async.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mango}:${POSTGRES_PASSWORD:-cambiar}@postgres:5432/${POSTGRES_DB:-mango}
+      # Mismo secreto que firma PowerSync: la API emite los JWT, PowerSync los valida.
+      POWERSYNC_JWT_SECRET: ${POWERSYNC_JWT_SECRET}
+      POWERSYNC_JWT_AUDIENCE: ${POWERSYNC_JWT_AUDIENCE:-powersync}
+      # La dirección de PowerSync que la API le devuelve al cliente: la que ve el
+      # navegador, no la DNS interna.
+      POWERSYNC_URL: ${PUBLIC_POWERSYNC_URL:-http://localhost:8080}
+      # Orígenes permitidos para CORS: de dónde se sirve la PWA. JSON.
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:8081"]}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  # PWA servida estática con nginx. La URL de la API se hornea en el build (ver
+  # frontend/Dockerfile): es la que ve el navegador.
+  frontend:
+    profiles: ["app"]
+    build:
+      context: ../frontend
+      args:
+        VITE_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+        VITE_POWERSYNC_URL: ${PUBLIC_POWERSYNC_URL:-http://localhost:8080}
+    container_name: mango-frontend
+    ports:
+      - "8081:80"
+
+  # Respaldo de la base de la app. SOLO `mango`: la de powersync-storage es cache
+  # derivada (se reconstruye sola desde `mango`) y no se respalda. pg_dump diario,
+  # comprimido, con retención por dias (RETENTION_DAYS).
+  backup:
+    image: postgres:16
+    container_name: mango-backup
+    profiles: ["app"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-cambiar}
+      RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - mango-backups:/backups
+      - ./backup.sh:/backup.sh:ro
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    restart: unless-stopped
+
 volumes:
   mango-pgdata:
   mango-powersync-storage:
+  mango-backups:
