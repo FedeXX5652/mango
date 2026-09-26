@@ -55,6 +55,9 @@ const payment_methods = new Table({
   kind: column.text,
   last4: column.text,
   brand: column.text,
+  // Tarjetas de credito: dia de cierre y de vencimiento (fase 5).
+  closing_day: column.integer,
+  due_day: column.integer,
   default_account_id: column.text,
   sort_order: column.integer,
   archived: column.integer,
@@ -299,6 +302,55 @@ const group_members = new Table(
   { indexes: { por_grupo: ["group_id"] } },
 )
 
+// Metas de ahorro (fase 5). El progreso es el saldo de la cuenta asociada.
+const goals = new Table({
+  owner_id: column.text,
+  group_id: column.text,
+  name: column.text,
+  target_amount: column.integer,
+  currency: column.text,
+  target_date: column.text,
+  account_id: column.text,
+  archived: column.integer,
+  created_at: column.text,
+  updated_at: column.text,
+  deleted_at: column.text,
+})
+
+// Deudas y prestamos fuera de un grupo (fase 5).
+const debts = new Table({
+  owner_id: column.text,
+  group_id: column.text,
+  direction: column.text,
+  counterparty: column.text,
+  counterparty_user_id: column.text,
+  description: column.text,
+  amount: column.integer,
+  currency: column.text,
+  amount_settled: column.integer,
+  due_date: column.text,
+  settled_at: column.text,
+  created_at: column.text,
+  updated_at: column.text,
+  deleted_at: column.text,
+})
+
+// Adjuntos: SOLO metadata (fase 5). El binario se sube/baja por la API, no por
+// la sync; el cliente no escribe esta tabla (no va en el conector).
+const attachments = new Table(
+  {
+    transaction_id: column.text,
+    owner_id: column.text,
+    filename: column.text,
+    mime_type: column.text,
+    size_bytes: column.integer,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
+  },
+  { indexes: { por_movimiento: ["transaction_id"] } },
+)
+
 // Avisos in-app (fase 3b, ver 0019). Solo LECTURA + marcar leido: los crea el
 // servidor y bajan por `mio`. El cliente solo escribe read_at (PATCH).
 const notifications = new Table(
@@ -354,6 +406,9 @@ export const AppSchema = new Schema({
   groups,
   group_members,
   notifications,
+  goals,
+  debts,
+  attachments,
   subidas_rechazadas,
 })
 

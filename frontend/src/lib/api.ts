@@ -106,6 +106,36 @@ export const api = {
   quitarMiembro: (groupId: string, userId: string) =>
     pedir<void>(`/groups/${groupId}/members/${userId}`, { method: "DELETE" }),
   getSyncToken: () => pedir<CredencialesSync>("/sync/token"),
+  // Adjuntos (fase 5): el binario va/viene por la API, no por la sync. La
+  // metadata (fila) baja por PowerSync; aca solo subimos, bajamos y borramos.
+  subirAdjunto: async (txId: string, file: File): Promise<{ id: string }> => {
+    const fd = new FormData()
+    fd.append("file", file)
+    const resp = await fetch(`${BASE}/api/v1/transactions/${txId}/attachments`, {
+      method: "POST",
+      headers: conAuth(), // sin Content-Type: el navegador pone el boundary
+      body: fd,
+    })
+    if (resp.status === 401) borrarToken()
+    if (!resp.ok) {
+      let detalle = `Error ${resp.status}`
+      try {
+        const c = await resp.json()
+        if (typeof c.detail === "string") detalle = c.detail
+      } catch {
+        /* sin JSON */
+      }
+      throw new ApiError(resp.status, detalle)
+    }
+    return await resp.json()
+  },
+  borrarAdjunto: (id: string) => pedir<void>(`/attachments/${id}`, { method: "DELETE" }),
+  // Trae el binario como object URL (con auth). El que lo use debe revocarlo.
+  urlAdjunto: async (id: string): Promise<string> => {
+    const resp = await fetch(`${BASE}/api/v1/attachments/${id}/file`, { headers: conAuth() })
+    if (!resp.ok) throw new ApiError(resp.status, `Error ${resp.status}`)
+    return URL.createObjectURL(await resp.blob())
+  },
   // Trae la cotizacion de cada moneda del usuario contra su moneda base. Es
   // idempotente por fecha (la fuente publica una por dia), asi que es seguro
   // llamarlo al abrir la app.

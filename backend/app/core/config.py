@@ -60,5 +60,11 @@ class Settings(BaseSettings):
     powersync_jwt_secret: str = ""
     powersync_jwt_audience: str = "powersync"
 
+    # Adjuntos (fase 5): los binarios se guardan en disco (no en la base ni en la
+    # sync). Solo viaja la metadata. Directorio relativo al cwd del backend.
+    attachments_dir: str = "./storage/attachments"
+    # Tope de tamaño por adjunto (10 MB): una foto de ticket no pesa mas.
+    attachments_max_bytes: int = 10 * 1024 * 1024
+
 
 settings = Settings()

@@ -3,6 +3,7 @@ import { ArrowLeft, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 
+import { Adjuntos } from "@/componentes/Adjuntos"
 import { CompartirCon } from "@/componentes/CompartirCon"
 import { EditorSplit, type ParteSplit, type ValorSplit } from "@/componentes/EditorSplit"
 import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
@@ -354,6 +355,8 @@ export function DetalleMovimiento() {
       <Campo etiqueta="Etiquetas">
         <SelectorEtiquetas seleccionadas={etiquetas} onCambio={setEtiquetas} />
       </Campo>
+
+      <Adjuntos transactionId={tx.id} />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 

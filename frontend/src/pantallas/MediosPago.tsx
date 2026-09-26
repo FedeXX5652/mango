@@ -22,6 +22,8 @@ interface Medio {
   kind: string
   last4: string | null
   brand: string | null
+  closing_day: number | null
+  due_day: number | null
   archived: number
 }
 
@@ -38,7 +40,7 @@ export function MediosPago() {
   const navigate = useNavigate()
   const db = usePowerSync()
   const { data: medios } = useQuery<Medio>(
-    "SELECT id, name, kind, last4, brand, archived FROM payment_methods WHERE deleted_at IS NULL ORDER BY archived, sort_order, created_at",
+    "SELECT id, name, kind, last4, brand, closing_day, due_day, archived FROM payment_methods WHERE deleted_at IS NULL ORDER BY archived, sort_order, created_at",
   )
   const { data: enUsoRows } = useQuery<{ id: string }>(
     `SELECT payment_method_id AS id FROM transactions WHERE deleted_at IS NULL AND payment_method_id IS NOT NULL
@@ -104,6 +106,8 @@ export function MediosPago() {
           <p className="truncate text-xs text-muted-foreground">
             {KINDS[m.kind] ?? m.kind}
             {m.brand ? ` · ${m.brand}` : ""}
+            {m.kind === "credit_card" && m.closing_day ? ` · cierra ${m.closing_day}` : ""}
+            {m.kind === "credit_card" && m.due_day ? ` · vence ${m.due_day}` : ""}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
@@ -246,14 +250,30 @@ function FormularioMedio({ onCerrar }: { onCerrar: () => void }) {
   const [kind, setKind] = useState("debit_card")
   const [last4, setLast4] = useState("")
   const [brand, setBrand] = useState("")
+  const [cierre, setCierre] = useState("")
+  const [vence, setVence] = useState("")
   const [error, setError] = useState("")
+
+  // Dia del mes 1..31, o null. Vacio o fuera de rango => null.
+  const dia = (v: string): number | null => {
+    const n = Number(v)
+    return v.trim() && n >= 1 && n <= 31 ? n : null
+  }
 
   async function guardar() {
     if (!name.trim()) return setError("Poné un nombre")
     try {
       await db.execute(
-        "INSERT INTO payment_methods (id, name, kind, last4, brand, archived) VALUES (?, ?, ?, ?, ?, 0)",
-        [uuidv4(), name.trim(), kind, last4.trim() || null, brand.trim() || null],
+        "INSERT INTO payment_methods (id, name, kind, last4, brand, closing_day, due_day, archived) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
+        [
+          uuidv4(),
+          name.trim(),
+          kind,
+          last4.trim() || null,
+          brand.trim() || null,
+          kind === "credit_card" ? dia(cierre) : null,
+          kind === "credit_card" ? dia(vence) : null,
+        ],
       )
       onCerrar()
     } catch {
@@ -287,6 +307,29 @@ function FormularioMedio({ onCerrar }: { onCerrar: () => void }) {
       <Campo etiqueta="Marca (opcional)">
         <Input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Visa" />
       </Campo>
+      {/* Fechas solo para tarjeta de credito (fase 5): cierre y vencimiento. */}
+      {kind === "credit_card" && (
+        <div className="grid grid-cols-2 gap-3">
+          <Campo etiqueta="Día de cierre">
+            <Input
+              value={cierre}
+              onChange={(e) => setCierre(e.target.value.replace(/\D/g, ""))}
+              inputMode="numeric"
+              maxLength={2}
+              placeholder="25"
+            />
+          </Campo>
+          <Campo etiqueta="Día de vencimiento">
+            <Input
+              value={vence}
+              onChange={(e) => setVence(e.target.value.replace(/\D/g, ""))}
+              inputMode="numeric"
+              maxLength={2}
+              placeholder="5"
+            />
+          </Campo>
+        </div>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-2">
         <Button className="flex-1" onClick={guardar}>

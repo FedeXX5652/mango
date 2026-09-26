@@ -7,10 +7,12 @@ import {
   CreditCard,
   Download,
   Files,
+  HandCoins,
   Landmark,
   Repeat,
   Tag,
   Tags,
+  Target,
 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
@@ -94,6 +96,8 @@ export function Ajustes() {
             { to: "/recurrentes", etiqueta: "Recurrentes", icono: Repeat },
             { to: "/cotizaciones", etiqueta: "Cotizaciones", icono: Coins },
             { to: "/grupos", etiqueta: "Grupos", icono: Users2 },
+            { to: "/metas", etiqueta: "Metas de ahorro", icono: Target },
+            { to: "/deudas", etiqueta: "Deudas y préstamos", icono: HandCoins },
           ].map((i) => (
             <Link
               key={i.to}

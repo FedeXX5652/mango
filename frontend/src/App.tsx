@@ -21,11 +21,13 @@ import { Alta } from "@/pantallas/Alta"
 import { Categorias } from "@/pantallas/Categorias"
 import { Cotizaciones } from "@/pantallas/Cotizaciones"
 import { Cuentas } from "@/pantallas/Cuentas"
+import { Deudas } from "@/pantallas/Deudas"
 import { DetalleMovimiento } from "@/pantallas/DetalleMovimiento"
 import { Estadisticas } from "@/pantallas/Estadisticas"
 import { Etiquetas } from "@/pantallas/Etiquetas"
 import { Inicio } from "@/pantallas/Inicio"
 import { MediosPago } from "@/pantallas/MediosPago"
+import { Metas } from "@/pantallas/Metas"
 import { Movimientos } from "@/pantallas/Movimientos"
 import { Plantillas } from "@/pantallas/Plantillas"
 import { Presupuestos } from "@/pantallas/Presupuestos"
@@ -55,6 +57,8 @@ function Rutas() {
         <Route path="plantillas" element={<Plantillas />} />
         <Route path="recurrentes" element={<Recurrentes />} />
         <Route path="presupuestos" element={<Presupuestos />} />
+        <Route path="metas" element={<Metas />} />
+        <Route path="deudas" element={<Deudas />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

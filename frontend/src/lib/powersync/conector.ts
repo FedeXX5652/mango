@@ -27,6 +27,8 @@ const RUTA: Record<string, string> = {
   settlements: "/settlements",
   templates: "/templates",
   recurring_rules: "/recurring",
+  goals: "/goals",
+  debts: "/debts",
   exchange_rates: "/exchange-rates",
   // Preferencias. Solo se modifican: crear o borrar un usuario no es cosa del
   // cliente, y por eso las otras dos operaciones se descartan abajo.

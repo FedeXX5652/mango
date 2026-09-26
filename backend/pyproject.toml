@@ -25,6 +25,9 @@ dependencies = [
     # Hash de contraseñas con Argon2id (fase 3a): resistente a GPU y sin el tope
     # de 72 bytes de bcrypt.
     "argon2-cffi>=23.1",
+    # Subida de archivos multipart (fase 5, adjuntar fotos de tickets). Es la
+    # dependencia estandar que FastAPI necesita para leer form-data/UploadFile.
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
@@ -47,7 +50,7 @@ select = ["E", "F", "I", "UP", "B"]
 
 # Depends()/Query()/... en defaults es el idioma de FastAPI, no un bug (B008).
 [tool.ruff.lint.flake8-bugbear]
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body"]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body", "fastapi.File"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

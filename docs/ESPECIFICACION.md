@@ -1126,8 +1126,20 @@ gastos entre personas, liquidacion de saldos.
 
 ### Fase 5 - Extras
 
-Deudas y prestamos, metas de ahorro, adjuntar fotos de tickets, fechas de
-cierre y vencimiento de tarjetas de credito.
+**HECHA.** Cuatro features sueltas, cada una sobre tablas que ya existian en el
+esquema:
+
+- **Metas de ahorro** (`goals`): un objetivo con monto y fecha, asociado a una
+  cuenta; el progreso es el saldo de esa cuenta. Pantalla propia (Ajustes → Metas).
+- **Deudas y prestamos** (`debts`): plata que me deben o que debo, fuera de un
+  grupo, con saldado parcial. Pantalla propia (Ajustes → Deudas).
+- **Fechas de tarjeta**: dia de cierre y vencimiento en las tarjetas de credito
+  (ya estaban en `payment_methods`; ahora se cargan y se muestran).
+- **Adjuntar fotos de tickets** (`attachments`): foto o PDF en un movimiento. El
+  **binario va por la API** (`POST /transactions/<id>/attachments`,
+  `GET /attachments/<id>/file`), NO por la sync; solo la **metadata** sincroniza
+  (por eso `storage_path` no viaja). Requiere conexion para subir/ver. Dependencia
+  nueva: `python-multipart` (estandar de FastAPI para form-data).
 
 ---
 

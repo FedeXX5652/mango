@@ -45,6 +45,12 @@ streams:
       - SELECT * FROM budget_rules WHERE owner_id = auth.user_id()
       - SELECT * FROM recurring_rules WHERE owner_id = auth.user_id()
       - SELECT * FROM templates WHERE owner_id = auth.user_id()
+      - SELECT * FROM goals WHERE owner_id = auth.user_id()
+      - SELECT * FROM debts WHERE owner_id = auth.user_id()
+      # Adjuntos: solo METADATA. `storage_path` no viaja: el binario se baja por
+      # la API (/attachments/<id>/file), no por la sync (fase 5).
+      - SELECT id, transaction_id, owner_id, filename, mime_type, size_bytes,
+               created_at, updated_at, deleted_at FROM attachments WHERE owner_id = auth.user_id()
       - SELECT * FROM tags WHERE owner_id = auth.user_id()
       - SELECT * FROM transaction_tags WHERE owner_id = auth.user_id()
 
