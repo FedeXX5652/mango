@@ -4,11 +4,17 @@ import { Link, NavLink, Outlet } from "react-router-dom"
 import { DESTINOS_MOVIL } from "@/componentes/navegacion"
 import { cn } from "@/lib/utils"
 
-// Layout movil: contenido a pantalla completa y barra inferior con dos destinos
-// a cada lado y el boton "+" (nuevo movimiento) elevado al centro (DESIGN.md 2).
-// Ajustes vive en el header de Inicio.
-const IZQ = DESTINOS_MOVIL.slice(0, 2)
-const DER = DESTINOS_MOVIL.slice(2)
+// Layout movil: contenido a pantalla completa y barra inferior con la mitad de
+// los destinos a cada lado y el boton "+" (nuevo movimiento) elevado al centro
+// (DESIGN.md 2). Ajustes vive en el header de Inicio.
+//
+// El "+" va al medio: se parte la lista en dos, con el resto (impar) a la
+// derecha. Las columnas de la grilla se calculan (tabs + 1 del "+") para que el
+// centro no se corra al sumar o sacar un destino.
+const MITAD = Math.floor(DESTINOS_MOVIL.length / 2)
+const IZQ = DESTINOS_MOVIL.slice(0, MITAD)
+const DER = DESTINOS_MOVIL.slice(MITAD)
+const COLUMNAS = DESTINOS_MOVIL.length + 1
 
 function Tab({ to, etiqueta, icono: Icono, end }: (typeof DESTINOS_MOVIL)[number]) {
   return (
@@ -35,7 +41,10 @@ export function LayoutMovil() {
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 grid h-16 grid-cols-5 border-t border-border bg-card">
+      <nav
+        className="fixed inset-x-0 bottom-0 grid h-16 border-t border-border bg-card"
+        style={{ gridTemplateColumns: `repeat(${COLUMNAS}, minmax(0, 1fr))` }}
+      >
         {IZQ.map((d) => (
           <Tab key={d.to} {...d} />
         ))}

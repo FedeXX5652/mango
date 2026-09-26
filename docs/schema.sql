@@ -54,6 +54,8 @@ CREATE TABLE groups (
     id              UUID PRIMARY KEY,
     name            TEXT NOT NULL,
     base_currency   CHAR(3) NOT NULL DEFAULT 'ARS',
+    -- Color del grupo, para el chip de origen en toda la app (3b.2c)
+    color           TEXT,
     created_by      UUID NOT NULL REFERENCES users(id),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -72,13 +74,54 @@ CREATE TABLE group_members (
     CONSTRAINT group_members_uniq UNIQUE (group_id, user_id)
 );
 
+-- Pagos entre miembros para saldar deudas del grupo (fase 3b.3, ver 0015).
+-- No mueven plata de ninguna cuenta: registran que la deuda se salda por fuera
+-- (efectivo, transferencia). Ajustan el balance del grupo, no los saldos.
+CREATE TABLE settlements (
+    id              UUID PRIMARY KEY,
+    group_id        UUID NOT NULL REFERENCES groups(id),
+    from_user_id    UUID NOT NULL REFERENCES users(id),
+    to_user_id      UUID NOT NULL REFERENCES users(id),
+    amount          BIGINT NOT NULL,
+    currency        CHAR(3) NOT NULL,
+    occurred_at     TIMESTAMPTZ NOT NULL,
+    note            TEXT,
+    created_by      UUID NOT NULL REFERENCES users(id),
+    -- Pago REAL (0017): si vienen, la plata salio de esta cuenta/medio del que
+    -- paga y se descuenta de su saldo. NULL = "marcar saldado" (no mueve plata).
+    account_id          UUID REFERENCES accounts(id),
+    payment_method_id   UUID REFERENCES payment_methods(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ,
+    CONSTRAINT settlements_amount_chk CHECK (amount > 0),
+    CONSTRAINT settlements_distintos_chk CHECK (from_user_id <> to_user_id)
+);
+
+-- Avisos in-app (fase 3b, ver 0019). Los crea el servidor en eventos (te llego
+-- un pago, se deshizo un pago, te sumaron a un grupo). El cliente solo marca
+-- leido (read_at). No los crea ni borra el cliente.
+CREATE TABLE notifications (
+    id              UUID PRIMARY KEY,
+    user_id         UUID NOT NULL REFERENCES users(id),
+    type            TEXT NOT NULL,
+    title           TEXT NOT NULL,
+    body            TEXT NOT NULL,
+    link            TEXT,
+    read_at         TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ
+);
+
 -- ------------------------------------------------------------
 -- Cuentas: donde esta la plata
 -- ------------------------------------------------------------
 
 CREATE TABLE accounts (
     id                  UUID PRIMARY KEY,
-    owner_id            UUID NOT NULL REFERENCES users(id),
+    -- Personal (owner_id) o conjunta del grupo (group_id, owner_id NULL). Ver 0016.
+    owner_id            UUID REFERENCES users(id),
     group_id            UUID REFERENCES groups(id),
     name                TEXT NOT NULL,
     type                TEXT NOT NULL,
@@ -217,6 +260,8 @@ CREATE TABLE transactions (
     owner_id            UUID NOT NULL REFERENCES users(id),
     group_id            UUID REFERENCES groups(id),
     visibility          TEXT NOT NULL DEFAULT 'private',
+    -- Pagado desde una cuenta conjunta: suma al grupo pero no genera deuda (0016)
+    paid_from_group     BOOLEAN NOT NULL DEFAULT false,
 
     kind                TEXT NOT NULL,
     status              TEXT NOT NULL DEFAULT 'confirmed',
@@ -256,6 +301,10 @@ CREATE TABLE transactions (
     -- una regla en category_rules para no volver a preguntar por ese comercio.
     suggested_category_id UUID REFERENCES categories(id),
     suggestion_source     TEXT,
+
+    -- Cobro generado por un pago de deuda del grupo (0018): ingreso pendiente que
+    -- el servidor le crea al acreedor; al confirmarlo, este le asigna la cuenta.
+    settlement_id       UUID REFERENCES settlements(id),
 
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),

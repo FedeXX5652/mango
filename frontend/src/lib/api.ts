@@ -87,6 +87,24 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ actual, nueva }),
     }),
+  // Grupos (fase 3b): se crean y administran por API; se leen del SQLite local.
+  crearGrupo: (id: string, name: string, base_currency: string, color: string | null = null) =>
+    pedir<{ id: string }>("/groups", {
+      method: "POST",
+      body: JSON.stringify({ id, name, base_currency, color }),
+    }),
+  editarGrupo: (groupId: string, cambios: { name?: string; color?: string | null }) =>
+    pedir<{ id: string }>(`/groups/${groupId}`, {
+      method: "PATCH",
+      body: JSON.stringify(cambios),
+    }),
+  agregarMiembro: (groupId: string, username: string) =>
+    pedir<{ id: string }>(`/groups/${groupId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ username }),
+    }),
+  quitarMiembro: (groupId: string, userId: string) =>
+    pedir<void>(`/groups/${groupId}/members/${userId}`, { method: "DELETE" }),
   getSyncToken: () => pedir<CredencialesSync>("/sync/token"),
   // Trae la cotizacion de cada moneda del usuario contra su moneda base. Es
   // idempotente por fecha (la fuente publica una por dia), asi que es seguro

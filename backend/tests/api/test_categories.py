@@ -173,3 +173,72 @@ async def test_el_kind_sigue_siendo_inmutable(api) -> None:
     # El campo no esta en el esquema: se ignora, y el kind no cambia.
     assert resp.status_code == 200
     assert resp.json()["kind"] == "expense"
+
+
+# --- Categorias de grupo (fase 3b.2b, ver 0014) ------------------------------
+
+
+async def _grupo(api: SimpleNamespace, nombre: str = "Casa") -> str:
+    gid = str(uuid.uuid4())
+    resp = await api.client.post(
+        "/api/v1/groups", json={"id": gid, "name": nombre, "base_currency": "ARS"}
+    )
+    assert resp.status_code == 201, resp.text
+    return gid
+
+
+async def test_crear_grupo_siembra_arbol_de_categorias(api: SimpleNamespace) -> None:
+    gid = await _grupo(api)
+    n = (
+        await api.session.execute(
+            text("SELECT count(*) FROM categories WHERE group_id = :g AND deleted_at IS NULL"),
+            {"g": gid},
+        )
+    ).scalar_one()
+    # El arbol por defecto son 8 raices + sus subcategorias, todas del grupo.
+    assert n >= 8
+    # Son del grupo, no personales: owner_id NULL.
+    sin_dueno = (
+        await api.session.execute(
+            text("SELECT count(*) FROM categories WHERE group_id = :g AND owner_id IS NOT NULL"),
+            {"g": gid},
+        )
+    ).scalar_one()
+    assert sin_dueno == 0
+
+
+async def test_miembro_crea_categoria_de_grupo(api: SimpleNamespace) -> None:
+    gid = await _grupo(api)
+    body = await _create(api, name="Mascota", kind="expense", group_id=gid)
+    assert body["group_id"] == gid
+    fila = await api.fila("categories", body["id"])
+    assert fila["owner_id"] is None
+
+
+async def test_no_miembro_no_crea_categoria_de_grupo(api: SimpleNamespace) -> None:
+    # Un grupo ajeno (no existe membresia) se trata como inexistente.
+    ajeno = str(uuid.uuid4())
+    resp = await api.client.post(
+        "/api/v1/categories", json=_payload(name="Intrusa", group_id=ajeno)
+    )
+    assert resp.status_code == 422
+    assert "grupo no existe" in resp.json()["detail"]
+
+
+async def test_subcategoria_de_grupo_hereda_ambito(api: SimpleNamespace) -> None:
+    gid = await _grupo(api)
+    padre = await _create(api, name="Casa", kind="expense", group_id=gid)
+    hija = await _create(api, name="Super", kind="expense", parent_id=padre["id"], group_id=gid)
+    assert hija["group_id"] == gid
+    assert hija["parent_id"] == padre["id"]
+
+
+async def test_no_se_mezcla_ambito_padre_personal_hija_grupo(api: SimpleNamespace) -> None:
+    gid = await _grupo(api)
+    padre_personal = await _create(api, name="Casa", kind="expense")
+    resp = await api.client.post(
+        "/api/v1/categories",
+        json=_payload(name="Super", parent_id=padre_personal["id"], group_id=gid),
+    )
+    assert resp.status_code == 422
+    assert "mismo ambito" in resp.json()["detail"]

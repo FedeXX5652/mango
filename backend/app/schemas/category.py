@@ -19,6 +19,11 @@ class CategoryCreate(BaseModel):
     sort_order: int = 0
     # Ajuste de sobre (ver 3.6 / 0004). rollover = sobre de ahorro (acumula).
     rollover: bool = False
+    # Ambito (fase 3b, ver 0014). Si viene, es una categoria DEL GRUPO: la ve y
+    # edita cualquier miembro, y los gastos compartidos se categorizan con ella.
+    # Sin group_id es personal. El CRUD valida la membresia y fija owner_id/
+    # group_id en consecuencia.
+    group_id: uuid.UUID | None = None
 
 
 class CategoryUpdate(BaseModel):
@@ -49,6 +54,8 @@ class CategoryRead(BaseModel):
     id: uuid.UUID
     name: str
     kind: CategoryKind
+    # Ambito (ver 0014): group_id set => del grupo; si no, personal (owner_id).
+    group_id: uuid.UUID | None
     parent_id: uuid.UUID | None
     color: str | None
     icon: str | None

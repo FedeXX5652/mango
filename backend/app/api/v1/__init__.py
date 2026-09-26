@@ -6,12 +6,16 @@ from app.api.v1.budget_rules import router as budget_rules_router
 from app.api.v1.budgets import router as budgets_router
 from app.api.v1.categories import router as categories_router
 from app.api.v1.exchange_rates import router as exchange_rates_router
+from app.api.v1.groups import router as groups_router
+from app.api.v1.notifications import router as notifications_router
 from app.api.v1.payment_methods import router as payment_methods_router
 from app.api.v1.recurring import router as recurring_router
+from app.api.v1.settlements import router as settlements_router
 from app.api.v1.sync import router as sync_router
 from app.api.v1.tags import router as tags_router
 from app.api.v1.tags import router_tt as transaction_tags_router
 from app.api.v1.templates import router as templates_router
+from app.api.v1.transaction_splits import router as transaction_splits_router
 from app.api.v1.transactions import router as transactions_router
 from app.api.v1.users import router as users_router
 
@@ -25,8 +29,12 @@ api_router.include_router(transactions_router)
 api_router.include_router(budgets_router)
 api_router.include_router(budget_rules_router)
 api_router.include_router(exchange_rates_router)
+api_router.include_router(groups_router)
 api_router.include_router(tags_router)
 api_router.include_router(transaction_tags_router)
+api_router.include_router(transaction_splits_router)
+api_router.include_router(settlements_router)
+api_router.include_router(notifications_router)
 api_router.include_router(templates_router)
 api_router.include_router(recurring_router)
 api_router.include_router(users_router)

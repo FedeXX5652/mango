@@ -1,4 +1,4 @@
-import { House, List, PieChart, Settings, Wallet } from "lucide-react"
+import { House, List, PieChart, Settings, Users2, Wallet } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 export interface Destino {
@@ -16,13 +16,15 @@ export const DESTINOS: Destino[] = [
   { to: "/movimientos", etiqueta: "Movimientos", icono: List },
   { to: "/presupuestos", etiqueta: "Presupuesto", icono: Wallet },
   { to: "/estadisticas", etiqueta: "Estadísticas", icono: PieChart },
+  { to: "/grupos", etiqueta: "Grupos", icono: Users2 },
   { to: "/ajustes", etiqueta: "Ajustes", icono: Settings },
 ]
 
-// Barra inferior movil: 2 destinos, el "+" central, 2 destinos.
+// Barra inferior movil: mitad de destinos, el "+" central, la otra mitad.
 export const DESTINOS_MOVIL: Destino[] = [
   { to: "/", etiqueta: "Inicio", icono: House, end: true },
   { to: "/movimientos", etiqueta: "Movimientos", icono: List },
   { to: "/presupuestos", etiqueta: "Presupuesto", icono: Wallet },
   { to: "/estadisticas", etiqueta: "Estadísticas", icono: PieChart },
+  { to: "/grupos", etiqueta: "Grupos", icono: Users2 },
 ]

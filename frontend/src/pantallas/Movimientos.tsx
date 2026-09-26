@@ -14,6 +14,7 @@ import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { Calendario } from "@/componentes/Calendario"
+import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { Vacio } from "@/componentes/Vacio"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Monto } from "@/componentes/Monto"
@@ -41,6 +42,8 @@ interface Fila {
   categoria: string | null
   categoria_icon: string | null
   cuenta: string | null
+  grupo_nombre: string | null
+  grupo_color: string | null
 }
 interface Opcion {
   id: string
@@ -223,10 +226,12 @@ export function Movimientos() {
     }
     return {
       sql: `SELECT t.id, t.kind, t.amount, t.currency, t.occurred_at, t.payee, t.status,
-                   c.name AS categoria, c.icon AS categoria_icon, a.name AS cuenta
+                   c.name AS categoria, c.icon AS categoria_icon, a.name AS cuenta,
+                   g.name AS grupo_nombre, g.color AS grupo_color
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN accounts a ON a.id = t.account_id
+            LEFT JOIN groups g ON g.id = t.group_id
             WHERE ${cond.join(" AND ")}
             ORDER BY t.occurred_at DESC`,
       params: p,
@@ -460,6 +465,13 @@ export function Movimientos() {
                                 <p className="truncate text-xs text-muted-foreground">
                                   {sub.join(" · ")}
                                 </p>
+                              )}
+                              {f.grupo_nombre && (
+                                <EtiquetaGrupo
+                                  nombre={f.grupo_nombre}
+                                  color={f.grupo_color}
+                                  className="mt-1"
+                                />
                               )}
                             </div>
                           </div>

@@ -35,3 +35,21 @@ export function alCambiarSesion(f: Escucha): () => void {
   escuchas.add(f)
   return () => escuchas.delete(f)
 }
+
+// El id del usuario logueado, del `sub` del token. Es la fuente confiable de
+// "quién soy": desde 3b la tabla `users` local tiene varias filas (mi fila mas
+// el perfil de los otros miembros del grupo), asi que `SELECT ... FROM users`
+// ya no identifica al usuario actual.
+export function usuarioActualId(): string | null {
+  const token = tokenActual()
+  if (!token) return null
+  try {
+    const payload = token.split(".")[1]
+    // base64url -> base64, y `atob`.
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
+    const sub = JSON.parse(json).sub
+    return typeof sub === "string" ? sub : null
+  } catch {
+    return null
+  }
+}

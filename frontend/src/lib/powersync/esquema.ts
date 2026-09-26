@@ -4,24 +4,34 @@ import { Schema, Table, column } from "@powersync/web"
 // tabla sincronizada (PowerSync agrega `id` solo; las columnas del servidor que
 // no esten aca simplemente no se materializan). Booleans y montos son integer.
 
-const accounts = new Table({
-  owner_id: column.text,
-  name: column.text,
-  type: column.text,
-  currency: column.text,
-  opening_balance: column.integer,
-  off_budget: column.integer,
-  visibility: column.text,
-  archived: column.integer,
-  sort_order: column.integer,
-  created_at: column.text,
-  updated_at: column.text,
-  deleted_at: column.text,
-})
+const accounts = new Table(
+  {
+    owner_id: column.text,
+    // Cuenta conjunta del grupo (fase 3b, ver 0016): con group_id es del grupo
+    // (owner_id NULL). Baja por el stream `grupo`; las personales por `mio`.
+    group_id: column.text,
+    name: column.text,
+    type: column.text,
+    currency: column.text,
+    opening_balance: column.integer,
+    off_budget: column.integer,
+    visibility: column.text,
+    archived: column.integer,
+    sort_order: column.integer,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
+  },
+  { indexes: { por_grupo: ["group_id"] } },
+)
 
 const categories = new Table(
   {
     owner_id: column.text,
+    // Ambito de grupo (fase 3b, ver 0014): si tiene group_id es del grupo (la ven
+    // y editan todos los miembros); si no, es personal (owner_id). Los dos no
+    // conviven en la misma fila. Llega por el stream `mio` (personal) o `grupo`.
+    group_id: column.text,
     parent_id: column.text,
     name: column.text,
     kind: column.text,
@@ -36,7 +46,7 @@ const categories = new Table(
     updated_at: column.text,
     deleted_at: column.text,
   },
-  { indexes: { por_padre: ["parent_id"] } },
+  { indexes: { por_padre: ["parent_id"], por_grupo: ["group_id"] } },
 )
 
 const payment_methods = new Table({
@@ -83,24 +93,38 @@ const transactions = new Table(
     notes: column.text,
     source: column.text,
     visibility: column.text,
+    // Grupo con el que se comparte (fase 3b). NULL = privado. En los movimientos
+    // compartidos de OTROS miembros, account_id/payment_method_id vienen NULL: el
+    // stream de grupo no los trae (ver sync-config).
+    group_id: column.text,
+    // Pagado desde una cuenta conjunta (0016): no genera deuda entre personas.
+    paid_from_group: column.integer,
+    // Cobro de un pago de deuda (0018): este ingreso pendiente vino de un pago
+    // que me hizo otro miembro; al confirmarlo elijo la cuenta.
+    settlement_id: column.text,
     created_at: column.text,
     updated_at: column.text,
     deleted_at: column.text,
   },
-  { indexes: { por_fecha: ["occurred_at"], por_cuenta: ["account_id"] } },
+  { indexes: { por_fecha: ["occurred_at"], por_cuenta: ["account_id"], por_grupo: ["group_id"] } },
 )
 
 // Asignacion de un mes a un sobre (categoria). Ver 3.6 / 0004.
-const budgets = new Table({
-  owner_id: column.text,
-  category_id: column.text,
-  period_start: column.text,
-  amount: column.integer,
-  currency: column.text,
-  created_at: column.text,
-  updated_at: column.text,
-  deleted_at: column.text,
-})
+const budgets = new Table(
+  {
+    owner_id: column.text,
+    // Ambito de grupo (fase 3b.3, ver 0015): con group_id es del grupo.
+    group_id: column.text,
+    category_id: column.text,
+    period_start: column.text,
+    amount: column.integer,
+    currency: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
+  },
+  { indexes: { por_grupo: ["group_id"] } },
+)
 
 // Asignacion recurrente a un sobre (categoria): $X todos los meses. Ver 3.6 / 0004.
 const budget_rules = new Table({
@@ -117,6 +141,8 @@ const budget_rules = new Table({
 // Etiqueta: dimension aparte de la categoria (proyecto/viaje). Ver 3.5.1.
 const tags = new Table({
   owner_id: column.text,
+  // Ambito de grupo, igual que categories (ver 0014).
+  group_id: column.text,
   name: column.text,
   color: column.text,
   archived: column.integer,
@@ -135,6 +161,46 @@ const transaction_tags = new Table(
     deleted_at: column.text,
   },
   { indexes: { por_movimiento: ["transaction_id"], por_etiqueta: ["tag_id"] } },
+)
+
+// Partes de un gasto compartido: cuanto le toca a cada miembro (reparto tipo
+// Splitwise, fase 3b.3, ver 0015). Bajan por el stream `grupo` (las de los gastos
+// compartidos). El cliente las escribe al dividir un gasto.
+const transaction_splits = new Table(
+  {
+    transaction_id: column.text,
+    user_id: column.text,
+    amount: column.integer,
+    category_id: column.text,
+    notes: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
+  },
+  { indexes: { por_movimiento: ["transaction_id"] } },
+)
+
+// Pagos entre miembros para saldar deudas del grupo (0015). Bajan por `grupo`
+// (por group_id). No mueven plata de ninguna cuenta: ajustan el balance del grupo.
+const settlements = new Table(
+  {
+    group_id: column.text,
+    from_user_id: column.text,
+    to_user_id: column.text,
+    amount: column.integer,
+    currency: column.text,
+    occurred_at: column.text,
+    note: column.text,
+    created_by: column.text,
+    // Pago REAL (0017): cuenta/medio del que paga. Solo llegan en TU propio pago
+    // (stream `mio`); en los de otros vienen NULL (privacidad).
+    account_id: column.text,
+    payment_method_id: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
+  },
+  { indexes: { por_grupo: ["group_id"], por_cuenta: ["account_id"] } },
 )
 
 const templates = new Table({
@@ -207,6 +273,49 @@ const users = new Table({
   fx_manual: column.text,
 })
 
+// Grupos y membresía (fase 3b). Solo LECTURA en el cliente: se crean y se
+// administran por API (crear necesita servidor, agregar miembro es por username)
+// y bajan por la sync. No van en el conector (RUTA): el cliente no los escribe.
+const groups = new Table({
+  name: column.text,
+  base_currency: column.text,
+  // Color del grupo, para el chip de origen en toda la app (ver 3b.2c).
+  color: column.text,
+  created_by: column.text,
+  created_at: column.text,
+  updated_at: column.text,
+  deleted_at: column.text,
+})
+
+const group_members = new Table(
+  {
+    group_id: column.text,
+    user_id: column.text,
+    role: column.text,
+    joined_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
+  },
+  { indexes: { por_grupo: ["group_id"] } },
+)
+
+// Avisos in-app (fase 3b, ver 0019). Solo LECTURA + marcar leido: los crea el
+// servidor y bajan por `mio`. El cliente solo escribe read_at (PATCH).
+const notifications = new Table(
+  {
+    user_id: column.text,
+    type: column.text,
+    title: column.text,
+    body: column.text,
+    link: column.text,
+    read_at: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
+  },
+  { indexes: { por_fecha: ["created_at"] } },
+)
+
 // Subidas que el servidor rechazo con un 4xx. `localOnly`: vive solo en este
 // dispositivo, no sincroniza ni genera entradas en la cola. Es la red de
 // seguridad de la escritura local — sin esto, un rechazo se descarta y el dato
@@ -236,10 +345,15 @@ export const AppSchema = new Schema({
   budget_rules,
   tags,
   transaction_tags,
+  transaction_splits,
+  settlements,
   templates,
   recurring_rules,
   exchange_rates,
   users,
+  groups,
+  group_members,
+  notifications,
   subidas_rechazadas,
 })
 

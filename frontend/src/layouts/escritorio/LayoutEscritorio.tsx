@@ -3,6 +3,7 @@ import { useState } from "react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
 
 import { DESTINOS } from "@/componentes/navegacion"
+import { Notificaciones } from "@/componentes/Notificaciones"
 import { botonVariants } from "@/componentes/ui/button"
 import { Hoja } from "@/componentes/ui/hoja"
 import { FormularioMovimiento } from "@/pantallas/Alta"
@@ -45,14 +46,17 @@ export function LayoutEscritorio() {
       <div className="flex min-w-0 flex-col">
         <header className="flex h-14 items-center justify-between border-b border-border px-6">
           <span className="text-sm text-muted-foreground">Finanzas</span>
-          <button
-            type="button"
-            className={cn(botonVariants({ size: "sm" }))}
-            onClick={() => setNuevoAbierto(true)}
-          >
-            <Plus className="h-4 w-4" />
-            Nuevo movimiento
-          </button>
+          <div className="flex items-center gap-2">
+            <Notificaciones />
+            <button
+              type="button"
+              className={cn(botonVariants({ size: "sm" }))}
+              onClick={() => setNuevoAbierto(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Nuevo movimiento
+            </button>
+          </div>
         </header>
         <main className="flex-1 overflow-auto">
           <Outlet />

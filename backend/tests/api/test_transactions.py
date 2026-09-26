@@ -474,3 +474,106 @@ async def test_cambiar_a_una_cuenta_de_la_misma_moneda_borra_la_conversion(api) 
     assert resp.status_code == 200, resp.text
     assert resp.json()["amount_account"] is None
     assert resp.json()["exchange_rate"] is None
+
+
+# --- Compartir con un grupo (fase 3b.2) --------------------------------------
+
+
+async def _grupo(api: SimpleNamespace, nombre: str = "Casa") -> str:
+    gid = str(uuid.uuid4())
+    resp = await api.client.post(
+        "/api/v1/groups", json={"id": gid, "name": nombre, "base_currency": "ARS"}
+    )
+    assert resp.status_code == 201, resp.text
+    return gid
+
+
+async def _category_grupo(api: SimpleNamespace, gid: str, kind: str = "expense") -> str:
+    """Una categoria DEL GRUPO: un gasto compartido tiene que usar una (0014)."""
+    resp = await api.client.post(
+        "/api/v1/categories",
+        json={"id": str(uuid.uuid4()), "name": "Super", "kind": kind, "group_id": gid},
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
+
+
+async def test_compartir_con_grupo_propio(api: SimpleNamespace) -> None:
+    acc = await _account(api)
+    gid = await _grupo(api)
+    cat = await _category_grupo(api, gid)
+    resp = await api.client.post(
+        "/api/v1/transactions",
+        json=_tx(account_id=acc, category_id=cat, visibility="shared", group_id=gid),
+    )
+    assert resp.status_code == 201, resp.text
+    fila = await api.fila("transactions", resp.json()["id"])
+    assert fila["visibility"] == "shared"
+    assert str(fila["group_id"]) == gid
+
+
+async def test_compartir_con_categoria_personal_se_rechaza(api: SimpleNamespace) -> None:
+    # Un gasto compartido usa una categoria del grupo, no una personal (0014).
+    acc = await _account(api)
+    gid = await _grupo(api)
+    cat = await _category(api)  # personal
+    resp = await api.client.post(
+        "/api/v1/transactions",
+        json=_tx(account_id=acc, category_id=cat, visibility="shared", group_id=gid),
+    )
+    assert resp.status_code == 422
+    assert "categoria del grupo" in resp.json()["detail"]
+
+
+async def test_compartir_sin_grupo_se_rechaza(api: SimpleNamespace) -> None:
+    acc = await _account(api)
+    cat = await _category(api)
+    resp = await api.client.post(
+        "/api/v1/transactions",
+        json=_tx(account_id=acc, category_id=cat, visibility="shared"),
+    )
+    assert resp.status_code == 422
+
+
+async def test_no_se_comparte_a_grupo_ajeno(api: SimpleNamespace) -> None:
+    import uuid as _uuid
+
+    acc = await _account(api)
+    cat = await _category(api)
+    resp = await api.client.post(
+        "/api/v1/transactions",
+        json=_tx(account_id=acc, category_id=cat, visibility="shared", group_id=str(_uuid.uuid4())),
+    )
+    assert resp.status_code == 422
+
+
+async def test_privado_fuerza_group_id_null(api: SimpleNamespace) -> None:
+    acc = await _account(api)
+    cat = await _category(api)
+    gid = await _grupo(api)
+    resp = await api.client.post(
+        "/api/v1/transactions",
+        json=_tx(account_id=acc, category_id=cat, visibility="private", group_id=gid),
+    )
+    assert resp.status_code == 201
+    fila = await api.fila("transactions", resp.json()["id"])
+    assert fila["group_id"] is None
+
+
+async def test_dejar_de_compartir_al_editar(api: SimpleNamespace) -> None:
+    acc = await _account(api)
+    gid = await _grupo(api)
+    cat = await _category_grupo(api, gid)
+    creada = (
+        await api.client.post(
+            "/api/v1/transactions",
+            json=_tx(account_id=acc, category_id=cat, visibility="shared", group_id=gid),
+        )
+    ).json()
+    resp = await api.client.patch(
+        f"/api/v1/transactions/{creada['id']}", json={"visibility": "private"}
+    )
+    assert resp.status_code == 200
+    fila = await api.fila("transactions", creada["id"])
+    assert fila["visibility"] == "private"
+    assert fila["group_id"] is None

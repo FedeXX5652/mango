@@ -969,9 +969,106 @@ sugerencias con IA. Integracion con n8n.
 **Fase 3a (autenticacion): HECHA.** Login con username + clave (Argon2id),
 sesion hasta cerrar sesion, reset por CLI del admin, y el PIN del dispositivo
 conviviendo con el login de servidor. El detalle y las decisiones estan en la
-**decision 0013**. Falta la **3b**: grupos familiares, visibilidad por
-transaccion, reportes y presupuestos del grupo, sobre la particion de la sync
-que ya existe (0009).
+**decision 0013**.
+
+**Fase 3b.1 (grupos y membresia): HECHA.** Un grupo lo crea alguien, que queda de
+`owner`; el owner agrega y saca miembros **por username desde la app** (sin mail,
+como el resto de 3a). Grupos y membresia se administran por API y se leen del
+SQLite local: bajan por un stream de sync parametrizado por las membresias del
+usuario (`grupo` en sync-config), que convive con el personal (`mio`) sin
+reemplazarlo. Verificado: un miembro ve el grupo, quien no es miembro no.
+
+**Fase 3b.2 (compartir un movimiento): HECHA.** Un movimiento se marca privado o
+compartido con un grupo (toggle en alta y detalle). De un movimiento compartido
+viajan al grupo monto, comercio, fecha, categoria y tags, y quien lo cargo; lo
+privado —cuenta, medio de pago, monto debitado, notas— **no** (no esta ni en la
+base local de los demas). Hay una vista de actividad por grupo. Verificado punta
+a punta: un miembro ve el gasto de otro con categoria y autor, sin los campos
+privados, y quien no es miembro no ve nada.
+
+**Fase 3b.2b (taxonomia del grupo): HECHA.** Ver decision 0014. Las categorias y
+tags tienen ambito: personales (`owner_id`) o **del grupo** (`group_id`). Un
+grupo **nace con el arbol por defecto** sembrado con su `group_id`; **cualquier
+miembro** crea/edita las categorias del grupo (gestor en la pantalla del grupo).
+Un **gasto compartido se categoriza obligatoriamente con una categoria del
+grupo** (el selector, al elegir compartir, ofrece las del grupo, no las
+personales): asi Ana y Beto usan la misma `Casa>Super` y el reporte del grupo
+agrega bien. Las categorias/tags del grupo **viajan enteras** por el stream
+`grupo` (`WHERE group_id IN mis_grupos`), ya no "solo la referenciada" (eso era
+3b.2, corregido por 0014). Verificado punta a punta por API: un miembro crea una
+categoria del grupo, y compartir con una categoria personal se rechaza.
+
+**Fase 3b.2c (origen de grupo visible): HECHA.** Cada grupo tiene un **color**
+(columna `groups.color`, migracion aditiva; se elige/edita en la pantalla de
+grupos, cualquier miembro por API). Un **chip con ese color y el nombre del
+grupo** marca el origen en todas partes: lista de Movimientos, recientes de
+Inicio y detalle del movimiento. Los selectores de categoria quedan **scopeados**
+(al compartir se ofrecen solo las categorias del grupo), asi la diferencia con
+las personales se ve sola. **Grupos** pasa a la **navegacion principal** (antes
+solo en Ajustes). Datos de demo: un segundo usuario (beto), grupo "Casa" (yo =
+owner, color azul) con arbol por defecto + categorias distintivas
+(Mascotas/Vacaciones/Regalos) y gastos compartidos de cada uno.
+
+Los balances personales **no** cambian: el gasto compartido de otro no se debita
+de tus cuentas.
+
+**Fase 3b.3.1 (resumen y balance del grupo): HECHA.** Ver decision 0015. En la
+pantalla del grupo hay un **resumen** (este mes / todo): total gastado, desglose
+**por categoria** y **por miembro**, y un **balance en partes iguales** con la
+sugerencia de **como saldar** ("Beto → Ana $X"). Se calcula en el cliente
+(`lib/grupo.ts`, funcion pura con pruebas) sobre los gastos compartidos ya
+sincronizados; sin endpoint ni tablas nuevas. No se mezclan monedas.
+
+**Fase 3b.3.2 (splits desiguales): HECHA.** Al compartir un gasto se puede
+**dividir** en el alta y en el detalle: partes **iguales** (eligiendo quienes
+participan), **montos exactos** por persona, o **porcentajes**. Se guarda el monto
+resuelto por miembro en `transaction_splits` (suma = total, garantizado por el
+cliente). Sin dividir explicitamente, sigue siendo igual entre todos (no guarda
+filas). El balance usa el split de cada gasto; si no tiene, cae a partes iguales.
+
+**Fase 3b.3.3 (registro de pagos): HECHA.** Cada sugerencia de "como saldar"
+tiene un boton **Saldar** que registra el pago (`settlements`: quien, a quien,
+cuanto); el balance lo descuenta y la deuda desaparece. Los pagos registrados se
+listan y se pueden **deshacer**. Cualquier miembro registra y deshace (0014/0015).
+No mueven plata de ninguna cuenta: la deuda se salda por fuera.
+
+**Fase 3b.3.4 (presupuesto del grupo): HECHA.** Ver 0016. En la pantalla del
+grupo, un tope mensual por categoria del grupo contra lo gastado (barra de
+progreso). Cualquier miembro lo pone/edita. Reusa `budgets` con `group_id`.
+
+**Fase 3b.4 (cuenta conjunta): HECHA.** Ver 0016. Una cuenta puede ser del grupo
+(`group_id`, `owner_id` NULL): la crea cualquier miembro, la ven todos, y **no**
+aparece en las vistas personales. Un gasto pagado con la conjunta suma al grupo y
+al presupuesto pero **no genera deuda** (`paid_from_group`): la plata ya es de
+todos. `accounts.owner_id` paso a nullable.
+
+**Fase 3b.4b (saldar y fondear): HECHA.** Ver 0017. Saldar una deuda tiene dos
+formas: **marcar saldado** (registro reversible que no mueve plata, para deudas
+chicas o saldadas por fuera) y **registrar pago** (solo el deudor: sale de su
+cuenta y medio, se puede pagar **por partes**; baja su saldo). **Fondear** la caja
+comun es una **transferencia** de una cuenta personal a la conjunta. Se corrigio
+un bug por el que la deuda reaparecia tras saldar (la tabla `settlements` no
+estaba en el stream del PowerSync cargado; ahora esta en `grupo` —sin cuenta ni
+medio— y en `mio` —entera para el pagador—).
+
+**Fase 3b.4c (cobro automatico al acreedor): HECHA.** Ver 0018. Cuando el deudor
+registra un pago real, el servidor le crea al acreedor un **ingreso pendiente**
+("Pago de X", sin cuenta). El acreedor lo ve en **"Cobros por confirmar"** (Inicio),
+elige a que cuenta entro y lo confirma: recien ahi suma a su saldo. Si se deshace
+el pago, el cobro se borra si sigue pendiente; si ya se confirmo, queda.
+
+**Fase 3b.5 (notificaciones in-app): HECHA.** Ver 0019. Una **campanita** con
+contador de no leidos (header movil y barra de escritorio) abre la **bandeja** de
+avisos. Los crea el servidor en eventos (`pago_recibido`, `pago_deshecho`,
+`miembro_agregado`); bajan por `mio`; el cliente solo los marca leidos. Tocar un
+aviso lo marca leido y navega a su link.
+
+Falta:
+- **Push** (avisos fuera de la app): service worker + `PushManager` + VAPID +
+  suscripciones + backend enviando. Requiere HTTPS (Caddy). Reusa los mismos
+  eventos que ya escriben en `notifications`.
+- Al **eliminar una categoria del grupo en uso** todavia no hay reasignacion
+  (como si la hay en las personales): por ahora se archiva. Se completa en 3b.3.
 
 **Sin correo electronico**: la identidad es un **nombre de usuario** y una clave.
 El mail sirve para probar que sos dueño de una direccion, que importa cuando

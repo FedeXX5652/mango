@@ -13,6 +13,8 @@ import { ProveedorPowerSync } from "@/lib/powersync/proveedor"
 import { Sesion } from "@/componentes/Sesion"
 import { LayoutEscritorio } from "@/layouts/escritorio/LayoutEscritorio"
 import { LayoutMovil } from "@/layouts/movil/LayoutMovil"
+import { Grupos } from "@/pantallas/Grupos"
+import { GrupoDetalle } from "@/pantallas/GrupoDetalle"
 import { Rechazados } from "@/pantallas/Rechazados"
 import { Ajustes } from "@/pantallas/Ajustes"
 import { Alta } from "@/pantallas/Alta"
@@ -43,6 +45,8 @@ function Rutas() {
         <Route path="estadisticas" element={<Estadisticas />} />
         <Route path="ajustes" element={<Ajustes />} />
         <Route path="rechazados" element={<Rechazados />} />
+        <Route path="grupos" element={<Grupos />} />
+        <Route path="grupos/:id" element={<GrupoDetalle />} />
         <Route path="cuentas" element={<Cuentas />} />
         <Route path="categorias" element={<Categorias />} />
         <Route path="medios" element={<MediosPago />} />

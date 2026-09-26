@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user_id
+from app.core.errors import DomainError
 from app.crud import account as crud
 from app.db import get_session
 from app.schemas.account import AccountCreate, AccountRead, AccountUpdate
@@ -21,8 +22,12 @@ async def create_account(
     session: AsyncSession = Depends(get_session),
     owner_id: uuid.UUID = Depends(get_current_user_id),
 ) -> AccountRead:
-    account = await crud.create_account(session, owner_id, data)
-    return account
+    try:
+        return await crud.create_account(session, owner_id, data)
+    except DomainError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
 
 
 @router.patch("/{account_id}", response_model=AccountRead)

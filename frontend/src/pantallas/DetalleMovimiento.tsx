@@ -3,6 +3,9 @@ import { ArrowLeft, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 
+import { CompartirCon } from "@/componentes/CompartirCon"
+import { EditorSplit, type ParteSplit, type ValorSplit } from "@/componentes/EditorSplit"
+import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
@@ -27,6 +30,7 @@ interface Tx {
   category_id: string | null
   payee: string | null
   notes: string | null
+  group_id: string | null
 }
 interface Opcion {
   id: string
@@ -35,6 +39,7 @@ interface Opcion {
   kind?: string
   parent_id?: string | null
   icon?: string | null
+  group_id?: string | null
 }
 
 const KIND_LABEL = { expense: "Gasto", income: "Ingreso", transfer: "Transferencia" }
@@ -56,7 +61,7 @@ export function DetalleMovimiento() {
     "SELECT id, name, currency FROM accounts WHERE deleted_at IS NULL ORDER BY name",
   )
   const { data: categorias } = useQuery<Opcion>(
-    "SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0",
+    "SELECT id, name, kind, parent_id, icon, group_id FROM categories WHERE deleted_at IS NULL AND archived = 0",
   )
 
   // Etiquetas ya asociadas a este movimiento (ver 3.5.1).
@@ -65,6 +70,30 @@ export function DetalleMovimiento() {
     [id ?? ""],
   )
   const idsActuales = useMemo(() => etiquetasActuales.map((r) => r.tag_id), [etiquetasActuales])
+
+  // Grupo del movimiento, para el chip de origen (3b.2c). Reactivo al group_id
+  // guardado: si se deja de compartir, desaparece.
+  const { data: grupoRows } = useQuery<{ name: string; color: string | null }>(
+    "SELECT name, color FROM groups WHERE id = ? AND deleted_at IS NULL",
+    [tx?.group_id ?? ""],
+  )
+  const grupo = grupoRows[0]
+
+  // Miembros del grupo y splits ya guardados, para editar el reparto (3b.3).
+  const { data: miembrosRows } = useQuery<{ user_id: string; display_name: string | null }>(
+    `SELECT gm.user_id, u.display_name FROM group_members gm LEFT JOIN users u ON u.id = gm.user_id
+     WHERE gm.group_id = ? AND gm.deleted_at IS NULL`,
+    [tx?.group_id ?? ""],
+  )
+  const miembros = useMemo(
+    () =>
+      miembrosRows.map((m) => ({ user_id: m.user_id, nombre: m.display_name || m.user_id.slice(0, 8) })),
+    [miembrosRows],
+  )
+  const { data: splitsActuales } = useQuery<ParteSplit>(
+    "SELECT user_id, amount FROM transaction_splits WHERE transaction_id = ? AND deleted_at IS NULL",
+    [id ?? ""],
+  )
 
   const [etiquetas, setEtiquetas] = useState<string[]>([])
   const [monto, setMonto] = useState("")
@@ -77,6 +106,8 @@ export function DetalleMovimiento() {
   const [payee, setPayee] = useState("")
   const [notas, setNotas] = useState("")
   const [cuando, setCuando] = useState("")
+  const [grupoId, setGrupoId] = useState("")
+  const [split, setSplit] = useState<ValorSplit>({ splits: null, valido: true })
   const [error, setError] = useState("")
 
   // Prefill cuando llega la transaccion (una vez por id).
@@ -89,6 +120,7 @@ export function DetalleMovimiento() {
     setCategoriaId(tx.category_id ?? "")
     setPayee(tx.payee ?? "")
     setNotas(tx.notes ?? "")
+    setGrupoId(tx.group_id ?? "")
     setCuando(isoALocal(tx.occurred_at))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tx?.id])
@@ -101,12 +133,25 @@ export function DetalleMovimiento() {
     setEtiquetas(idsActuales)
   }, [idsActuales])
 
+  // Si al cambiar el grupo la categoria elegida queda fuera de ambito (personal
+  // cuando se comparte, o de otro grupo), se limpia: un gasto compartido usa la
+  // categoria del grupo (0014).
+  useEffect(() => {
+    if (!tx || tx.kind === "transfer" || !categoriaId) return
+    const valida = categorias.some(
+      (c) => c.id === categoriaId && (grupoId ? c.group_id === grupoId : !c.group_id),
+    )
+    if (!valida) setCategoriaId("")
+  }, [grupoId, categorias, categoriaId, tx])
+
   if (!tx) {
     return <div className="p-6 text-sm text-muted-foreground">Cargando…</div>
   }
 
   const categoriasDelTipo = ordenarJerarquico(categorias).filter(
-    (c) => c.kind === (tx.kind === "income" ? "income" : "expense"),
+    (c) =>
+      c.kind === (tx.kind === "income" ? "income" : "expense") &&
+      (grupoId ? c.group_id === grupoId : !c.group_id),
   )
 
   // Moneda de la cuenta elegida (puede cambiar en el formulario) y cotizacion
@@ -131,6 +176,8 @@ export function DetalleMovimiento() {
     if (tx!.kind === "transfer" && !destinoId) return setError("Elegí la cuenta de destino")
     if (tx!.kind === "transfer" && destinoId === cuentaId)
       return setError("Las cuentas deben ser distintas")
+    if (tx!.kind === "expense" && grupoId && !split.valido)
+      return setError("La división no cierra con el total")
 
     // La conversion se recalcula desde el monto debitado, que es lo que figura
     // en el resumen del banco. Si las monedas coinciden, los dos quedan NULL.
@@ -145,7 +192,7 @@ export function DetalleMovimiento() {
     await db.execute(
       `UPDATE transactions SET amount = ?, account_id = ?, transfer_account_id = ?,
          category_id = ?, payee = ?, notes = ?, occurred_at = ?,
-         amount_account = ?, exchange_rate = ? WHERE id = ?`,
+         amount_account = ?, exchange_rate = ?, visibility = ?, group_id = ? WHERE id = ?`,
       [
         centavos,
         cuentaId,
@@ -156,6 +203,8 @@ export function DetalleMovimiento() {
         new Date(cuando).toISOString(),
         difieren && centavosDebitado > 0 ? centavosDebitado : null,
         difieren && cotizacion ? cotizacion : null,
+        grupoId ? "shared" : "private",
+        grupoId || null,
         tx!.id,
       ],
     )
@@ -174,6 +223,20 @@ export function DetalleMovimiento() {
         tagId,
       ])
     }
+
+    // Reparto (3b.3): se reescribe entero (borrar lo viejo, insertar lo nuevo).
+    // Solo si el movimiento es compartido; `null` = igual entre todos, sin filas.
+    if (tx!.kind === "expense" && grupoId) {
+      await db.execute("DELETE FROM transaction_splits WHERE transaction_id = ?", [tx!.id])
+      if (split.splits) {
+        for (const parte of split.splits) {
+          await db.execute(
+            "INSERT INTO transaction_splits (id, transaction_id, user_id, amount) VALUES (?, ?, ?, ?)",
+            [uuidv4(), tx!.id, parte.user_id, parte.amount],
+          )
+        }
+      }
+    }
     navigate(-1)
   }
 
@@ -189,6 +252,7 @@ export function DetalleMovimiento() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-xl font-semibold">{KIND_LABEL[tx.kind]}</h1>
+        {grupo && <EtiquetaGrupo nombre={grupo.name} color={grupo.color} />}
       </header>
 
       <Campo etiqueta={`Monto (${tx.currency})`}>
@@ -246,6 +310,10 @@ export function DetalleMovimiento() {
         </Campo>
       )}
 
+      {/* Compartir antes de la categoria: define el ambito de las categorias
+          ofrecidas (personales o del grupo, ver 0014). */}
+      {tx.kind !== "transfer" && <CompartirCon valor={grupoId} onCambio={setGrupoId} />}
+
       {tx.kind !== "transfer" && (
         <Campo etiqueta="Categoría">
           <SelectorCategoria
@@ -259,6 +327,16 @@ export function DetalleMovimiento() {
             onCambio={setCategoriaId}
           />
         </Campo>
+      )}
+
+      {tx.kind === "expense" && grupoId && (aCentavos(monto) ?? 0) > 0 && (
+        <EditorSplit
+          total={aCentavos(monto) ?? 0}
+          currency={tx.currency}
+          miembros={miembros}
+          inicial={splitsActuales}
+          onCambio={setSplit}
+        />
       )}
 
       <Campo etiqueta="Comercio / contraparte">

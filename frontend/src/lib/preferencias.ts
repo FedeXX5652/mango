@@ -1,4 +1,5 @@
 import { db } from "@/lib/powersync/db"
+import { usuarioActualId } from "@/lib/sesion"
 
 // Las preferencias del usuario, leidas y escritas **en la base local**.
 //
@@ -32,7 +33,11 @@ interface Fila {
   fx_manual: string | null
 }
 
-const SQL = "SELECT id, display_name, base_currency, theme_id, color_scheme, fx_manual FROM users"
+// SIEMPRE filtrado por mi id: desde 3b la tabla `users` local tiene tambien el
+// perfil de los otros miembros del grupo. Sin el WHERE, se leeria (o peor, con
+// el UPDATE, se pisaria) la fila de otra persona.
+const SQL =
+  "SELECT id, display_name, base_currency, theme_id, color_scheme, fx_manual FROM users WHERE id = ?"
 
 function aPreferencias(f: Fila): Preferencias {
   let manuales: string[] = []
@@ -56,19 +61,23 @@ function aPreferencias(f: Fila): Preferencias {
 }
 
 // Una lectura suelta. Devuelve null si la fila todavia no bajo (primer arranque
-// del dispositivo, antes de la primera sincronizacion).
+// del dispositivo, antes de la primera sincronizacion) o si no hay sesion.
 export async function leerPreferencias(): Promise<Preferencias | null> {
-  const filas = await db.getAll<Fila>(SQL)
+  const mi = usuarioActualId()
+  if (!mi) return null
+  const filas = await db.getAll<Fila>(SQL, [mi])
   return filas.length > 0 ? aPreferencias(filas[0]) : null
 }
 
 // Avisa con las preferencias actuales y cada vez que cambian, vengan de esta
 // pantalla o de otro dispositivo. Devuelve la funcion para dejar de escuchar.
 export function observarPreferencias(alCambiar: (p: Preferencias) => void): () => void {
+  const mi = usuarioActualId()
+  if (!mi) return () => {}
   const control = new AbortController()
   db.watch(
     SQL,
-    [],
+    [mi],
     {
       onResult: (r) => {
         const filas = (r.rows?._array ?? []) as Fila[]
@@ -88,10 +97,13 @@ type Campos = Partial<Pick<Preferencias, "display_name" | "base_currency" | "the
 // Escribe local; la sync lo sube despues. Sin fila todavia no hace nada: crear
 // el usuario no es cosa del cliente.
 export async function guardarPreferencias(campos: Campos): Promise<void> {
+  const mi = usuarioActualId()
+  if (!mi) return
   const entradas = Object.entries(campos).filter(([, v]) => v !== undefined)
   if (entradas.length === 0) return
 
   const sets = entradas.map(([k]) => `${k} = ?`).join(", ")
   const valores = entradas.map(([k, v]) => (k === "fx_manual" ? JSON.stringify(v) : (v as string)))
-  await db.execute(`UPDATE users SET ${sets}`, valores)
+  // WHERE id = mi: nunca tocar la fila de otro miembro (ver SQL arriba).
+  await db.execute(`UPDATE users SET ${sets} WHERE id = ?`, [...valores, mi])
 }

@@ -14,6 +14,10 @@ class BudgetCreate(BaseModel):
     period_start: date
     amount: int = Field(ge=0)
     currency: Currency
+    # Ambito (fase 3b.3, ver 0015/0014). Si viene, es un presupuesto DEL GRUPO:
+    # sobre una categoria del grupo, lo ven todos los miembros. Sin group_id es
+    # personal. El CRUD valida la membresia y el ambito de la categoria.
+    group_id: uuid.UUID | None = None
 
 
 class BudgetUpdate(BaseModel):
@@ -25,6 +29,7 @@ class BudgetRead(BaseModel):
 
     id: uuid.UUID
     category_id: uuid.UUID
+    group_id: uuid.UUID | None
     period_start: date
     amount: int
     currency: str

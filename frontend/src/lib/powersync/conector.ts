@@ -23,12 +23,16 @@ const RUTA: Record<string, string> = {
   budget_rules: "/budget-rules",
   tags: "/tags",
   transaction_tags: "/transaction-tags",
+  transaction_splits: "/transaction-splits",
+  settlements: "/settlements",
   templates: "/templates",
   recurring_rules: "/recurring",
   exchange_rates: "/exchange-rates",
   // Preferencias. Solo se modifican: crear o borrar un usuario no es cosa del
   // cliente, y por eso las otras dos operaciones se descartan abajo.
   users: "/users",
+  // Avisos: el cliente solo marca leido (PATCH). Crear/borrar es del servidor.
+  notifications: "/notifications",
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" }
@@ -66,6 +70,10 @@ export async function subir({ tabla, op, id, datos }: Subida): Promise<Resultado
     if (tabla === "users" && op !== UpdateType.PATCH) {
       // Un alta o una baja de usuario no sale del cliente.
       return { ok: false, motivo: "Solo se puede modificar el usuario, no crearlo ni borrarlo" }
+    }
+    if (tabla === "notifications" && op !== UpdateType.PATCH) {
+      // Los avisos los crea/borra el servidor; el cliente solo marca leido.
+      return { ok: false, motivo: "Un aviso solo se puede marcar leído" }
     }
     if (op === UpdateType.PUT) {
       resp = await fetch(`${base}${ruta}`, {

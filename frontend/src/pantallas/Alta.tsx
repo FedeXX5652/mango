@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 
 import { Calculadora } from "@/componentes/Calculadora"
+import { CompartirCon } from "@/componentes/CompartirCon"
+import { EditorSplit, type ValorSplit } from "@/componentes/EditorSplit"
 import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
 import { SelectorMoneda } from "@/componentes/SelectorMoneda"
 import { Button } from "@/componentes/ui/button"
@@ -25,6 +27,7 @@ interface CuentaLocal {
   id: string
   name: string
   currency: string
+  group_id: string | null
 }
 interface CategoriaLocal {
   id: string
@@ -32,6 +35,8 @@ interface CategoriaLocal {
   kind: string
   parent_id: string | null
   icon: string | null
+  // Ambito (0014): con group_id es del grupo; sin el, personal.
+  group_id: string | null
 }
 interface MedioLocal {
   id: string
@@ -74,10 +79,10 @@ export function FormularioMovimiento({
   const db = usePowerSync()
 
   const { data: cuentas, isLoading } = useQuery<CuentaLocal>(
-    "SELECT id, name, currency FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
+    "SELECT id, name, currency, group_id FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
   )
   const { data: categorias } = useQuery<CategoriaLocal>(
-    "SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0",
+    "SELECT id, name, kind, parent_id, icon, group_id FROM categories WHERE deleted_at IS NULL AND archived = 0",
   )
   const { data: medios } = useQuery<MedioLocal>(
     "SELECT id, name FROM payment_methods WHERE deleted_at IS NULL AND archived = 0",
@@ -100,6 +105,24 @@ export function FormularioMovimiento({
   const [notas, setNotas] = useState("")
   const [cuando, setCuando] = useState(ahoraLocal)
   const [etiquetas, setEtiquetas] = useState<string[]>([])
+  // Grupo con el que se comparte, "" = privado (fase 3b.2).
+  const [grupoId, setGrupoId] = useState("")
+  // Reparto del gasto compartido (fase 3b.3). null = igual entre todos.
+  const [split, setSplit] = useState<ValorSplit>({ splits: null, valido: true })
+  // Miembros del grupo elegido, para repartir el gasto (fase 3b.3).
+  const { data: miembrosRows } = useQuery<{ user_id: string; display_name: string | null }>(
+    `SELECT gm.user_id, u.display_name FROM group_members gm LEFT JOIN users u ON u.id = gm.user_id
+     WHERE gm.group_id = ? AND gm.deleted_at IS NULL`,
+    [grupoId || ""],
+  )
+  const miembros = useMemo(
+    () =>
+      miembrosRows.map((m) => ({
+        user_id: m.user_id,
+        nombre: m.display_name || m.user_id.slice(0, 8),
+      })),
+    [miembrosRows],
+  )
   const [error, setError] = useState("")
   const [guardando, setGuardando] = useState(false)
   // Monto sembrado al aplicar una plantilla. `calcKey` remonta la calculadora
@@ -135,13 +158,26 @@ export function FormularioMovimiento({
       ? cotizacionDe(centavos, moneda, centavosDebitado, monedaCuenta)
       : null
 
+  // Ambito de la categoria segun con quien se comparte (0014): si se comparte con
+  // un grupo, se eligen las categorias DEL grupo; si es privado, las personales.
+  // Asi Ana y Beto categorizan lo compartido con la misma taxonomia del grupo.
   const categoriasDelTipo = useMemo(
     () =>
       ordenarJerarquico(categorias).filter(
-        (c) => c.kind === (tipo === "income" ? "income" : "expense"),
+        (c) =>
+          c.kind === (tipo === "income" ? "income" : "expense") &&
+          (grupoId ? c.group_id === grupoId : !c.group_id),
       ),
-    [categorias, tipo],
+    [categorias, tipo, grupoId],
   )
+
+  // Si la categoria elegida deja de ser valida al cambiar tipo o grupo (p. ej.
+  // era personal y ahora se comparte), se limpia en vez de mandar una invalida.
+  useEffect(() => {
+    if (categoriaId && !categoriasDelTipo.some((c) => c.id === categoriaId)) {
+      setCategoriaId("")
+    }
+  }, [categoriasDelTipo, categoriaId])
 
   const aplicarPlantilla = useCallback((t: PlantillaLocal) => {
     setTipo(t.kind as TipoMovimiento)
@@ -176,6 +212,8 @@ export function FormularioMovimiento({
     if (tipo === "transfer" && !cuentaDestinoId) return setError("Elegí la cuenta de destino")
     if (tipo === "transfer" && cuentaDestinoId === cuentaId)
       return setError("Las cuentas deben ser distintas")
+    if (tipo === "expense" && grupoId && !split.valido)
+      return setError("La división no cierra con el total")
 
     setGuardando(true)
     try {
@@ -185,8 +223,9 @@ export function FormularioMovimiento({
       await db.execute(
         `INSERT INTO transactions
            (id, kind, occurred_at, amount, currency, account_id, transfer_account_id,
-            category_id, payment_method_id, payee, notes, amount_account, exchange_rate)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            category_id, payment_method_id, payee, notes, amount_account, exchange_rate,
+            visibility, group_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           idTx,
           tipo,
@@ -203,6 +242,8 @@ export function FormularioMovimiento({
           // igual: lo que falta es un dato del banco (ver 0005).
           difieren && centavosDebitado > 0 ? centavosDebitado : null,
           difieren && cotizacion ? cotizacion : null,
+          grupoId ? "shared" : "private",
+          grupoId || null,
         ],
       )
       // Una fila por etiqueta elegida (ver 3.5.1).
@@ -211,6 +252,16 @@ export function FormularioMovimiento({
           "INSERT INTO transaction_tags (id, transaction_id, tag_id) VALUES (?, ?, ?)",
           [uuidv4(), idTx, tagId],
         )
+      }
+      // Reparto desigual (fase 3b.3): una fila por parte. `null` = igual entre
+      // todos, que no guarda nada (lo resuelve el balance por defecto).
+      if (grupoId && split.splits) {
+        for (const parte of split.splits) {
+          await db.execute(
+            "INSERT INTO transaction_splits (id, transaction_id, user_id, amount) VALUES (?, ?, ?, ?)",
+            [uuidv4(), idTx, parte.user_id, parte.amount],
+          )
+        }
       }
       onGuardado()
     } catch {
@@ -288,7 +339,7 @@ export function FormularioMovimiento({
             <SelectorEntidad
               titulo={tipo === "transfer" ? "Cuenta de origen" : "Cuenta"}
               placeholder="Elegí una cuenta"
-              opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency }))}
+              opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.group_id ? `${c.currency} · conjunta` : c.currency }))}
               valor={cuentaId}
               onCambio={setCuentaId}
             />
@@ -301,12 +352,17 @@ export function FormularioMovimiento({
                 placeholder="Elegí la cuenta de destino"
                 opciones={cuentas
                   .filter((c) => c.id !== cuentaId)
-                  .map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency }))}
+                  .map((c) => ({ id: c.id, nombre: c.name, detalle: c.group_id ? `${c.currency} · conjunta` : c.currency }))}
                 valor={cuentaDestinoId}
                 onCambio={setCuentaDestinoId}
               />
             </Campo>
           )}
+
+          {/* Compartir va ANTES de la categoria: define de que ambito son las
+              categorias que se ofrecen (personales o del grupo, ver 0014). Las
+              transferencias no se comparten: son movimientos entre tus cuentas. */}
+          {tipo !== "transfer" && <CompartirCon valor={grupoId} onCambio={setGrupoId} />}
 
           {tipo !== "transfer" && (
             <Campo etiqueta="Categoría">
@@ -316,6 +372,17 @@ export function FormularioMovimiento({
                 onCambio={setCategoriaId}
               />
             </Campo>
+          )}
+
+          {/* Reparto del gasto (fase 3b.3): solo al compartir con un grupo y con
+              un monto ya cargado. Por defecto, igual entre todos. */}
+          {tipo === "expense" && grupoId && centavos > 0 && (
+            <EditorSplit
+              total={centavos}
+              currency={moneda}
+              miembros={miembros}
+              onCambio={setSplit}
+            />
           )}
 
           <Campo etiqueta="Medio de pago (opcional)">

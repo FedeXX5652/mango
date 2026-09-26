@@ -6,6 +6,7 @@ from sqlalchemy import (
     CHAR,
     TIMESTAMP,
     BigInteger,
+    Boolean,
     CheckConstraint,
     ForeignKey,
     Index,
@@ -26,6 +27,13 @@ class Transaction(Base, IdMixin, TimestampMixin):
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     group_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groups.id"))
     visibility: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'private'"))
+    # Pagado desde una cuenta conjunta (del grupo): es plata que ya es de todos,
+    # asi que suma al gasto del grupo pero NO genera deuda entre personas (0016).
+    # Se denormaliza aca (y no se deduce de account_id) porque a los otros
+    # miembros no les viaja account_id (privacidad, 3b.2); este flag si.
+    paid_from_group: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
 
     kind: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'confirmed'"))
@@ -57,6 +65,12 @@ class Transaction(Base, IdMixin, TimestampMixin):
 
     suggested_category_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("categories.id"))
     suggestion_source: Mapped[str | None] = mapped_column(Text)
+
+    # Cobro generado por un pago de deuda del grupo (0018): este ingreso lo crea
+    # el servidor para el acreedor cuando el deudor registra un pago real. Queda
+    # 'pending' hasta que el acreedor le asigna cuenta y lo confirma. El link
+    # permite borrarlo si se deshace el pago (mientras siga pendiente).
+    settlement_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("settlements.id"))
 
     __table_args__ = (
         CheckConstraint("kind IN ('expense','income','transfer')", name="tx_kind_chk"),

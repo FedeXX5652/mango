@@ -50,7 +50,9 @@ export function Cuentas() {
   const navigate = useNavigate()
   const db = usePowerSync()
   const { data: cuentas } = useQuery<Cuenta>(
-    "SELECT id, name, type, currency, opening_balance, off_budget, archived FROM accounts WHERE deleted_at IS NULL ORDER BY archived, sort_order, created_at",
+    // Solo personales: las cuentas conjuntas del grupo se administran en la
+    // pantalla del grupo (owner_id NULL, ver 0016).
+    "SELECT id, name, type, currency, opening_balance, off_budget, archived FROM accounts WHERE deleted_at IS NULL AND owner_id IS NOT NULL ORDER BY archived, sort_order, created_at",
   )
   // Cuentas referenciadas por algo: no se pueden eliminar (dejarian huerfano lo
   // que apunta a ellas). Se pueden archivar. El resto si se puede borrar.

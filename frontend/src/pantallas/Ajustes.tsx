@@ -3,6 +3,7 @@ import {
   Check,
   AlertTriangle,
   Coins,
+  Users2,
   CreditCard,
   Download,
   Files,
@@ -92,6 +93,7 @@ export function Ajustes() {
             { to: "/plantillas", etiqueta: "Plantillas", icono: Files },
             { to: "/recurrentes", etiqueta: "Recurrentes", icono: Repeat },
             { to: "/cotizaciones", etiqueta: "Cotizaciones", icono: Coins },
+            { to: "/grupos", etiqueta: "Grupos", icono: Users2 },
           ].map((i) => (
             <Link
               key={i.to}

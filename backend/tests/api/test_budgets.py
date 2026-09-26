@@ -91,3 +91,49 @@ async def test_dos_monedas_para_el_mismo_sobre_y_mes(api: SimpleNamespace) -> No
     resp = await api.client.post("/api/v1/budgets", json=_payload(cat, currency="USD"))
     assert resp.status_code == 422
     assert "moneda" in resp.json()["detail"]
+
+
+# --- Presupuesto del grupo (fase 3b.3, ver 0015) -----------------------------
+
+
+async def _grupo(api: SimpleNamespace) -> str:
+    gid = str(uuid.uuid4())
+    assert (
+        await api.client.post("/api/v1/groups", json={"id": gid, "name": "Casa"})
+    ).status_code == 201
+    return gid
+
+
+async def _cat_grupo(api: SimpleNamespace, gid: str, kind: str = "expense") -> str:
+    r = await api.client.post(
+        "/api/v1/categories",
+        json={"id": str(uuid.uuid4()), "name": "Super", "kind": kind, "group_id": gid},
+    )
+    assert r.status_code == 201, r.text
+    return r.json()["id"]
+
+
+async def test_presupuesto_de_grupo(api: SimpleNamespace) -> None:
+    gid = await _grupo(api)
+    cat = await _cat_grupo(api, gid)
+    r = await api.client.post("/api/v1/budgets", json=_payload(cat, group_id=gid))
+    assert r.status_code == 201, r.text
+    assert r.json()["group_id"] == gid
+    fila = await api.fila("budgets", r.json()["id"])
+    assert fila["owner_id"] is None
+
+
+async def test_presupuesto_grupo_ajeno_se_rechaza(api: SimpleNamespace) -> None:
+    cat = await _category(api)
+    r = await api.client.post("/api/v1/budgets", json=_payload(cat, group_id=str(uuid.uuid4())))
+    assert r.status_code == 422
+    assert "grupo no existe" in r.json()["detail"]
+
+
+async def test_presupuesto_grupo_con_categoria_personal_se_rechaza(api: SimpleNamespace) -> None:
+    # La categoria tiene que ser del grupo, no personal.
+    gid = await _grupo(api)
+    cat_personal = await _category(api)
+    r = await api.client.post("/api/v1/budgets", json=_payload(cat_personal, group_id=gid))
+    assert r.status_code == 422
+    assert "categoria no existe" in r.json()["detail"]

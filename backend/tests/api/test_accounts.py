@@ -118,3 +118,82 @@ async def test_duplicate_id_returns_409(api: SimpleNamespace) -> None:
     payload = _payload()
     assert (await api.client.post("/api/v1/accounts", json=payload)).status_code == 201
     assert (await api.client.post("/api/v1/accounts", json=payload)).status_code == 409
+
+
+# --- Cuenta conjunta del grupo (fase 3b, ver 0016) ---------------------------
+
+
+async def test_cuenta_conjunta_de_grupo(api: SimpleNamespace) -> None:
+    gid = str(uuid.uuid4())
+    assert (
+        await api.client.post("/api/v1/groups", json={"id": gid, "name": "Casa"})
+    ).status_code == 201
+    resp = await api.client.post("/api/v1/accounts", json=_payload(group_id=gid, name="Caja comun"))
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["group_id"] == gid
+    # Es del grupo: sin dueno personal.
+    fila = await api.fila("accounts", resp.json()["id"])
+    assert fila["owner_id"] is None
+
+
+async def test_cuenta_conjunta_grupo_ajeno_se_rechaza(api: SimpleNamespace) -> None:
+    resp = await api.client.post("/api/v1/accounts", json=_payload(group_id=str(uuid.uuid4())))
+    assert resp.status_code == 422
+    assert "grupo no existe" in resp.json()["detail"]
+
+
+async def test_gasto_desde_cuenta_conjunta_marca_paid_from_group(api: SimpleNamespace) -> None:
+    gid = str(uuid.uuid4())
+    assert (
+        await api.client.post("/api/v1/groups", json={"id": gid, "name": "Casa"})
+    ).status_code == 201
+    acc = (
+        await api.client.post("/api/v1/accounts", json=_payload(group_id=gid, name="Caja comun"))
+    ).json()["id"]
+    cat = (
+        await api.client.post(
+            "/api/v1/categories",
+            json={"id": str(uuid.uuid4()), "name": "Super", "kind": "expense", "group_id": gid},
+        )
+    ).json()["id"]
+    tx = await api.client.post(
+        "/api/v1/transactions",
+        json={
+            "id": str(uuid.uuid4()),
+            "kind": "expense",
+            "occurred_at": "2026-09-01T12:00:00-03:00",
+            "amount": 10000,
+            "currency": "ARS",
+            "account_id": acc,
+            "category_id": cat,
+            "visibility": "shared",
+            "group_id": gid,
+        },
+    )
+    assert tx.status_code == 201, tx.text
+    fila = await api.fila("transactions", tx.json()["id"])
+    assert fila["paid_from_group"] is True
+
+
+async def test_fondear_cuenta_conjunta_con_transferencia(api: SimpleNamespace) -> None:
+    gid = str(uuid.uuid4())
+    assert (
+        await api.client.post("/api/v1/groups", json={"id": gid, "name": "Casa"})
+    ).status_code == 201
+    personal = (await api.client.post("/api/v1/accounts", json=_payload(name="Mia"))).json()["id"]
+    conjunta = (
+        await api.client.post("/api/v1/accounts", json=_payload(group_id=gid, name="Comun"))
+    ).json()["id"]
+    r = await api.client.post(
+        "/api/v1/transactions",
+        json={
+            "id": str(uuid.uuid4()),
+            "kind": "transfer",
+            "occurred_at": "2026-09-01T12:00:00-03:00",
+            "amount": 500000,
+            "currency": "ARS",
+            "account_id": personal,
+            "transfer_account_id": conjunta,
+        },
+    )
+    assert r.status_code == 201, r.text

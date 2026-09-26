@@ -12,24 +12,43 @@ estado 'pending' solo lo produce la ingesta automatica (regla no negociable 4).
 import uuid
 from datetime import datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
+from app.crud.category import es_categoria_de_grupo
+from app.crud.group import membresia
 from app.models.account import Account, PaymentMethod
 from app.models.category import Category
 from app.models.transaction import Transaction
+from app.models.user import GroupMember
 from app.schemas.transaction import TransactionCreate, TransactionUpdate
 from app.services import conversion
 
 
-async def _account_owned(session: AsyncSession, owner_id: uuid.UUID, account_id: uuid.UUID) -> bool:
-    stmt = select(Account.id).where(
+async def _cuenta_accesible(
+    session: AsyncSession, owner_id: uuid.UUID, account_id: uuid.UUID
+) -> Account | None:
+    """La cuenta si el usuario la puede usar: personal suya, o conjunta de un grupo
+    del que es miembro (cuenta del grupo, ver 0016)."""
+    stmt = select(Account).where(
         Account.id == account_id,
-        Account.owner_id == owner_id,
         Account.deleted_at.is_(None),
+        or_(
+            Account.owner_id == owner_id,
+            Account.group_id.in_(
+                select(GroupMember.group_id).where(
+                    GroupMember.user_id == owner_id,
+                    GroupMember.deleted_at.is_(None),
+                )
+            ),
+        ),
     )
-    return (await session.execute(stmt)).scalar_one_or_none() is not None
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def _account_owned(session: AsyncSession, owner_id: uuid.UUID, account_id: uuid.UUID) -> bool:
+    return (await _cuenta_accesible(session, owner_id, account_id)) is not None
 
 
 async def _pm_owned(session: AsyncSession, owner_id: uuid.UUID, pm_id: uuid.UUID) -> bool:
@@ -44,12 +63,19 @@ async def _pm_owned(session: AsyncSession, owner_id: uuid.UUID, pm_id: uuid.UUID
 async def _moneda_de_cuenta(
     session: AsyncSession, owner_id: uuid.UUID, account_id: uuid.UUID
 ) -> str | None:
-    stmt = select(Account.currency).where(
-        Account.id == account_id,
-        Account.owner_id == owner_id,
-        Account.deleted_at.is_(None),
-    )
-    return (await session.execute(stmt)).scalar_one_or_none()
+    cuenta = await _cuenta_accesible(session, owner_id, account_id)
+    return cuenta.currency if cuenta else None
+
+
+async def _cuenta_es_de_grupo(
+    session: AsyncSession, owner_id: uuid.UUID, account_id: uuid.UUID | None
+) -> bool:
+    """¿El gasto se paga desde una cuenta conjunta? Marca `paid_from_group` para
+    que no genere deuda entre personas (0016)."""
+    if account_id is None:
+        return False
+    cuenta = await _cuenta_accesible(session, owner_id, account_id)
+    return cuenta is not None and cuenta.group_id is not None
 
 
 async def _completar_conversion(
@@ -82,10 +108,21 @@ async def _completar_conversion(
 async def _category_kind(
     session: AsyncSession, owner_id: uuid.UUID, category_id: uuid.UUID
 ) -> str | None:
+    # Categoria accesible: personal propia, o de un grupo del que soy miembro
+    # (fase 3b, ver 0014). Un gasto compartido usa una categoria del grupo, que
+    # tiene owner_id NULL: filtrar solo por owner_id la dejaria afuera.
     stmt = select(Category.kind).where(
         Category.id == category_id,
-        Category.owner_id == owner_id,
         Category.deleted_at.is_(None),
+        or_(
+            Category.owner_id == owner_id,
+            Category.group_id.in_(
+                select(GroupMember.group_id).where(
+                    GroupMember.user_id == owner_id,
+                    GroupMember.deleted_at.is_(None),
+                )
+            ),
+        ),
     )
     return (await session.execute(stmt)).scalar_one_or_none()
 
@@ -130,6 +167,39 @@ async def _validate_invariants(
             raise DomainError(f"La categoria debe ser de tipo {kind}")
 
 
+async def _validar_compartir(
+    session: AsyncSession,
+    owner_id: uuid.UUID,
+    *,
+    visibility: str,
+    group_id: uuid.UUID | None,
+    category_id: uuid.UUID | None,
+) -> uuid.UUID | None:
+    """Coherencia de compartir (fase 3b, ver 0014). Devuelve el group_id que hay
+    que guardar (None si es privado).
+
+    - `shared` exige un `group_id` de un grupo del que el usuario sea miembro:
+      no se comparte a un grupo ajeno ni a la nada.
+    - un gasto compartido se categoriza con una categoria **del grupo**, no una
+      personal: si no, el reporte del grupo no agrega (Ana>Super vs Beto>Alacena).
+    - `private` fuerza `group_id` NULL: un movimiento privado no cuelga de un
+      grupo.
+    """
+    if visibility == "shared":
+        if group_id is None:
+            raise DomainError("Un movimiento compartido necesita un grupo")
+        if await membresia(session, group_id, owner_id) is None:
+            # 'no sos miembro' se trata como grupo inexistente: no se confirma
+            # que el grupo exista.
+            raise DomainError("El grupo no existe")
+        if category_id is not None and not await es_categoria_de_grupo(
+            session, category_id, group_id
+        ):
+            raise DomainError("Un movimiento compartido usa una categoria del grupo")
+        return group_id
+    return None
+
+
 async def create_transaction(
     session: AsyncSession,
     owner_id: uuid.UUID,
@@ -148,6 +218,15 @@ async def create_transaction(
         payment_method_id=data.payment_method_id,
     )
     campos = data.model_dump()
+    campos["group_id"] = await _validar_compartir(
+        session,
+        owner_id,
+        visibility=data.visibility,
+        group_id=data.group_id,
+        category_id=data.category_id,
+    )
+    # Pagado desde una cuenta conjunta: plata del grupo, no genera deuda (0016).
+    campos["paid_from_group"] = await _cuenta_es_de_grupo(session, owner_id, data.account_id)
     campos["amount_account"], campos["exchange_rate"] = await _completar_conversion(
         session,
         owner_id,
@@ -230,6 +309,21 @@ async def update_transaction(
         category_id=eff("category_id"),
         payment_method_id=eff("payment_method_id"),
     )
+
+    # Compartir: si se toca la visibilidad o el grupo, se revalida y se fija el
+    # group_id resultante (private -> NULL).
+    if "visibility" in values or "group_id" in values:
+        values["group_id"] = await _validar_compartir(
+            session,
+            owner_id,
+            visibility=eff("visibility"),
+            group_id=eff("group_id"),
+            category_id=eff("category_id"),
+        )
+
+    # Si cambio la cuenta, se recalcula si el gasto sale de una cuenta conjunta.
+    if "account_id" in values:
+        values["paid_from_group"] = await _cuenta_es_de_grupo(session, owner_id, eff("account_id"))
 
     # La conversion se recalcula si cambio cualquiera de sus insumos. Regla:
     # si vino `amount_account` manda el; si no y cambio el monto, se recalcula

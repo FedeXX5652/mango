@@ -3,6 +3,9 @@ import { Settings, Wallet } from "lucide-react"
 import { useMemo } from "react"
 import { Link } from "react-router-dom"
 
+import { CobrosPorConfirmar } from "@/componentes/CobrosPorConfirmar"
+import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
+import { Notificaciones } from "@/componentes/Notificaciones"
 import { Monto } from "@/componentes/Monto"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { TarjetaResumen } from "@/componentes/TarjetaResumen"
@@ -30,6 +33,8 @@ interface MovReciente {
   occurred_at: string
   payee: string | null
   categoria: string | null
+  grupo_nombre: string | null
+  grupo_color: string | null
 }
 
 const DIR: Record<MovReciente["kind"], Direccion> = {
@@ -60,16 +65,20 @@ const SQL_SALDOS = `
         WHERE transfer_account_id = a.id AND kind='transfer' AND status='confirmed' AND deleted_at IS NULL), 0)
     - COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM transactions
         WHERE account_id = a.id AND kind='transfer' AND status='confirmed' AND deleted_at IS NULL), 0)
+    - COALESCE((SELECT SUM(amount) FROM settlements
+        WHERE account_id = a.id AND deleted_at IS NULL), 0)
     AS balance
   FROM accounts a
-  WHERE a.deleted_at IS NULL
+  WHERE a.deleted_at IS NULL AND a.owner_id IS NOT NULL
   ORDER BY a.archived, a.sort_order, a.created_at
 `
 
 const SQL_RECIENTES = `
-  SELECT t.id, t.kind, t.amount, t.currency, t.occurred_at, t.payee, c.name AS categoria
+  SELECT t.id, t.kind, t.amount, t.currency, t.occurred_at, t.payee, c.name AS categoria,
+         g.name AS grupo_nombre, g.color AS grupo_color
   FROM transactions t
   LEFT JOIN categories c ON c.id = t.category_id
+  LEFT JOIN groups g ON g.id = t.group_id
   WHERE t.deleted_at IS NULL AND t.status = 'confirmed'
   ORDER BY t.occurred_at DESC
   LIMIT ${MAX_RECIENTES}
@@ -129,14 +138,19 @@ export function Inicio() {
           <img src="/icons/svg/mango.svg" alt="" className="h-7 w-7" />
           <span className="text-lg font-semibold">Mango</span>
         </div>
-        <Link
-          to="/ajustes"
-          aria-label="Ajustes"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
-        >
-          <Settings className="h-5 w-5" />
-        </Link>
+        <div className="flex items-center gap-1">
+          <Notificaciones />
+          <Link
+            to="/ajustes"
+            aria-label="Ajustes"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+          >
+            <Settings className="h-5 w-5" />
+          </Link>
+        </div>
       </header>
+
+      <CobrosPorConfirmar />
 
       {activas.length === 0 ? (
         <Vacio
@@ -216,6 +230,13 @@ export function Inicio() {
                             (m.kind === "transfer" ? "Transferencia" : "—")}
                         </p>
                         <p className="text-xs text-muted-foreground">{fechaCorta(m.occurred_at)}</p>
+                        {m.grupo_nombre && (
+                          <EtiquetaGrupo
+                            nombre={m.grupo_nombre}
+                            color={m.grupo_color}
+                            className="mt-1"
+                          />
+                        )}
                       </div>
                       <span
                         className={cn(

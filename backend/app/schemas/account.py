@@ -25,6 +25,9 @@ class AccountBase(BaseModel):
 class AccountCreate(AccountBase):
     # El id lo genera el cliente (decision 5.1): permite crear sin conexion.
     id: uuid.UUID
+    # Ambito (fase 3b, ver 0016). Si viene, es una cuenta CONJUNTA del grupo:
+    # owner_id NULL, la ven todos los miembros. Sin group_id es personal.
+    group_id: uuid.UUID | None = None
 
 
 class AccountUpdate(BaseModel):
@@ -44,6 +47,7 @@ class AccountRead(AccountBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    group_id: uuid.UUID | None
     archived: bool
     created_at: datetime
     updated_at: datetime

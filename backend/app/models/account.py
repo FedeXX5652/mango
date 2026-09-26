@@ -21,7 +21,9 @@ from app.models._base import IdMixin, TimestampMixin
 class Account(Base, IdMixin, TimestampMixin):
     __tablename__ = "accounts"
 
-    owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # Personal (owner_id) o del grupo / conjunta (group_id), como categorias
+    # (ver 0014/0016). Una cuenta conjunta tiene owner_id NULL y group_id.
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     group_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groups.id"))
     name: Mapped[str] = mapped_column(Text, nullable=False)
     type: Mapped[str] = mapped_column(Text, nullable=False)

@@ -25,7 +25,11 @@ class TransactionCreate(BaseModel):
     category_id: uuid.UUID | None = None
     payee: str | None = None
     notes: str | None = None
+    # Compartir con un grupo (fase 3b). `shared` exige `group_id` de un grupo
+    # del que el usuario sea miembro; `private` fuerza `group_id` NULL. Lo valida
+    # el CRUD, que es quien puede mirar la membresia.
     visibility: Visibility = "private"
+    group_id: uuid.UUID | None = None
     # De donde sale el movimiento. El cliente genera dos cosas: lo que carga una
     # persona y lo que produce una regla recurrente (ver ESPECIFICACION 3.7).
     # 'email_import' es de la ingesta automatica y no se acepta por aca: es lo
@@ -42,6 +46,9 @@ class TransactionCreate(BaseModel):
 
 class TransactionUpdate(BaseModel):
     kind: TransactionKind | None = None
+    # Solo se permite CONFIRMAR un pendiente (ej: confirmar un cobro, 0018). No se
+    # puede pasar a 'pending' desde el cliente (regla 4): por eso el unico valor.
+    status: Literal["confirmed"] | None = None
     occurred_at: datetime | None = None
     amount: int | None = Field(default=None, ge=0)
     currency: Currency | None = None
@@ -52,6 +59,9 @@ class TransactionUpdate(BaseModel):
     payee: str | None = None
     notes: str | None = None
     visibility: Visibility | None = None
+    # Compartir/dejar de compartir al editar (ver create). Nullable-tolerante:
+    # pasar a `private` limpia el group_id.
+    group_id: uuid.UUID | None = None
     # Al editar: si cambia `amount`, se recalcula la cotizacion y el monto
     # debitado NO se toca (es el dato del banco). Si cambia `amount_account`,
     # se recalcula la cotizacion. Ver `services.conversion`.

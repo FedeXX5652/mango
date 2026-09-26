@@ -48,6 +48,14 @@ streams:
       - SELECT * FROM tags WHERE owner_id = auth.user_id()
       - SELECT * FROM transaction_tags WHERE owner_id = auth.user_id()
 
+      # Los pagos que HICE, enteros (con cuenta y medio): los necesito completos
+      # para descontarlos de mi saldo (0017). A los otros miembros les llega la
+      # version sin cuenta/medio por el stream `grupo`.
+      - SELECT * FROM settlements WHERE from_user_id = auth.user_id()
+
+      # Mis avisos in-app (0019). Los crea el servidor; aca solo los marco leidos.
+      - SELECT * FROM notifications WHERE user_id = auth.user_id()
+
       # Las preferencias, para que se puedan leer y escribir sin conexion y
       # viajen entre dispositivos.
       #
@@ -69,3 +77,78 @@ streams:
     # es justamente lo que se quiere.
     accept_potentially_dangerous_queries: true
     query: SELECT * FROM exchange_rates
+
+  # Grupos a los que pertenece el usuario, sus miembros, y los movimientos
+  # COMPARTIDOS del grupo (fase 3b, ver 0009). Convive con `mio`, no lo
+  # reemplaza: lo personal sigue por owner.
+  grupo:
+    auto_subscribe: true
+    with:
+      # Los grupos del usuario, una vez, para no repetir la subconsulta.
+      mis_grupos: |
+        SELECT group_id FROM group_members
+        WHERE user_id = auth.user_id() AND deleted_at IS NULL
+      # Los movimientos compartidos de esos grupos. Se reusa para traer los
+      # vinculos transaction_tags de cada gasto compartido.
+      #
+      # OJO: un CTE no puede referenciar a otro CTE (limitacion de Sync Streams),
+      # asi que la membresia va INLINE aca, no via `mis_grupos`.
+      tx_compartidas: |
+        SELECT id FROM transactions
+        WHERE group_id IN (
+          SELECT group_id FROM group_members
+          WHERE user_id = auth.user_id() AND deleted_at IS NULL
+        )
+          AND visibility = 'shared' AND deleted_at IS NULL
+    queries:
+      - SELECT * FROM groups WHERE id IN (SELECT group_id FROM mis_grupos)
+      - SELECT * FROM group_members WHERE group_id IN (SELECT group_id FROM mis_grupos)
+
+      # Cuentas CONJUNTAS del grupo (fase 3b, ver 0016): las ven todos los
+      # miembros (owner_id NULL, group_id del grupo). A diferencia de las cuentas
+      # personales, la de grupo es de todos: viaja entera.
+      - SELECT * FROM accounts WHERE group_id IN (SELECT group_id FROM mis_grupos)
+
+      # Perfil PUBLICO de los otros miembros, para mostrar "cargado por X". Solo
+      # columnas publicas: nunca password_hash ni email (ver 0009/0013). Las
+      # preferencias (base_currency, tema…) tampoco: no son asunto del grupo.
+      - SELECT id, username, display_name FROM users
+        WHERE id IN (SELECT user_id FROM group_members WHERE group_id IN (SELECT group_id FROM mis_grupos))
+
+      # Los movimientos compartidos, SIN lo privado: no viajan account_id,
+      # payment_method_id, amount_account, exchange_rate ni notes. El resto —
+      # monto, moneda, fecha, comercio, categoria, quien — si. Un movimiento
+      # privado nunca entra (visibility = 'shared').
+      - SELECT id, owner_id, group_id, visibility, kind, status, occurred_at,
+               category_id, amount, currency, payee, source, paid_from_group,
+               created_at, updated_at, deleted_at
+        FROM transactions
+        WHERE group_id IN (SELECT group_id FROM mis_grupos)
+          AND visibility = 'shared'
+
+      # La taxonomia DEL GRUPO viaja entera: categorias y tags con group_id de un
+      # grupo del usuario. Son del grupo, todos los miembros las ven y las editan,
+      # y un gasto compartido se categoriza con ellas (ver 0014). Ya no viaja "solo
+      # la referenciada": eso era 3b.2, corregido por 0014.
+      - SELECT * FROM categories WHERE group_id IN (SELECT group_id FROM mis_grupos)
+      - SELECT * FROM tags WHERE group_id IN (SELECT group_id FROM mis_grupos)
+
+      # Presupuestos del grupo (fase 3b.3, ver 0015): por group_id, los ven todos.
+      - SELECT * FROM budgets WHERE group_id IN (SELECT group_id FROM mis_grupos)
+
+      # Los vinculos tag<->movimiento de cada gasto compartido: para saber que
+      # tags tiene un movimiento del grupo. El tag ya viajo por group_id arriba.
+      - SELECT * FROM transaction_tags
+        WHERE transaction_id IN (SELECT id FROM tx_compartidas) AND deleted_at IS NULL
+
+      # Las partes (splits) de cada gasto compartido: el reparto tipo Splitwise
+      # (fase 3b.3, ver 0015). Todos los miembros las ven para calcular el balance.
+      - SELECT * FROM transaction_splits
+        WHERE transaction_id IN (SELECT id FROM tx_compartidas) AND deleted_at IS NULL
+
+      # Los pagos entre miembros para saldar deudas del grupo (0015/0017). Van por
+      # group_id: son del grupo, todos los ven. SIN cuenta ni medio de pago: eso
+      # es privado del que pago (le llega entero por su stream `mio`).
+      - SELECT id, group_id, from_user_id, to_user_id, amount, currency, occurred_at,
+               note, created_by, created_at, updated_at, deleted_at
+        FROM settlements WHERE group_id IN (SELECT group_id FROM mis_grupos)
