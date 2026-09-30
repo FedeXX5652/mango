@@ -1,0 +1,13 @@
+# Lo que NO entra al contexto de build de la imagen del backend. El Dockerfile
+# copia carpetas puntuales, pero esto achica el contexto y evita que se cuele
+# algo local (adjuntos de desarrollo, entornos, caches).
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+storage
+tests
+.env
+.env.*

@@ -12,6 +12,14 @@
 # asi que la base ya responde.
 set -e
 
+# SECRET_KEY firma los tokens de sesion (0013). Con el default de desarrollo,
+# cualquiera que lea el repo podria fabricarse un login: en el contenedor no se
+# arranca sin una propia. Generar: openssl rand -hex 32
+if [ -z "${SECRET_KEY:-}" ] || [ "${SECRET_KEY}" = "dev-insecure-change-me" ]; then
+    echo "✗ Falta SECRET_KEY (o es el valor de desarrollo). Definila en el .env." >&2
+    exit 1
+fi
+
 echo "→ Migrando base de datos…"
 alembic upgrade head
 

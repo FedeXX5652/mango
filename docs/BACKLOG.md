@@ -8,9 +8,13 @@ Cosas decididas-para-despues y cabos sueltos. El roadmap por fases vive en
 - **Caddy / TLS.** Hoy, hacia afuera de la casa se entra por **Tailscale** (cifra
   punta a punta). Adentro, por LAN pelada y HTTP, la clave y el token viajan en
   claro. Mejora barata: **entrar por el nombre de Tailscale tambien desde casa**.
-  TLS con Caddy queda para cuando se publique de verdad. Ver ESPECIFICACION §7 (3).
-- **No publicar el puerto 8000 fuera del tailnet.** La API ya tiene auth (3a),
-  pero igual: exponerla es innecesario.
+  TLS con Caddy queda para cuando se publique de verdad. Con 0020 es simple: hay
+  **un solo puerto** (`MANGO_PORT`) y Caddy apunta ahi.
+- **No publicar `MANGO_PORT` fuera del tailnet.** La API ya tiene auth (3a), pero
+  exponerla a internet es innecesario.
+- **Fijar la version base de PowerSync** en el release (`POWERSYNC_VERSION`).
+  Hoy es `latest`, congelada en cada imagen publicada; fijarla da builds
+  reproducibles.
 
 ## Notificaciones push (fase futura, ver 0019)
 

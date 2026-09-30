@@ -35,6 +35,8 @@ Thumbs.db
 # Datos de desarrollo
 /data/
 /backups/
+# Adjuntos que guarda el backend corriendo en local (fase 5).
+backend/storage/
 
 # Skills de terceros instaladas por el CLI (skills.sh).
 # El contenido real vive en .agents/ (cache local) y .claude/skills/ son

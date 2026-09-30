@@ -20,7 +20,7 @@ decide compartir**, con reparto de gastos estilo Splitwise incluido.
 ![PowerSync](https://img.shields.io/badge/PowerSync-offline--first-1c1c1c)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalable-5A0FC8?logo=pwa&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-414%20verdes-2EA043)
+![Tests](https://img.shields.io/badge/tests-419%20verdes-2EA043)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED?logo=docker&logoColor=white)
 
 </div>
@@ -92,21 +92,33 @@ de un hogar, con tres convicciones:
 
 ## Cómo funciona (arquitectura)
 
-```
-┌──────────────┐        ┌──────────────┐        ┌───────────────┐
-│  PWA (React) │◄──────►│  PowerSync   │◄──────►│  PostgreSQL   │
-│  SQLite local│  sync  │  (buckets)   │  CDC   │  (verdad)     │
-└──────┬───────┘        └──────────────┘        └───────▲───────┘
-       │ escrituras (cola offline)                      │
-       └──────────────► FastAPI (validación de dominio) ┘
-                              ▲
-                        n8n (ingesta de correo) ──┘  [roadmap]
+```text
+        Celular / compu: PWA con su SQLite local (anda sin conexión)
+                                  │
+                                  │  un solo origen, un solo puerto
+                                  ▼
+                   ┌─────────────────────────────┐
+                   │   nginx · puerta de entrada │
+                   └───────┬─────────────┬───────┘
+                   /api    │             │    /powersync
+                           ▼             ▼
+               ┌──────────────────┐ ┌──────────────────┐
+               │     FastAPI      │ │    PowerSync     │
+               │  valida y migra  │ │ sync por usuario │
+               └────────┬─────────┘ └────────▲─────────┘
+                escribe │                    │ replica (WAL lógico)
+                        ▼                    │
+               ┌─────────────────────────────┴─────────┐
+               │        PostgreSQL (la verdad)         │
+               └───────────────────────────────────────┘
+          n8n (ingesta de correo) ──► FastAPI            [roadmap]
 ```
 
 Cada dispositivo lee y escribe contra su **SQLite local**: por eso anda sin
 conexión. Las escrituras se encolan y suben a la **API (FastAPI)**, que es la
 única que valida las reglas de dominio. **PowerSync** replica desde PostgreSQL a
-cada dispositivo, filtrando por lo que le corresponde a cada usuario.
+cada dispositivo, filtrando por lo que le corresponde a cada usuario. Todo entra
+por **una sola puerta** (nginx), así que se expone un único puerto.
 
 ---
 
@@ -120,7 +132,7 @@ cada dispositivo, filtrando por lo que le corresponde a cada usuario.
 | Frontend | React · TypeScript · Tailwind · shadcn/ui · Vite (PWA) |
 | Auth | Argon2id · JWT |
 | Ingesta | n8n *(roadmap)* |
-| Infra | Docker Compose · nginx · `pg_dump` |
+| Infra | Docker Compose · nginx (proxy) · imágenes en GHCR · Watchtower · `pg_dump` |
 
 **Cómo se construyó, y se mantiene:**
 
@@ -129,10 +141,12 @@ cada dispositivo, filtrando por lo que le corresponde a cada usuario.
   que la sincronización offline no rompa nada.
 - **Migraciones expandir/contraer**: los cambios de esquema no rompen a un
   cliente una versión atrás.
-- **Decisiones de arquitectura documentadas** (19 ADRs en
+- **Decisiones de arquitectura documentadas** (20 ADRs en
   [`docs/decisiones/`](docs/decisiones)) — nada importante se decide dos veces.
-- **Incrementos chicos con pruebas**: ~**414** pruebas (backend + frontend) en
+- **Incrementos chicos con pruebas**: **419** pruebas (backend + frontend) en
   verde, más un banco de compatibilidad para detectar regresiones de esquema.
+- **Deploy por imágenes**: el servidor no tiene el código; baja imágenes
+  publicadas, y la base migra sola al arrancar.
 
 ---
 
@@ -177,23 +191,69 @@ Comandos útiles:
 | `make test` | Corre las pruebas (backend + frontend) |
 | `make lint` | Formatea y revisa |
 | `make migrate` | Aplica migraciones |
-| `make deploy` | Build + up de todo el stack |
+| `make deploy` | Construye y levanta todo el stack desde el código, en esta máquina |
+| `make release` | Publica las imágenes de producción en GHCR |
 
 ---
 
-## Deploy (self-hosted)
+## Instalación (self-hosted)
 
-Todo el stack corre en Docker: base, PowerSync, API, PWA y respaldos.
+Mango se instala como cualquier app dockerizable: tu servidor **baja imágenes ya
+publicadas** y las corre. No necesita el código.
+
+**Requisitos:** un servidor (Linux, x86 o ARM) con Docker y el plugin
+`docker compose`.
 
 ```bash
-cp .env.example .env      # completar secretos y la URL desde la que entrás
-make deploy               # docker compose --profile app up -d --build
+curl -fsSL https://raw.githubusercontent.com/FedeXX5652/mango/master/deploy/install.sh | sh
 ```
 
-La API **migra y siembra sola** al arrancar. Los respaldos (`pg_dump` diario con
-retención) van en un servicio aparte. Guía completa —variables, redeploy,
-restaurar un backup, la nota de que la URL de la API se hornea en el frontend— en
+Eso es todo. El instalador:
+
+1. crea `./mango/` con el `docker-compose.yml`,
+2. genera un `.env` con **secretos al azar** (si ya existe uno, lo conserva),
+3. baja las imágenes y levanta el stack; la base **se migra sola**,
+4. imprime la dirección (`http://<servidor>:8081`) y la **clave temporal** del
+   primer usuario, que la app pide cambiar al entrar.
+
+¿Preferís sin script? Bajá [`deploy/docker-compose.yml`](deploy/docker-compose.yml)
+y [`deploy/.env.example`](deploy/.env.example) (como `.env`), completá los tres
+secretos y corré `docker compose up -d`.
+
+### Cómo está compuesto
+
+Seis contenedores, **un solo puerto** publicado:
+
+| Contenedor | Qué hace |
+|---|---|
+| `mango-frontend` | La PWA y la **puerta de entrada**: nginx sirve la app y hace de proxy a `/api` y `/powersync`. Único puerto expuesto (`MANGO_PORT`, 8081) |
+| `mango-backend` | API FastAPI. Valida el dominio y **migra la base al arrancar** |
+| `mango-powersync` | Sincronización, con la configuración de Mango incluida en la imagen |
+| `mango-postgres` | La base de la app (PostgreSQL 16, WAL lógico) |
+| `mango-powersync-storage` | Buckets de sincronización (cache derivada, se reconstruye sola) |
+| `mango-backup` | `pg_dump` diario con retención |
+
+Los datos viven en volúmenes con nombre fijo: `mango-pgdata`,
+`mango-attachments` (fotos de tickets), `mango-backups` y
+`mango-powersync-storage`.
+
+### Actualizaciones
+
+- **Automáticas con [Watchtower](https://containrrr.dev/watchtower/):** las
+  imágenes de Mango traen el label para que las actualice; las bases no (un
+  reinicio de la base lo decidís vos). Al llegar una versión, el backend migra al
+  arrancar y PowerSync se reinicia después.
+- **A mano:** `docker compose pull && docker compose up -d`.
+- **Volver atrás:** `MANGO_TAG=<commit>` en el `.env` y `docker compose up -d`.
+
+Guía completa —respaldos y cómo restaurarlos, volúmenes, opciones— en
 **[`infra/README.md`](infra/README.md)**.
+
+### Publicar una versión
+
+Desde la máquina de desarrollo, sin CI: `make release` (o `sh scripts/release.sh`)
+arma las cuatro imágenes y las sube a GHCR con el tag del commit y `latest`.
+Detalle en [`infra/README.md`](infra/README.md#publicar-una-versión-mantenimiento).
 
 ---
 
@@ -202,8 +262,10 @@ restaurar un backup, la nota de que la URL de la API se hornea en el frontend—
 ```
 docs/          especificación, esquema SQL comentado y decisiones (ADRs)
 backend/       API en FastAPI (app/, tests/, alembic/)
-frontend/      PWA en React (src/, PowerSync, componentes)
-infra/         docker compose, configuración de PowerSync, deploy
+frontend/      PWA en React (src/, PowerSync, componentes) + nginx
+deploy/        lo que va al servidor: docker-compose, .env de ejemplo, instalador
+infra/         compose de desarrollo, imágenes de PowerSync y backup, guía de deploy
+scripts/       release (publicación de imágenes) y utilidades
 n8n/           parsers de correo para la ingesta automática
 .claude/       agentes, skills y hooks del proyecto
 ```

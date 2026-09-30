@@ -1,17 +1,16 @@
-# PWA de Mango: se compila con node y se sirve estatica con nginx.
+# PWA de Mango: se compila con node y se sirve estatica con nginx, que ademas
+# es la puerta de entrada unica (proxy a la API y a PowerSync, ver nginx.conf).
 #
-# OJO: `VITE_API_URL` y `VITE_POWERSYNC_URL` se **hornean en el build** —Vite las
-# inyecta en el bundle— y son la direccion que ve el NAVEGADOR (tu telefono),
-# no la DNS interna de docker. Por eso son build-args, no variables de runtime.
-# Si cambia el host desde el que se entra (la IP de Tailscale, el nombre del
-# homelab), hay que **recompilar la imagen**. Es la limitacion clasica de una
-# SPA; un config.js en runtime la sacaria, y queda anotado como mejora futura.
+# Por defecto la imagen habla con su MISMO origen (`/` y `/powersync`): no
+# depende del host desde el que se entra, asi que la misma imagen publicada
+# sirve para cualquier instalacion (ver 0020). Los build-args solo hacen falta
+# para una build que apunte a servicios en otro host/puerto (casos de desarrollo).
 
 FROM node:22-alpine AS build
 WORKDIR /app
 
-ARG VITE_API_URL=http://localhost:8000
-ARG VITE_POWERSYNC_URL=http://localhost:8080
+ARG VITE_API_URL=/
+ARG VITE_POWERSYNC_URL=/powersync
 ENV VITE_API_URL=$VITE_API_URL \
     VITE_POWERSYNC_URL=$VITE_POWERSYNC_URL
 
@@ -24,6 +23,9 @@ RUN npm run build
 
 # --- Servido ---
 FROM nginx:alpine AS runtime
+LABEL org.opencontainers.image.source="https://github.com/FedeXX5652/mango" \
+      org.opencontainers.image.title="mango-frontend" \
+      org.opencontainers.image.description="Mango: PWA y puerta de entrada (nginx)"
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

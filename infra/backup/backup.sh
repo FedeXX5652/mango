@@ -13,6 +13,7 @@ set -e
 USUARIO="${POSTGRES_USER:-mango}"
 BASE="${POSTGRES_DB:-mango}"
 DIAS="${RETENTION_DAYS:-14}"
+HOST="${POSTGRES_HOST:-postgres}"
 DESTINO=/backups
 
 echo "Respaldo de '${BASE}' cada 24h, guardando ${DIAS} dias en ${DESTINO}"
@@ -20,7 +21,7 @@ echo "Respaldo de '${BASE}' cada 24h, guardando ${DIAS} dias en ${DESTINO}"
 while true; do
     marca=$(date +%Y-%m-%d_%H%M%S)
     archivo="${DESTINO}/mango-${marca}.sql.gz"
-    if pg_dump -h postgres -U "${USUARIO}" "${BASE}" | gzip > "${archivo}"; then
+    if pg_dump -h "${HOST}" -U "${USUARIO}" "${BASE}" | gzip > "${archivo}"; then
         echo "$(date -Iseconds)  ok  ${archivo}"
     else
         echo "$(date -Iseconds)  FALLO el respaldo" >&2

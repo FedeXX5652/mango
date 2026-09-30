@@ -934,13 +934,20 @@ en el backend.
 Docker Compose en servidor propio, accesible por red local y desde afuera
 mediante Tailscale. Sin puertos abiertos a internet.
 
-Servicios:
+El servidor corre **imagenes publicadas** (GHCR) y no tiene el codigo: solo
+`deploy/docker-compose.yml` y un `.env`. Se instala con `deploy/install.sh` y se
+actualiza con Watchtower o `docker compose pull`; la API migra la base al
+arrancar. Las imagenes se publican a mano con `make release`. Ver 0020.
+
+Servicios (un solo puerto publicado, el del frontend):
 
 ```
-postgres      base de datos
-powersync     motor de sincronizacion
-api           FastAPI
-n8n           ingesta desde correo (ya instalado)
+frontend      PWA + puerta de entrada (nginx: proxy a /api y /powersync)
+api           FastAPI (migra la base al arrancar)
+powersync     motor de sincronizacion, con la config de Mango adentro
+postgres      base de datos (+ el storage de PowerSync, aparte)
+backup        pg_dump diario con retencion
+n8n           ingesta desde correo (ya instalado, fuera de este compose)
 ```
 
 ---

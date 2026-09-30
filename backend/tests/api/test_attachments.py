@@ -3,11 +3,22 @@
 import uuid
 from types import SimpleNamespace
 
+import pytest
+
+from app.core.config import settings
+
 # PNG 1x1 valido (suficiente para probar la subida).
 PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
     "890000000a49444154789c6360000002000154a24f5f0000000049454e44ae426082"
 )
+
+
+@pytest.fixture(autouse=True)
+def _adjuntos_en_tmp(tmp_path, monkeypatch) -> None:
+    # Los binarios van a un directorio temporal: las pruebas no dejan archivos
+    # en el repo (ni en el contexto de build de la imagen).
+    monkeypatch.setattr(settings, "attachments_dir", str(tmp_path / "attachments"))
 
 
 async def _tx(api: SimpleNamespace) -> str:

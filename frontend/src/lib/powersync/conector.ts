@@ -5,11 +5,14 @@ import type {
 } from "@powersync/web"
 import { UpdateType } from "@powersync/web"
 
-import { API_BASE, api } from "@/lib/api"
+import { API_BASE, api, conAuth } from "@/lib/api"
+import { borrarToken } from "@/lib/sesion"
 import { registrarRechazo } from "@/lib/rechazados"
+import { urlAbsoluta } from "@/lib/url"
 
-// Endpoint del servicio PowerSync. En el celu tiene que ser la IP de la LAN,
-// por eso es configurable (si no, cae al valor que devuelve la API).
+// Endpoint del servicio PowerSync. En la imagen de produccion es `/powersync`
+// (mismo origen, nginx hace de proxy, ver 0020); en desarrollo puede ser la IP
+// de la LAN. Si no viene, cae al valor que devuelve la API.
 const POWERSYNC_URL = import.meta.env.VITE_POWERSYNC_URL as string | undefined
 
 // Cada tabla local mapea a su recurso REST. La escritura sube por estos
@@ -37,7 +40,9 @@ const RUTA: Record<string, string> = {
   notifications: "/notifications",
 }
 
-const JSON_HEADERS = { "Content-Type": "application/json" }
+// Cada subida lleva el token de la sesion: la API exige Bearer desde 3a (0013).
+// Sin esto, TODA escritura volvia 401 y terminaba en rechazados.
+const jsonHeaders = () => conAuth({ "Content-Type": "application/json" })
 
 // Lo minimo para subir una escritura, sin depender de la forma de `CrudEntry`:
 // asi el mismo camino sirve para la cola de PowerSync y para reintentar un
@@ -63,7 +68,7 @@ export async function subir({ tabla, op, id, datos }: Subida): Promise<Resultado
     if (op !== UpdateType.PUT) return { ok: false, motivo: "Operación no soportada" }
     resp = await fetch(`${base}/payment-methods/${datos.payment_method_id}/accounts`, {
       method: "POST",
-      headers: JSON_HEADERS,
+      headers: jsonHeaders(),
       body: JSON.stringify({ id, currency: datos.currency, account_id: datos.account_id }),
     })
   } else {
@@ -80,21 +85,29 @@ export async function subir({ tabla, op, id, datos }: Subida): Promise<Resultado
     if (op === UpdateType.PUT) {
       resp = await fetch(`${base}${ruta}`, {
         method: "POST",
-        headers: JSON_HEADERS,
+        headers: jsonHeaders(),
         body: JSON.stringify({ id, ...datos }),
       })
     } else if (op === UpdateType.PATCH) {
       resp = await fetch(`${base}${ruta}/${id}`, {
         method: "PATCH",
-        headers: JSON_HEADERS,
+        headers: jsonHeaders(),
         body: JSON.stringify(datos),
       })
     } else {
-      resp = await fetch(`${base}${ruta}/${id}`, { method: "DELETE" })
+      resp = await fetch(`${base}${ruta}/${id}`, { method: "DELETE", headers: conAuth() })
     }
   }
 
   if (resp.ok || resp.status === 409) return { ok: true } // 409 = ya aplicado (reintento)
+
+  if (resp.status === 401) {
+    // Sesion vencida o ausente: NO es un rechazo del dato, no se descarta. Se
+    // borra el token (la app vuelve al login) y se relanza: PowerSync reintenta
+    // la subida con el token nuevo.
+    borrarToken()
+    throw new Error(`Sin sesion al subir ${tabla}`)
+  }
 
   if (resp.status >= 400 && resp.status < 500) {
     // El cliente no puede arreglarlo reintentando igual: es un rechazo. Se
@@ -147,7 +160,9 @@ async function aplicar(db: AbstractPowerSyncDatabase, entry: CrudEntry): Promise
 export class ConectorMango implements PowerSyncBackendConnector {
   async fetchCredentials() {
     const cred = await api.getSyncToken()
-    return { endpoint: POWERSYNC_URL || cred.powersync_url, token: cred.token }
+    // Absoluta y sin barra final: una relativa no le sirve al SDK (ver lib/url).
+    const endpoint = urlAbsoluta(POWERSYNC_URL || cred.powersync_url, window.location.origin)
+    return { endpoint, token: cred.token }
   }
 
   async uploadData(database: AbstractPowerSyncDatabase): Promise<void> {

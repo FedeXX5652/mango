@@ -17,6 +17,10 @@ export default defineConfig({
         // El patron por defecto deja afuera las fuentes: sin esto la tipografia
         // no esta disponible sin conexion y la app cae a la del sistema.
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,wasm}"],
+        // En produccion la API y PowerSync van por el MISMO origen (nginx hace
+        // de proxy, ver 0020). Una navegacion a esas rutas nunca es la SPA: sin
+        // esto el SW contestaria index.html en lugar de dejarla ir a la red.
+        navigateFallbackDenylist: [/^\/api\//, /^\/powersync\//],
       },
       includeAssets: [
         "icons/favicon.ico",

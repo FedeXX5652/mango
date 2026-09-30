@@ -8,12 +8,15 @@
 
 import { borrarToken, tokenActual } from "@/lib/sesion"
 
+// En desarrollo, la API en su puerto (localhost:8000). En la imagen de
+// produccion VITE_API_URL es "/": queda "" y todo va al MISMO origen, donde
+// nginx hace de proxy (ver 0020). Asi la imagen no depende del host.
 export const API_BASE = (import.meta.env.VITE_API_URL ?? "http://localhost:8000").replace(/\/$/, "")
 const BASE = API_BASE
 
 // Cabeceras con el Bearer de la sesión, si hay. Todo lo que llama a la API pasa
 // por acá para no olvidarse el token en ningún lado.
-function conAuth(extra: Record<string, string> = {}): Record<string, string> {
+export function conAuth(extra: Record<string, string> = {}): Record<string, string> {
   const token = tokenActual()
   return token ? { ...extra, Authorization: `Bearer ${token}` } : extra
 }

@@ -1,0 +1,174 @@
+# Mango en produccion: tu servidor / homelab (ver docs/decisiones/0020).
+#
+# El servidor NO necesita el repo: solo este archivo y un `.env`. Las imagenes
+# vienen publicadas en GHCR (las arma `make release`). Instalar y levantar:
+#
+#     docker compose up -d
+#
+# Actualizar: Watchtower lo hace solo (ver los labels), o a mano:
+#
+#     docker compose pull && docker compose up -d
+#
+# La API migra la base sola cada vez que arranca con una imagen nueva.
+#
+# Se publica UN solo puerto (MANGO_PORT): el frontend es la puerta de entrada y
+# hace de proxy a la API (/api) y a PowerSync (/powersync). Las bases, la API y
+# PowerSync quedan en la red interna de docker, sin puertos hacia afuera.
+
+name: mango
+
+services:
+  # --- Base de la app -------------------------------------------------------
+  postgres:
+    image: postgres:16
+    container_name: mango-postgres
+    restart: unless-stopped
+    # PowerSync replica por WAL logico; sin esto no puede leer los cambios.
+    command: ["postgres", "-c", "wal_level=logical"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mango}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en el .env}
+      POSTGRES_DB: ${POSTGRES_DB:-mango}
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+    volumes:
+      - mango-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mango} -d ${POSTGRES_DB:-mango}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    labels:
+      # La base NO se actualiza sola: reiniciar la DB es una decision tuya
+      # (docker compose pull postgres && docker compose up -d postgres).
+      com.centurylinklabs.watchtower.enable: "false"
+
+  # --- Storage de los buckets de PowerSync (cache derivada) ------------------
+  powersync-storage:
+    image: postgres:16
+    container_name: mango-powersync-storage
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: powersync
+      POSTGRES_PASSWORD: ${POWERSYNC_STORAGE_PASSWORD:-powersync}
+      POSTGRES_DB: powersync
+    volumes:
+      - mango-powersync-storage:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U powersync -d powersync"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+
+  # --- API ------------------------------------------------------------------
+  backend:
+    image: ${MANGO_REGISTRY:-ghcr.io/fedexx5652}/mango-backend:${MANGO_TAG:-latest}
+    container_name: mango-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mango}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-mango}
+      # Firma las sesiones (0013). El contenedor no arranca sin una propia.
+      SECRET_KEY: ${SECRET_KEY:?Falta SECRET_KEY en el .env}
+      # Clave compartida con PowerSync: la API firma los JWT, PowerSync los valida.
+      POWERSYNC_JWT_SECRET: ${POWERSYNC_JWT_SECRET:?Falta POWERSYNC_JWT_SECRET en el .env}
+      POWERSYNC_JWT_AUDIENCE: powersync
+      # El navegador llega a PowerSync por el mismo origen (proxy del frontend).
+      POWERSYNC_URL: /powersync
+      # Primer usuario: se crea en la instalacion inicial con clave temporal.
+      SEED_USER_USERNAME: ${SEED_USER_USERNAME:-yo}
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-mango}
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+    volumes:
+      # Fotos de tickets. En un volumen: si quedaran dentro del contenedor, se
+      # perderian en cada actualizacion.
+      - mango-attachments:/data/attachments
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+
+  # --- Sincronizacion ---------------------------------------------------------
+  powersync:
+    image: ${MANGO_REGISTRY:-ghcr.io/fedexx5652}/mango-powersync:${MANGO_TAG:-latest}
+    container_name: mango-powersync
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      powersync-storage:
+        condition: service_healthy
+      # Que las migraciones ya hayan corrido: la config de sync nombra tablas.
+      backend:
+        condition: service_healthy
+    environment:
+      PS_DATA_SOURCE_URI: postgresql://${POSTGRES_USER:-mango}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-mango}
+      PS_STORAGE_SOURCE_URI: postgresql://powersync:${POWERSYNC_STORAGE_PASSWORD:-powersync}@powersync-storage:5432/powersync
+      PS_PORT: "8080"
+      PS_JWKS_K: ${POWERSYNC_JWT_SECRET}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:8080/probes/liveness').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 2s
+      retries: 20
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+      # Cuando se actualiza el backend (que migra), PowerSync se reinicia
+      # despues, y relee el esquema y la config de sync.
+      com.centurylinklabs.watchtower.depends-on: "mango-backend"
+
+  # --- PWA + puerta de entrada ------------------------------------------------
+  frontend:
+    image: ${MANGO_REGISTRY:-ghcr.io/fedexx5652}/mango-frontend:${MANGO_TAG:-latest}
+    container_name: mango-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - powersync
+    ports:
+      - "${MANGO_PORT:-8081}:80"
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+
+  # --- Respaldo diario --------------------------------------------------------
+  # SOLO la base de la app: powersync-storage es cache y se reconstruye sola.
+  backup:
+    image: ${MANGO_REGISTRY:-ghcr.io/fedexx5652}/mango-backup:${MANGO_TAG:-latest}
+    container_name: mango-backup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:-mango}
+      POSTGRES_DB: ${POSTGRES_DB:-mango}
+      RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      TZ: ${TZ:-America/Argentina/Buenos_Aires}
+    volumes:
+      - mango-backups:/backups
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+
+# Nombres fijos: los datos no dependen del nombre de la carpeta ni del proyecto.
+volumes:
+  mango-pgdata:
+    name: mango-pgdata
+  mango-powersync-storage:
+    name: mango-powersync-storage
+  mango-attachments:
+    name: mango-attachments
+  mango-backups:
+    name: mango-backups

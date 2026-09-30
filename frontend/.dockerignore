@@ -1,0 +1,14 @@
+# Lo que NO entra al contexto de build de la imagen.
+#
+# node_modules es el importante: el Dockerfile instala las dependencias ADENTRO
+# (npm ci, Linux) y despues hace `COPY . .`. Sin esto, el node_modules del host
+# pisaria al de la imagen, con binarios nativos de otro sistema (esbuild de
+# Windows), y el build fallaria. Ademas son cientos de MB de contexto.
+node_modules
+dist
+.vite
+coverage
+*.log
+.env
+.env.*
+!.env.example

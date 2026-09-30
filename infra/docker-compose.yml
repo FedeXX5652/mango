@@ -1,5 +1,6 @@
 services:
   postgres:
+    restart: unless-stopped
     image: postgres:16
     container_name: mango-postgres
     # PowerSync replica por WAL logico; sin esto no puede leer los cambios.
@@ -20,6 +21,7 @@ services:
 
   # Postgres separado donde PowerSync guarda sus buckets de sincronizacion.
   powersync-storage:
+    restart: unless-stopped
     image: postgres:16
     container_name: mango-powersync-storage
     environment:
@@ -35,6 +37,7 @@ services:
       retries: 5
 
   powersync:
+    restart: unless-stopped
     image: journeyapps/powersync-service:latest
     container_name: mango-powersync
     command: ["start", "-r", "unified"]
@@ -70,6 +73,7 @@ services:
 
   # API de la app. Migra y siembra al arrancar (docker-entrypoint.sh).
   backend:
+    restart: unless-stopped
     build:
       context: ../backend
     container_name: mango-backend
@@ -80,32 +84,39 @@ services:
     environment:
       # Dentro de docker la base es `postgres`, no localhost, y async.
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mango}:${POSTGRES_PASSWORD:-cambiar}@postgres:5432/${POSTGRES_DB:-mango}
+      # Firma las sesiones (0013). Sin una propia el contenedor no arranca (lo
+      # corta el entrypoint); aca no se exige para que `make dev` no la pida.
+      SECRET_KEY: ${SECRET_KEY:-}
       # Mismo secreto que firma PowerSync: la API emite los JWT, PowerSync los valida.
       POWERSYNC_JWT_SECRET: ${POWERSYNC_JWT_SECRET}
       POWERSYNC_JWT_AUDIENCE: ${POWERSYNC_JWT_AUDIENCE:-powersync}
-      # La dirección de PowerSync que la API le devuelve al cliente: la que ve el
-      # navegador, no la DNS interna.
-      POWERSYNC_URL: ${PUBLIC_POWERSYNC_URL:-http://localhost:8080}
-      # Orígenes permitidos para CORS: de dónde se sirve la PWA. JSON.
-      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:8081"]}
+      # El navegador llega a PowerSync por el mismo origen: el nginx del
+      # frontend hace de proxy (ver 0020).
+      POWERSYNC_URL: /powersync
+      # Orígenes permitidos para CORS (desarrollo con la PWA en otro puerto). JSON.
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:8081","http://localhost:5173"]}
     ports:
       - "8000:8000"
+    volumes:
+      # Fotos de tickets: en un volumen, para que sobrevivan a un rebuild.
+      - mango-attachments:/data/attachments
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
       interval: 10s
       timeout: 3s
       retries: 10
 
-  # PWA servida estática con nginx. La URL de la API se hornea en el build (ver
-  # frontend/Dockerfile): es la que ve el navegador.
+  # PWA + puerta de entrada: nginx sirve la app y hace de proxy a /api y a
+  # /powersync (mismo origen, ver 0020). Sin URLs horneadas.
   frontend:
+    restart: unless-stopped
     profiles: ["app"]
     build:
       context: ../frontend
-      args:
-        VITE_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
-        VITE_POWERSYNC_URL: ${PUBLIC_POWERSYNC_URL:-http://localhost:8080}
     container_name: mango-frontend
+    depends_on:
+      - backend
+      - powersync
     ports:
       - "8081:80"
 
@@ -113,7 +124,8 @@ services:
   # derivada (se reconstruye sola desde `mango`) y no se respalda. pg_dump diario,
   # comprimido, con retención por dias (RETENTION_DAYS).
   backup:
-    image: postgres:16
+    build:
+      context: ./backup
     container_name: mango-backup
     profiles: ["app"]
     depends_on:
@@ -121,14 +133,15 @@ services:
         condition: service_healthy
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:-cambiar}
+      POSTGRES_USER: ${POSTGRES_USER:-mango}
+      POSTGRES_DB: ${POSTGRES_DB:-mango}
       RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
     volumes:
       - mango-backups:/backups
-      - ./backup.sh:/backup.sh:ro
-    entrypoint: ["/bin/sh", "/backup.sh"]
     restart: unless-stopped
 
 volumes:
   mango-pgdata:
   mango-powersync-storage:
+  mango-attachments:
   mango-backups:
