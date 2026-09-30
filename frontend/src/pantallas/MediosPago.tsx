@@ -173,7 +173,7 @@ export function MediosPago() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl font-semibold">Medios de pago</h1>
+        <h1 className="text-2xl font-semibold">Medios de pago</h1>
       </header>
 
       <div className="flex gap-2">

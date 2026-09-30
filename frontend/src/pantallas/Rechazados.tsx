@@ -134,7 +134,7 @@ export function Rechazados() {
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Volver">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl font-semibold">Cambios sin guardar</h1>
+        <h1 className="text-2xl font-semibold">Cambios sin guardar</h1>
       </header>
 
       {filas.length === 0 ? (

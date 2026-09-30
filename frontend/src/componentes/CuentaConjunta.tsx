@@ -8,6 +8,8 @@ import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
+import { TX_GRUPO } from "@/lib/lente"
+import { saldoCuenta } from "@/lib/saldos"
 import { uuidv4 } from "@/lib/uuid"
 
 // Cuenta(s) conjunta(s) del grupo (fase 3b, ver 0016): cuentas del grupo
@@ -36,19 +38,11 @@ export function CuentaConjunta({ groupId }: { groupId: string }) {
   )
   const monedaGrupo = grupoRows[0]?.base_currency ?? "ARS"
 
-  // Saldo por cuenta conjunta: misma convencion que el saldo personal (0005).
+  // Saldo por cuenta conjunta: la formula unica (lib/saldos) sobre el LENTE del
+  // grupo, no sobre `transactions`. La cuenta es de todos: su saldo lleva lo
+  // que puso y pago cada miembro, y eso solo esta junto en el lente (0021).
   const { data: cuentas } = useQuery<CuentaSaldo>(
-    `SELECT a.id, a.name, a.currency,
-       a.opening_balance
-       + COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM transactions
-           WHERE account_id = a.id AND kind='income' AND status='confirmed' AND deleted_at IS NULL), 0)
-       - COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM transactions
-           WHERE account_id = a.id AND kind='expense' AND status='confirmed' AND deleted_at IS NULL), 0)
-       + COALESCE((SELECT SUM(amount) FROM transactions
-           WHERE transfer_account_id = a.id AND kind='transfer' AND status='confirmed' AND deleted_at IS NULL), 0)
-       - COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM transactions
-           WHERE account_id = a.id AND kind='transfer' AND status='confirmed' AND deleted_at IS NULL), 0)
-       AS balance
+    `SELECT a.id, a.name, a.currency, ${saldoCuenta(TX_GRUPO)} AS balance
      FROM accounts a
      WHERE a.group_id = ? AND a.deleted_at IS NULL AND a.archived = 0
      ORDER BY a.sort_order, a.created_at`,
@@ -86,15 +80,20 @@ export function CuentaConjunta({ groupId }: { groupId: string }) {
 
       {cuentas.length === 0 ? (
         <p className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
-          Sin cuentas conjuntas. Creá una para pagar gastos con plata del grupo: no
-          generan deuda entre los miembros.
+          Sin cuentas conjuntas. Creá una para pagar gastos con plata del grupo: no generan deuda
+          entre los miembros.
         </p>
       ) : (
         <ListaInset>
           {cuentas.map((c) => (
             <FilaInset key={c.id}>
               <span className="truncate">{c.name}</span>
-              <Monto centavos={c.balance} moneda={c.currency} variante="lista" className="font-medium" />
+              <Monto
+                centavos={c.balance}
+                moneda={c.currency}
+                variante="lista"
+                className="font-medium"
+              />
             </FilaInset>
           ))}
         </ListaInset>

@@ -17,9 +17,13 @@ import { cn } from "@/lib/utils"
 //   "US$" no miden lo mismo y corren los digitos.
 // - `suelto`: una sola caja, para el monto que no comparte columna con otros.
 //
-// El numero se parte en varios `<span>`, asi que el contenedor lleva el monto
-// completo en `aria-label` y las piezas van `aria-hidden`: el lector de pantalla
-// anuncia un numero, no tres pedazos.
+// El numero se parte en varios `<span>`, asi que las piezas van `aria-hidden` y
+// el monto completo va en un texto solo para lectores (`sr-only`): se anuncia un
+// numero, no tres pedazos. NO en `aria-label`: en un `<span>` sin rol esta
+// prohibido y algunos lectores lo ignoran (auditoria de 0022).
+//
+// Los tamanos relativos tienen PISO de 11 px: en un monto de 12 px, el 0,72em
+// de los decimales daba 8,6 px, ilegible.
 export function Monto({
   centavos,
   moneda,
@@ -43,7 +47,7 @@ export function Monto({
 
   // Sin decimales (JPY, CLP) no hay nada que achicar.
   const decimales = fraccion ? (
-    <span className="text-[0.72em]">
+    <span className="text-[max(0.72em,11px)]">
       {separador}
       {fraccion}
     </span>
@@ -51,12 +55,13 @@ export function Monto({
 
   if (variante === "suelto") {
     return (
-      <span className={cn("tabular", className)} aria-label={completo} title={completo}>
+      <span className={cn("tabular", className)} title={completo}>
         <span aria-hidden>
           {signo}
-          <span className="text-[0.85em] text-muted-foreground">{simbolo}</span> {entero}
+          <span className="text-[max(0.85em,11px)] text-muted-foreground">{simbolo}</span> {entero}
           {decimales}
         </span>
+        <span className="sr-only">{completo}</span>
       </span>
     )
   }
@@ -64,12 +69,11 @@ export function Monto({
   return (
     <span
       className={cn("tabular inline-flex items-baseline justify-end gap-1", className)}
-      aria-label={completo}
       title={completo}
     >
       {/* El signo NO va atenuado: es lo que comunica gasto o ingreso cuando el
           color no se percibe (DESIGN.md 3). Solo el simbolo se atenua. */}
-      <span aria-hidden className="w-9 shrink-0 text-right text-[0.85em]">
+      <span aria-hidden className="w-9 shrink-0 text-right text-[max(0.85em,11px)]">
         {signo}
         <span className="text-muted-foreground">{simbolo}</span>
       </span>
@@ -77,6 +81,7 @@ export function Monto({
         {entero}
         {decimales}
       </span>
+      <span className="sr-only">{completo}</span>
     </span>
   )
 }

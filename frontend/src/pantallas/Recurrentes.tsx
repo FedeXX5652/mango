@@ -111,7 +111,7 @@ export function Recurrentes() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl font-semibold">Recurrentes</h1>
+        <h1 className="text-2xl font-semibold">Recurrentes</h1>
       </header>
 
       <p className="text-sm text-muted-foreground">

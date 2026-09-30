@@ -20,6 +20,7 @@ import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
+import { Interruptor } from "@/componentes/ui/interruptor"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, formatearCentavos, formatearMonto } from "@/lib/dinero"
@@ -91,12 +92,15 @@ export function Presupuestos() {
   const periodStart = `${mesKey}-01`
   const finMesISO = new Date(anio, mes + 1, 1).toISOString()
 
+  // Solo lo PERSONAL: las categorias y los sobres de un grupo son del grupo y se
+  // presupuestan en su pantalla (0016). Sin este filtro aparecian aca, con el
+  // mismo nombre que los personales, y su asignado se restaba de mis fondos.
   const { data: categorias, isLoading: cargaCats } = useQuery<Cat>(
-    "SELECT id, name, parent_id, rollover, icon FROM categories WHERE kind='expense' AND deleted_at IS NULL AND archived = 0",
+    "SELECT id, name, parent_id, rollover, icon FROM categories WHERE kind='expense' AND group_id IS NULL AND deleted_at IS NULL AND archived = 0",
   )
   const catById = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
   const { data: budgetRows, isLoading: cargaBudgets } = useQuery<BudgetRow>(
-    "SELECT id, category_id, period_start, amount FROM budgets WHERE deleted_at IS NULL AND currency = ?",
+    "SELECT id, category_id, period_start, amount FROM budgets WHERE group_id IS NULL AND deleted_at IS NULL AND currency = ?",
     [moneda],
   )
   const { data: gastoRows } = useQuery<GastoRow>(
@@ -109,27 +113,34 @@ export function Presupuestos() {
     [moneda],
   )
   const reglaPorCat = useMemo(() => new Map(reglaRows.map((r) => [r.category_id, r])), [reglaRows])
-  // Fondos presupuestables DE ESTA MONEDA. El ancla es la moneda de la cuenta,
+  // Fondos presupuestables DE ESTA MONEDA, de MIS cuentas: la conjunta es del
+  // grupo (0016) y los pagos reales de deudas salen de mi cuenta (0017), igual
+  // que en el saldo de Inicio (lib/saldos). El ancla es la moneda de la cuenta,
   // y el monto que se suma del lado `account_id` es
   // `COALESCE(amount_account, amount)`: con una compra en otra moneda, lo que
   // salio de la cuenta es `amount_account` (ver 0005).
   const { data: fondosRows, isLoading: cargaFondos } = useQuery<{ fondos: number }>(
     `SELECT
        (SELECT COALESCE(SUM(opening_balance),0) FROM accounts
-          WHERE COALESCE(off_budget,0)=0 AND deleted_at IS NULL AND currency = ?)
+          WHERE COALESCE(off_budget,0)=0 AND owner_id IS NOT NULL AND deleted_at IS NULL AND currency = ?)
        + COALESCE((SELECT SUM(CASE WHEN t.kind='income' THEN COALESCE(t.amount_account, t.amount)
                                    WHEN t.kind='expense' THEN -COALESCE(t.amount_account, t.amount) ELSE 0 END)
             FROM transactions t JOIN accounts a ON a.id=t.account_id
-            WHERE COALESCE(a.off_budget,0)=0 AND a.deleted_at IS NULL AND a.currency = ?
+            WHERE COALESCE(a.off_budget,0)=0 AND a.owner_id IS NOT NULL AND a.deleted_at IS NULL AND a.currency = ?
               AND t.status='confirmed' AND t.deleted_at IS NULL AND t.occurred_at < ?),0)
        + COALESCE((SELECT SUM(t.amount) FROM transactions t JOIN accounts a ON a.id=t.transfer_account_id
-            WHERE COALESCE(a.off_budget,0)=0 AND a.deleted_at IS NULL AND a.currency = ?
+            WHERE COALESCE(a.off_budget,0)=0 AND a.owner_id IS NOT NULL AND a.deleted_at IS NULL AND a.currency = ?
               AND t.kind='transfer' AND t.status='confirmed' AND t.deleted_at IS NULL AND t.occurred_at < ?),0)
        - COALESCE((SELECT SUM(COALESCE(t.amount_account, t.amount)) FROM transactions t JOIN accounts a ON a.id=t.account_id
-            WHERE COALESCE(a.off_budget,0)=0 AND a.deleted_at IS NULL AND a.currency = ?
+            WHERE COALESCE(a.off_budget,0)=0 AND a.owner_id IS NOT NULL AND a.deleted_at IS NULL AND a.currency = ?
               AND t.kind='transfer' AND t.status='confirmed' AND t.deleted_at IS NULL AND t.occurred_at < ?),0)
+       - COALESCE((SELECT SUM(s.amount) FROM settlements s
+            LEFT JOIN settlement_accounts sa ON sa.id = s.id
+            JOIN accounts a ON a.id = COALESCE(s.account_id, sa.account_id)
+            WHERE COALESCE(a.off_budget,0)=0 AND a.owner_id IS NOT NULL AND a.deleted_at IS NULL AND a.currency = ?
+              AND s.deleted_at IS NULL AND s.occurred_at < ?),0)
        AS fondos`,
-    [moneda, moneda, finMesISO, moneda, finMesISO, moneda, finMesISO],
+    [moneda, moneda, finMesISO, moneda, finMesISO, moneda, finMesISO, moneda, finMesISO],
   )
   const fondos = fondosRows[0]?.fondos ?? 0
 
@@ -291,6 +302,9 @@ export function Presupuestos() {
     <div className="mx-auto max-w-2xl space-y-4 p-4">
       {/* Cada moneda tiene su propio presupuesto y su propio "por asignar"
           (ver 0005). Con una sola no hay nada que elegir. */}
+      {/* Con una sola moneda no hay fila de moneda, pero la pantalla sigue
+          necesitando su titulo (para lectores de pantalla). */}
+      {monedas.length <= 1 && <h1 className="sr-only">Presupuesto</h1>}
       {monedas.length > 1 && (
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-sm font-semibold text-muted-foreground">Presupuesto en {moneda}</h1>
@@ -321,7 +335,7 @@ export function Presupuestos() {
             </PieChart>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
               <span className="tabular text-lg font-semibold">{Math.round(pctGastado)}%</span>
-              <span className="text-[10px] text-muted-foreground">gastado</span>
+              <span className="text-xs text-muted-foreground">gastado</span>
             </div>
           </div>
           <div className="min-w-0 flex-1">
@@ -610,15 +624,15 @@ function FilaSobre({
       >
         <div className="overflow-hidden">
           <div className="mt-2 space-y-2 border-t border-border pt-2 text-sm">
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={cat.rollover === 1}
-                  onChange={(e) => onAhorro(cat.id, e.target.checked)}
+            <div className="flex min-h-11 items-center justify-between gap-3">
+              <span className="flex items-center gap-3">
+                <Interruptor
+                  encendido={cat.rollover === 1}
+                  onCambio={(v) => onAhorro(cat.id, v)}
+                  etiqueta="Ahorro (acumula)"
                 />
                 Ahorro (acumula)
-              </label>
+              </span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -628,16 +642,16 @@ function FilaSobre({
                 <Trash2 className="h-4 w-4" /> Quitar
               </Button>
             </div>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={autoOn}
-                onChange={(e) => onToggleAuto(cat.id, e.target.checked)}
+            <div className="flex min-h-11 items-center gap-3">
+              <Interruptor
+                encendido={autoOn}
+                onCambio={(v) => onToggleAuto(cat.id, v)}
+                etiqueta="Asignar automáticamente cada mes"
               />
               Asignar automáticamente cada mes
-            </label>
+            </div>
             {autoOn && (
-              <p className="pl-6 text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Cada mes se asigna solo el monto de arriba (editalo y la regla se actualiza).
               </p>
             )}
@@ -694,10 +708,14 @@ function FormAgregar({
           placeholder="0"
         />
       </Campo>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={ahorro} onChange={(e) => setAhorro(e.target.checked)} />
-        Sobre de ahorro (el saldo acumula mes a mes)
-      </label>
+      <div className="flex min-h-11 items-center justify-between gap-3 text-sm">
+        <span>Sobre de ahorro (el saldo acumula mes a mes)</span>
+        <Interruptor
+          encendido={ahorro}
+          onCambio={setAhorro}
+          etiqueta="Sobre de ahorro (el saldo acumula mes a mes)"
+        />
+      </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-2">
         <Button

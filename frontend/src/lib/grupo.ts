@@ -134,7 +134,8 @@ export function resumenGrupo(
 
     // Por categoria, mayor primero.
     const catMap = new Map<string | null, number>()
-    for (const t of delaMoneda) catMap.set(t.category_id, (catMap.get(t.category_id) ?? 0) + t.amount)
+    for (const t of delaMoneda)
+      catMap.set(t.category_id, (catMap.get(t.category_id) ?? 0) + t.amount)
     const porCategoria = [...catMap.entries()]
       .map(([category_id, total]) => ({ category_id, total }))
       .sort((a, b) => b.total - a.total)
@@ -172,7 +173,8 @@ export function resumenGrupo(
     // recibio parte de lo suyo. Asi un saldo que ya se pago desaparece (0015).
     const netoDe = new Map(balances.map((b) => [b.user_id, b.neto]))
     for (const p of settlements.filter((x) => x.currency === currency)) {
-      if (netoDe.has(p.from_user_id)) netoDe.set(p.from_user_id, netoDe.get(p.from_user_id)! + p.amount)
+      if (netoDe.has(p.from_user_id))
+        netoDe.set(p.from_user_id, netoDe.get(p.from_user_id)! + p.amount)
       if (netoDe.has(p.to_user_id)) netoDe.set(p.to_user_id, netoDe.get(p.to_user_id)! - p.amount)
     }
     for (const b of balances) b.neto = netoDe.get(b.user_id) ?? b.neto
@@ -181,6 +183,13 @@ export function resumenGrupo(
       .map(([user_id, total]) => ({ user_id, nombre: nombreDe(miembros, user_id), total }))
       .sort((a, b) => b.total - a.total)
 
-    return { currency, total, porCategoria, porMiembro, balances, liquidaciones: liquidar(balances) }
+    return {
+      currency,
+      total,
+      porCategoria,
+      porMiembro,
+      balances,
+      liquidaciones: liquidar(balances),
+    }
   })
 }

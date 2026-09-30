@@ -11,7 +11,7 @@ import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { ApiError, api } from "@/lib/api"
-import { PALETA } from "@/lib/paleta"
+import { PALETA, SIN_COLOR } from "@/lib/paleta"
 import { usuarioActualId } from "@/lib/sesion"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
@@ -81,7 +81,7 @@ export function Grupos() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl font-semibold">Grupos</h1>
+        <h1 className="text-2xl font-semibold">Grupos</h1>
       </header>
 
       <p className="text-sm text-muted-foreground">
@@ -92,6 +92,7 @@ export function Grupos() {
       <div className="space-y-2">
         <div className="flex gap-2">
           <Input
+            aria-label="Nombre del grupo nuevo"
             value={nuevoNombre}
             onChange={(e) => setNuevoNombre(e.target.value)}
             placeholder="Nombre del grupo (ej: Casa)"
@@ -144,7 +145,9 @@ function PaletaColor({
           onClick={() => onCambio(c)}
           className={cn(
             "h-6 w-6 rounded-full transition-transform",
-            valor === c ? "ring-2 ring-foreground ring-offset-2 ring-offset-card" : "hover:scale-110",
+            valor === c
+              ? "ring-2 ring-foreground ring-offset-2 ring-offset-card"
+              : "hover:scale-110",
           )}
           style={{ backgroundColor: c }}
         />
@@ -209,7 +212,7 @@ function TarjetaGrupo({
         >
           <span
             className="h-3 w-3 shrink-0 rounded-full"
-            style={{ backgroundColor: grupo.color || "#9CA3AF" }}
+            style={{ backgroundColor: grupo.color || SIN_COLOR }}
             aria-hidden
           />
           <span className="truncate">{grupo.name}</span>

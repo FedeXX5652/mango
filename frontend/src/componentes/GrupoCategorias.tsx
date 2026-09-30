@@ -11,6 +11,7 @@ import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
 import { SelectorIcono } from "@/componentes/SelectorIcono"
 import { ordenarJerarquico } from "@/lib/categorias"
+import { TX_GRUPO } from "@/lib/lente"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 
@@ -44,7 +45,7 @@ export function GrupoCategorias({ groupId }: { groupId: string }) {
   // En uso = referenciada por un movimiento compartido del grupo, o con hijas.
   // (Presupuestos/reglas de grupo son 3b.3: todavia no existen.)
   const { data: enUsoRows } = useQuery<{ id: string }>(
-    "SELECT category_id AS id FROM transactions" +
+    `SELECT category_id AS id FROM ${TX_GRUPO}` +
       " WHERE group_id = ? AND deleted_at IS NULL AND category_id IS NOT NULL" +
       " UNION SELECT parent_id FROM categories" +
       " WHERE group_id = ? AND deleted_at IS NULL AND parent_id IS NOT NULL",
@@ -76,13 +77,7 @@ export function GrupoCategorias({ groupId }: { groupId: string }) {
   const archivadas = categorias.filter((c) => c.archived)
 
   const fila = (c: Categoria) => (
-    <Fila
-      key={c.id}
-      c={c}
-      onArchivar={alArchivar}
-      onEliminar={alTacho}
-      onIcono={alIcono}
-    />
+    <Fila key={c.id} c={c} onArchivar={alArchivar} onEliminar={alTacho} onIcono={alIcono} />
   )
 
   return (
@@ -237,7 +232,11 @@ function FormularioCategoria({
       <Campo etiqueta="Nombre">
         <div className="flex items-center gap-2">
           <SelectorIcono valor={icono} onCambio={setIcono} />
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Supermercado" />
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Supermercado"
+          />
         </div>
       </Campo>
       <div className="grid grid-cols-2 gap-3">

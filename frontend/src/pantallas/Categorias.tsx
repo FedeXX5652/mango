@@ -143,7 +143,7 @@ export function Categorias() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl font-semibold">Categorías</h1>
+        <h1 className="text-2xl font-semibold">Categorías</h1>
       </header>
 
       <Button className="w-full" onClick={() => setMostrarForm(true)}>

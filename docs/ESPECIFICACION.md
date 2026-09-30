@@ -560,6 +560,12 @@ es:
 Los reportes del grupo suman solo lo compartido. Los reportes personales suman
 todo lo propio. Nadie ve el detalle privado del otro.
 
+En el dispositivo, lo personal y lo del grupo viven en **tablas locales
+distintas**: mis movimientos completos en una y el "lente" del grupo (lo
+compartido de todos, sin lo privado) en otra. Si una misma fila llegara con dos
+formas a la misma tabla, el motor de sincronizacion se queda con una sola, y la
+recortada pisaba la completa. Ver decision 0021.
+
 ### 3.11 Funcionamiento sin conexion
 
 La aplicacion escribe siempre en una base local del dispositivo. Cuando hay
@@ -886,6 +892,10 @@ cliente son Apache 2.0.
 **Ventaja para este proyecto**: n8n escribe a Postgres y el motor propaga esas
 transacciones a los dispositivos sin codigo adicional.
 
+**Regla de las reglas de sync**: en cada tabla local, una fila tiene una sola
+forma. Lo que baja con otras columnas (por ejemplo, lo compartido sin lo privado)
+va a otra tabla local (`FROM tabla AS otra_tabla`). Ver decision 0021.
+
 ### 6.3 Backend: Python con FastAPI
 
 Se evaluaron alternativas dejando de lado la familiaridad.
@@ -919,6 +929,12 @@ Complementos: SQLAlchemy como ORM, Alembic para migraciones.
 Se eligio PWA sobre aplicacion nativa porque cubre Android e iOS con una sola
 base de codigo. **Limitacion conocida: no permite widgets en la pantalla de
 inicio**, que Money Manager si tiene.
+
+Lo que si tiene son **atajos del icono**: nuevo gasto, nuevo ingreso,
+movimientos, estadisticas, ultimo grupo, transferencia y presupuesto. En Android
+aparecen al mantener apretado el icono (los tres primeros) y en escritorio en la
+lista de saltos. **iOS no los muestra.** Los enlaces directos (`/nuevo?tipo=...`,
+`/grupos/ultimo`) funcionan igual en todas partes. Ver decision 0023.
 
 El frontend se organiza en **dos arboles de componentes**, uno para movil y
 otro para escritorio, que comparten toda la logica. Ver seccion 3.12.

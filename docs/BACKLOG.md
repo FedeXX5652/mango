@@ -24,6 +24,59 @@ La **bandeja in-app ya esta** (0019). El push (avisos fuera de la app) queda:
 - Requiere **HTTPS** (va de la mano con Caddy).
 - Reusa los eventos que ya escriben en `notifications`: es otro canal del mismo aviso.
 
+## Auditoria de frontend (2026-09-30, ver 0022)
+
+Auditoria completa de las 19 vistas en movil (390 y 360 px, claro y oscuro) y
+escritorio (1440 px), con axe (WCAG 2.2 AA) y chequeos de layout. Lo que ya se
+arreglo esta en 0021, 0022 y 0023: sync del grupo, barra movil, contraste,
+nombres accesibles, controles de menos de 24 px, landmarks y h1. Esto es lo que
+queda. **No son defectos de AA**: son diferencias con DESIGN.md o mejoras que
+tocan el sistema entero, y van con decision propia.
+
+- **Decidir a donde llevan las tarjetas de cuenta de Inicio.** A Movimientos
+  filtrado por esa cuenta (recomendado: es la pregunta "¿que paso en esta
+  cuenta?") o a Estadisticas. Necesita el filtro por URL en Movimientos
+  (`?cuenta=`).
+- **Escala tipografica vs DESIGN.md 3.** El codigo usa la de Tailwind (12, 14,
+  20, 30) y DESIGN define 13 (secundaria), 15 (cuerpo), 24 (titulo) y 32 (monto
+  destacado). Propuesta: tamaños con nombre de rol en `tailwind.config.ts`
+  (`text-secundaria`, `text-cuerpo`, `text-titulo`, `text-destacado`) y migrar
+  por pantalla, con pasada visual en 360 px.
+- **44 px en movil** para los controles que hoy miden 40 (botones de icono:
+  archivar, eliminar, editar, volver, mes anterior/siguiente; campos y
+  desplegables), 32 (`Segmentado`) o 24 (muestras de color de Grupos,
+  `Interruptor`). Todos pasan el minimo de AA (24); 44 es la recomendacion para
+  touch. Propuesta: variante `icon` a 44 solo en el arbol movil.
+- **Filtros de Movimientos en movil**: DESIGN.md 2 dice "Hoja inferior
+  desplegable". Hoy son seis controles en tres filas arriba de la lista.
+- **Detalle de movimiento en escritorio**: DESIGN.md 2 dice "Panel lateral, la
+  lista queda visible". Hoy es pantalla completa.
+- **Contador de pendientes en la navegacion** (DESIGN.md 7): todavia no esta.
+  Cobra sentido con la bandeja de pendientes de la fase 2.
+- **Borde de los campos** (`input` `#CFC5AD` sobre blanco: 1,7:1). WCAG 1.4.11
+  pide 3:1 cuando el borde es lo que delimita el control. Oscurecer el token o
+  darle fondo `muted` al campo.
+- **`Segmentado` usa roles de pestañas** (`tablist`/`tab`) sin panel: lo que hace
+  es elegir un valor, asi que semanticamente es un grupo de radio (`radiogroup`,
+  `aria-checked`, flechas del teclado).
+- **Header de escritorio**: dice "Finanzas", un texto de relleno. Deberia mostrar
+  el titulo de la pantalla o nada.
+- **Espaciados fuera de la escala de 4** (DESIGN.md 3): 43 usos en 22 archivos
+  (`gap-0.5`, `gap-1.5`, `gap-2.5`, `space-y-1.5`, `space-y-5`, `p-5`…). Pasada
+  mecanica.
+- **Texto chico deliberado**: los montos por dia del calendario (10 px) y los
+  decimales y el simbolo de `Monto` (piso de 11 px, 0006) quedan debajo de los 13
+  px de DESIGN. Revisar junto con la escala tipografica.
+
+## PWA: ideas que salieron con los atajos (0023)
+
+- **Grupo favorito** para el atajo del grupo, si "el ultimo abierto" no alcanza
+  (varios grupos de uso parejo).
+- **`share_target`**: compartir la foto de un ticket a Mango desde la galeria y
+  que abra un movimiento nuevo con el adjunto (los adjuntos ya existen, fase 5).
+- **`screenshots`** en el manifiesto: Android y Chrome de escritorio muestran un
+  dialogo de instalacion mas rico con capturas.
+
 ## Cabos sueltos
 
 - **`users.email` -> `username`.** Hoy conviven; el `email` quedo de relleno. Cuando

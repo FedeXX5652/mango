@@ -1,6 +1,6 @@
 # 0009 - Como se particiona la sincronizacion
 
-Estado: aceptada
+Estado: aceptada, ajustada por 0021 (lo que baja por el grupo va a sus propias tablas locales)
 Fecha: 2026-09-14
 
 ## Contexto

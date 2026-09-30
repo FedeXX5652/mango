@@ -66,7 +66,7 @@ Por eso el boton principal es mango con texto casi negro, y no al reves.
 |---|---|
 | `border` | `#D8CFBA` |
 | `input` | `#CFC5AD` |
-| `ring` | `#D9A300` |
+| `ring` | `#A87C00` |
 
 ### Destructivo
 

@@ -26,7 +26,9 @@
   --accent-foreground: #4a3a00;
   --border: #d8cfba;
   --input: #cfc5ad;
-  --ring: #d9a300;
+  /* Anillo de foco: 3,7:1 contra el fondo (WCAG 1.4.11 pide 3:1). El #d9a300
+     de antes daba 2,2:1 y el foco con teclado casi no se veia. */
+  --ring: #a87c00;
   --destructive: #c62828;
   --destructive-foreground: #ffffff;
   --expense: #c62828;

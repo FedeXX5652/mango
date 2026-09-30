@@ -30,11 +30,25 @@ export default {
         transfer: "var(--transfer)",
         pending: "var(--pending)",
         rejected: "var(--rejected)",
+        // Texto de enlaces y acciones de texto. Es un ALIAS de accent-foreground,
+        // no un color nuevo: ese token ya es oscuro sobre claro y claro sobre
+        // oscuro en los tres temas (9:1 a 13:1). `text-primary` como texto NO:
+        // el amarillo de marca sobre blanco da 1,7:1 (DESIGN.md 3).
+        enlace: "var(--accent-foreground)",
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      // Borde inferior seguro del telefono (barra de gestos, indicador de
+      // inicio del iPhone; necesita `viewport-fit=cover`, ya en index.html).
+      // `barra`: lo que la barra inferior movil tapa del contenido (64 px de
+      // barra + 16 de aire + el borde seguro). Con nombre y no como valor
+      // arbitrario en cada componente (DESIGN.md 3).
+      padding: {
+        seguro: "env(safe-area-inset-bottom)",
+        barra: "calc(5rem + env(safe-area-inset-bottom))",
       },
       fontFamily: {
         // Los nombres con "Variable" son los que declaran los paquetes de

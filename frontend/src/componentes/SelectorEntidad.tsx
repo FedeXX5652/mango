@@ -207,7 +207,7 @@ function Fila({
           <span className="block truncate text-xs text-muted-foreground">{o.detalle}</span>
         )}
       </span>
-      {elegida && <Check className="h-4 w-4 shrink-0 text-primary" aria-hidden />}
+      {elegida && <Check className="h-4 w-4 shrink-0 text-enlace" aria-hidden />}
     </button>
   )
 }

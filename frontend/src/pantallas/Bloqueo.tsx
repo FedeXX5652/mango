@@ -91,8 +91,8 @@ export function PantallaBloqueo({ modo, onListo }: Props) {
   const mostrarBio = modo === "desbloquear" && bioDisponible && biometriaActivada()
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6 bg-background px-6">
-      <img src="/icons/svg/mango.svg" alt="Mango" className="h-16 w-16" />
+    <main className="flex h-full flex-col items-center justify-center gap-6 bg-background px-6">
+      <img src="/icons/svg/mango.svg" alt="" className="h-16 w-16" />
       <div className="text-center">
         <h1 className="text-2xl font-semibold">Mango</h1>
         <p className="text-sm text-muted-foreground">{subtitulo}</p>
@@ -142,7 +142,7 @@ export function PantallaBloqueo({ modo, onListo }: Props) {
       </button>
 
       <p className="text-xs text-muted-foreground">4 a 6 dígitos</p>
-    </div>
+    </main>
   )
 }
 

@@ -66,10 +66,7 @@ describe("resumen del grupo", () => {
 
   it("separa por moneda: no mezcla pesos con dolares", () => {
     const r = resumenGrupo(
-      [
-        gasto({ currency: "ARS", amount: 50000 }),
-        gasto({ currency: "USD", amount: 3000 }),
-      ],
+      [gasto({ currency: "ARS", amount: 50000 }), gasto({ currency: "USD", amount: 3000 })],
       [ANA, BETO],
     )
     expect(r.map((m) => m.currency)).toEqual(["ARS", "USD"])
@@ -173,9 +170,7 @@ describe("pagos (settlements)", () => {
       gasto({ id: "d3", owner_id: BETO.user_id, amount: 430050 }),
     ]
     const sinPago = resumenGrupo(txs, [YO, BETO])[0]
-    expect(sinPago.liquidaciones).toEqual([
-      { de: BETO.user_id, a: YO.user_id, monto: 140012 },
-    ])
+    expect(sinPago.liquidaciones).toEqual([{ de: BETO.user_id, a: YO.user_id, monto: 140012 }])
     // Al saldar ese monto exacto, nadie debe nada.
     const conPago = resumenGrupo(txs, [YO, BETO], {
       settlements: [

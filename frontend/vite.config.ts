@@ -2,6 +2,8 @@ import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
 
+import { ATAJOS } from "./src/lib/atajos"
+
 // PWA instalable con el color de marca mango (#FDBE02). El SW se registra solo.
 export default defineConfig({
   plugins: [
@@ -66,6 +68,10 @@ export default defineConfig({
             purpose: "maskable",
           },
         ],
+        // Atajos del icono (0023): mantener apretado en Android, lista de saltos
+        // en Windows. iOS no los muestra. La lista, su orden y por que viven en
+        // src/lib/atajos.ts (la usa tambien el alta y tiene sus tests).
+        shortcuts: ATAJOS,
       },
     }),
   ],

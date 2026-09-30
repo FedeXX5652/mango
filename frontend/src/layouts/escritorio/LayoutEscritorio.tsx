@@ -23,24 +23,29 @@ export function LayoutEscritorio() {
           <img src="/icons/svg/mango.svg" alt="" className="h-8 w-8" />
           <span className="text-lg font-semibold">Mango</span>
         </div>
-        {DESTINOS.map((d) => (
-          <NavLink
-            key={d.to}
-            to={d.to}
-            end={d.end}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm",
-                isActive
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-muted",
-              )
-            }
-          >
-            <d.icono className="h-5 w-5" />
-            {d.etiqueta}
-          </NavLink>
-        ))}
+        {/* Landmark de navegacion: sin el <nav>, un lector de pantalla no
+            encontraba los destinos como tales (auditoria de 0022). */}
+        <nav aria-label="Principal" className="flex flex-col gap-1">
+          {DESTINOS.map((d) => (
+            <NavLink
+              key={d.to}
+              to={d.to}
+              end={d.end}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  isActive
+                    ? "bg-accent font-medium text-accent-foreground"
+                    : "text-muted-foreground hover:bg-muted",
+                )
+              }
+            >
+              <d.icono className="h-5 w-5" aria-hidden />
+              {d.etiqueta}
+            </NavLink>
+          ))}
+        </nav>
       </aside>
 
       <div className="flex min-w-0 flex-col">

@@ -18,6 +18,7 @@ import {
 } from "@/lib/grupo"
 import { convertirTodos } from "@/lib/historico"
 import { iconoDe } from "@/lib/iconos"
+import { TX_GRUPO } from "@/lib/lente"
 import type { CotizacionConocida } from "@/lib/patrimonio"
 import { usuarioActualId } from "@/lib/sesion"
 
@@ -58,8 +59,9 @@ interface FilaReporte extends TxGrupo {
   moneda_cuenta: string | null
 }
 
-const BASE_TX =
-  "FROM transactions WHERE group_id = ? AND visibility = 'shared' AND deleted_at IS NULL AND kind = 'expense'"
+// Todo sobre el LENTE del grupo (lib/lente): los gastos compartidos de todos los
+// miembros, con mi copia completa para lo mio (0021).
+const BASE_TX = `FROM ${TX_GRUPO} t WHERE t.group_id = ? AND t.visibility = 'shared' AND t.deleted_at IS NULL AND t.kind = 'expense'`
 
 export function ResumenGrupo({ groupId }: { groupId: string }) {
   const db = usePowerSync()
@@ -73,7 +75,7 @@ export function ResumenGrupo({ groupId }: { groupId: string }) {
     "t.id, t.owner_id, t.amount, t.currency, t.category_id, t.kind, t.paid_from_group," +
     " t.occurred_at, t.amount_account, a.currency AS moneda_cuenta"
   const FROM_REPORTE =
-    "FROM transactions t LEFT JOIN accounts a ON a.id = t.account_id" +
+    `FROM ${TX_GRUPO} t LEFT JOIN accounts a ON a.id = t.account_id` +
     " WHERE t.group_id = ? AND t.visibility = 'shared' AND t.deleted_at IS NULL AND t.kind = 'expense'"
   const { sql, params } = useMemo(() => {
     if (periodo === "todo")
@@ -105,7 +107,7 @@ export function ResumenGrupo({ groupId }: { groupId: string }) {
   )
   const { data: splits } = useQuery<SplitRow>(
     `SELECT s.transaction_id, s.user_id, s.amount
-     FROM transaction_splits s JOIN transactions t ON t.id = s.transaction_id
+     FROM transaction_splits s JOIN ${TX_GRUPO} t ON t.id = s.transaction_id
      WHERE t.group_id = ? AND t.visibility = 'shared' AND t.deleted_at IS NULL AND s.deleted_at IS NULL`,
     [groupId],
   )
@@ -117,14 +119,17 @@ export function ResumenGrupo({ groupId }: { groupId: string }) {
     currency: string
     occurred_at: string
     account_id: string | null
+    pago_real: number | null
   }>(
-    `SELECT id, from_user_id, to_user_id, amount, currency, occurred_at, account_id
+    // `pago_real` dice si fue un pago con plata (0017) sin decir de que cuenta:
+    // la cuenta es privada y solo esta en la fila de un pago mio sin subir.
+    `SELECT id, from_user_id, to_user_id, amount, currency, occurred_at, account_id, pago_real
      FROM settlements WHERE group_id = ? AND deleted_at IS NULL ORDER BY occurred_at DESC`,
     [groupId],
   )
 
   const { data: miembrosRows } = useQuery<{ user_id: string; display_name: string | null }>(
-    `SELECT gm.user_id, u.display_name FROM group_members gm LEFT JOIN users u ON u.id = gm.user_id
+    `SELECT gm.user_id, u.display_name FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
      WHERE gm.group_id = ? AND gm.deleted_at IS NULL`,
     [groupId],
   )
@@ -214,7 +219,12 @@ export function ResumenGrupo({ groupId }: { groupId: string }) {
                         </span>
                         <span className="truncate">{info?.name ?? "Sin categoría"}</span>
                       </span>
-                      <Monto centavos={c.total} moneda={base} variante="lista" className="font-medium" />
+                      <Monto
+                        centavos={c.total}
+                        moneda={base}
+                        variante="lista"
+                        className="font-medium"
+                      />
                     </FilaInset>
                   )
                 })}
@@ -252,7 +262,12 @@ export function ResumenGrupo({ groupId }: { groupId: string }) {
                           </span>
                           <span className="truncate">{info?.name ?? "Sin categoría"}</span>
                         </span>
-                        <Monto centavos={c.total} moneda={r.currency} variante="lista" className="font-medium" />
+                        <Monto
+                          centavos={c.total}
+                          moneda={r.currency}
+                          variante="lista"
+                          className="font-medium"
+                        />
                       </FilaInset>
                     )
                   })}
@@ -341,9 +356,10 @@ export function ResumenGrupo({ groupId }: { groupId: string }) {
                     <span className="truncate font-medium">{nombre(p.to_user_id)}</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {formatearMonto(p.amount, { moneda: p.currency })} · {formatearFechaCorta(p.occurred_at)}
+                    {formatearMonto(p.amount, { moneda: p.currency })} ·{" "}
+                    {formatearFechaCorta(p.occurred_at)}
                     {" · "}
-                    {p.account_id ? "pago" : "saldado"}
+                    {p.account_id || p.pago_real ? "pago" : "saldado"}
                   </p>
                 </div>
                 <Button

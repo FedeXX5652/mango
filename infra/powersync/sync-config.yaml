@@ -16,6 +16,13 @@
 #    la tabla deja de llegar y la app la muestra vacia, sin ningun error. Es el
 #    modo de fallar mas silencioso que tiene esto: despues de tocar el archivo,
 #    contar filas tabla por tabla, no mirar la pantalla.
+#
+# 3. **Una fila, una forma, en cada tabla local.** Si la misma fila (tabla + id)
+#    baja por dos consultas con columnas distintas —la completa por `mio` y la
+#    recortada por `grupo`—, el cliente guarda UNA sola copia y no hay forma de
+#    elegir cual: la recortada pisaba la completa (mis saldos sin mis gastos
+#    compartidos, mis preferencias en NULL). Lo que baja con otra forma va a
+#    OTRA tabla local, con `FROM tabla AS otra_tabla` (ver 0021).
 
 config:
   edition: 3
@@ -54,10 +61,13 @@ streams:
       - SELECT * FROM tags WHERE owner_id = auth.user_id()
       - SELECT * FROM transaction_tags WHERE owner_id = auth.user_id()
 
-      # Los pagos que HICE, enteros (con cuenta y medio): los necesito completos
-      # para descontarlos de mi saldo (0017). A los otros miembros les llega la
-      # version sin cuenta/medio por el stream `grupo`.
-      - SELECT * FROM settlements WHERE from_user_id = auth.user_id()
+      # Lo PRIVADO de los pagos que hice (cuenta y medio), para descontarlos de
+      # mi saldo (0017). Va a su propia tabla local: el pago en si (monto,
+      # quien, a quien) baja por `grupo` a `settlements`, igual para todos los
+      # miembros, porque cualquiera lo puede deshacer. Si esto fuera
+      # `SELECT * FROM settlements`, la misma fila tendria dos formas (ver 3.).
+      - SELECT id, account_id, payment_method_id, deleted_at
+        FROM settlements AS settlement_accounts WHERE from_user_id = auth.user_id()
 
       # Mis avisos in-app (0019). Los crea el servidor; aca solo los marco leidos.
       - SELECT * FROM notifications WHERE user_id = auth.user_id()
@@ -115,22 +125,47 @@ streams:
       # personales, la de grupo es de todos: viaja entera.
       - SELECT * FROM accounts WHERE group_id IN (SELECT group_id FROM mis_grupos)
 
-      # Perfil PUBLICO de los otros miembros, para mostrar "cargado por X". Solo
-      # columnas publicas: nunca password_hash ni email (ver 0009/0013). Las
-      # preferencias (base_currency, tema…) tampoco: no son asunto del grupo.
-      - SELECT id, username, display_name FROM users
+      # Perfil PUBLICO de los miembros (yo incluido), para mostrar "cargado por
+      # X". Solo columnas publicas: nunca password_hash ni email (ver 0009/0013).
+      # Las preferencias (base_currency, tema…) tampoco: no son asunto del grupo.
+      # A `member_profiles`, no a `users`: mi fila de `users` trae mis
+      # preferencias por `mio` y esta la pisaba (ver 3. arriba, 0021).
+      - SELECT id, username, display_name FROM users AS member_profiles
         WHERE id IN (SELECT user_id FROM group_members WHERE group_id IN (SELECT group_id FROM mis_grupos))
 
-      # Los movimientos compartidos, SIN lo privado: no viajan account_id,
-      # payment_method_id, amount_account, exchange_rate ni notes. El resto —
-      # monto, moneda, fecha, comercio, categoria, quien — si. Un movimiento
-      # privado nunca entra (visibility = 'shared').
+      # EL LENTE DEL GRUPO (0014/0021): lo que el grupo ve de los movimientos
+      # de sus miembros —los mios incluidos—, en su PROPIA tabla local,
+      # `group_transactions`. Nunca en `transactions`: ahi estan mis movimientos
+      # completos (por `mio`), y mi resumen personal es solo lo mio.
+      #
+      # a) Los movimientos compartidos, SIN lo privado: no viajan
+      #    payment_method_id, exchange_rate ni notes, y la cuenta solo si es la
+      #    conjunta (paid_from_group): esa es del grupo, no de una persona (0016).
+      #    Un movimiento privado nunca entra (visibility = 'shared').
       - SELECT id, owner_id, group_id, visibility, kind, status, occurred_at,
                category_id, amount, currency, payee, source, paid_from_group,
+               iif(paid_from_group = 1, account_id, NULL) AS account_id,
+               iif(paid_from_group = 1, amount_account, NULL) AS amount_account,
                created_at, updated_at, deleted_at
-        FROM transactions
+        FROM transactions AS group_transactions
         WHERE group_id IN (SELECT group_id FROM mis_grupos)
           AND visibility = 'shared'
+      # b) Las transferencias que ENTRAN a una cuenta conjunta (el fondeo): el
+      #    grupo ve quien puso cuanto y cuando, no de que cuenta salio. Sin esto
+      #    cada miembro veia en la cuenta conjunta solo lo suyo.
+      - SELECT id, owner_id, kind, status, occurred_at, amount, currency,
+               transfer_account_id, created_at, updated_at, deleted_at
+        FROM transactions AS group_transactions
+        WHERE kind = 'transfer'
+          AND transfer_account_id IN (SELECT id FROM accounts WHERE group_id IN (SELECT group_id FROM mis_grupos))
+      # c) Las que SALEN de una cuenta conjunta: se ve la cuenta del grupo, no a
+      #    cual fue. (Una transferencia entre dos cuentas conjuntas caeria en b y
+      #    en c con dos formas: no hay flujo en la app que la cree.)
+      - SELECT id, owner_id, kind, status, occurred_at, amount, currency,
+               account_id, amount_account, created_at, updated_at, deleted_at
+        FROM transactions AS group_transactions
+        WHERE kind = 'transfer'
+          AND account_id IN (SELECT id FROM accounts WHERE group_id IN (SELECT group_id FROM mis_grupos))
 
       # La taxonomia DEL GRUPO viaja entera: categorias y tags con group_id de un
       # grupo del usuario. Son del grupo, todos los miembros las ven y las editan,
@@ -153,8 +188,13 @@ streams:
         WHERE transaction_id IN (SELECT id FROM tx_compartidas) AND deleted_at IS NULL
 
       # Los pagos entre miembros para saldar deudas del grupo (0015/0017). Van por
-      # group_id: son del grupo, todos los ven. SIN cuenta ni medio de pago: eso
-      # es privado del que pago (le llega entero por su stream `mio`).
+      # group_id: son del grupo, todos los ven y cualquiera los deshace, asi que
+      # esta es la UNICA copia de cada pago en `settlements`, la misma para todos.
+      # SIN cuenta ni medio de pago: eso es privado del que pago, y a el le llega
+      # aparte, a `settlement_accounts` (stream `mio`, ver 0021).
+      # `pago_real` dice si salio plata (hubo cuenta) sin decir de cual: el
+      # acreedor igual se entera, porque le llega el cobro a confirmar (0018).
       - SELECT id, group_id, from_user_id, to_user_id, amount, currency, occurred_at,
-               note, created_by, created_at, updated_at, deleted_at
+               note, created_by, iif(account_id IS NULL, 0, 1) AS pago_real,
+               created_at, updated_at, deleted_at
         FROM settlements WHERE group_id IN (SELECT group_id FROM mis_grupos)

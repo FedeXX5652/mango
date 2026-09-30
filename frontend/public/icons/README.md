@@ -49,13 +49,30 @@ y 48 pixeles.
 | Archivo                            | Para que                            |
 | ---------------------------------- | ----------------------------------- |
 | `favicon-16.png`, `favicon-32.png` | Pestana del navegador               |
-| `mango-any-48` a `-512`            | Manifiesto, atajos, escritorio      |
+| `mango-any-48` a `-512`            | Manifiesto, escritorio              |
 | `mango-maskable-192`, `-512`       | Android adaptativo                  |
 | `mango-apple-120/152/167/180`      | iPhone, iPad y iPad Pro             |
 | `mango-mono-24/48/96`              | Notificaciones                      |
 | `mango-512`, `mango-1024`          | Logo con transparencia              |
 | `og-1200x630.png`                  | Vista previa al compartir el enlace |
 | `favicon.ico`                      | Contenedor con 16, 32 y 48          |
+
+### Atajos (`atajos/`)
+
+Un icono por atajo del manifiesto (ver decision 0023 y `src/lib/atajos.ts`):
+`gasto`, `ingreso`, `transferencia`, `movimientos`, `estadisticas`, `grupo`,
+`presupuesto`. Cada uno en SVG (fuente) y PNG de 96 y 192.
+
+- **Circulo lleno** con el color del token del **tema claro**: `expense`
+  (`#C62828`), `income` (`#00795B`) y `transfer` (`#1F5FBF`) con el glifo blanco,
+  y el resto en `primary` (`#FDBE02`) con el glifo en `primary-foreground`
+  (`#1A1400`).
+- **Glifo**: el mismo trazo de lucide que usa la app (lucide-react 0.469), al 50%
+  del icono, que es lo que pide Material para un atajo.
+- Fondo transparente fuera del circulo: el launcher lo pone sobre su propio fondo.
+
+Para regenerarlos: rasterizar el SVG a 96 y 192 con fondo transparente. Se
+hicieron con Chromium headless, pero sirve cualquier rasterizador.
 
 ## Por que cada variante existe
 

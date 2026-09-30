@@ -15,6 +15,7 @@ import { LayoutEscritorio } from "@/layouts/escritorio/LayoutEscritorio"
 import { LayoutMovil } from "@/layouts/movil/LayoutMovil"
 import { Grupos } from "@/pantallas/Grupos"
 import { GrupoDetalle } from "@/pantallas/GrupoDetalle"
+import { UltimoGrupo } from "@/pantallas/UltimoGrupo"
 import { Rechazados } from "@/pantallas/Rechazados"
 import { Ajustes } from "@/pantallas/Ajustes"
 import { Alta } from "@/pantallas/Alta"
@@ -48,6 +49,9 @@ function Rutas() {
         <Route path="ajustes" element={<Ajustes />} />
         <Route path="rechazados" element={<Rechazados />} />
         <Route path="grupos" element={<Grupos />} />
+        {/* Atajo del icono (0023): resuelve en el dispositivo. Estatica, gana
+            sobre `grupos/:id`. */}
+        <Route path="grupos/ultimo" element={<UltimoGrupo />} />
         <Route path="grupos/:id" element={<GrupoDetalle />} />
         <Route path="cuentas" element={<Cuentas />} />
         <Route path="categorias" element={<Categorias />} />

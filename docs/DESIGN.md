@@ -49,7 +49,7 @@ componente de layout movil importa algo de layout escritorio, algo se hizo mal.
 
 | | Movil | Escritorio |
 |---|---|---|
-| Navegacion | Barra inferior: 4 destinos + boton **+** elevado al centro. Ajustes vive en el header de Inicio | Barra lateral fija con todos los destinos (Ajustes incluido) |
+| Navegacion | Barra inferior: **4 destinos fijos** (Inicio, Movimientos, Presupuesto, Grupos) y el boton **+** elevado al centro, en cinco columnas iguales. Estadisticas se abre desde la tarjeta de Resumen de Inicio y desde el atajo del icono; Ajustes vive en el header de Inicio (ver 0022) | Barra lateral fija con todos los destinos (Ajustes y Estadisticas incluidos) |
 | Accion principal | El **+** central de la barra inferior (no hay boton flotante) | Boton "Nuevo movimiento" en la barra superior |
 | Alta de movimiento | Pantalla focal (ruta `/nuevo`, entra deslizando desde abajo) | Modal centrado sobre el dashboard (mismo formulario: `FormularioMovimiento`) |
 | Lista de movimientos | Agrupada por dia, una tarjeta por grupo (ver 7) | La misma lista, en columna acotada |
@@ -93,9 +93,16 @@ siempre el token.
 | `muted` | Fondos sutiles, filas alternas |
 | `muted-foreground` | Texto secundario, etiquetas |
 | `accent` | Resaltado al pasar el mouse o con foco |
+| `accent-foreground` | Texto sobre `accent` |
+| `enlace` | Texto de enlaces y acciones de texto ("Ver todos", "Cargarla") e iconos que dicen un estado (el check de lo elegido). Es un **alias** de `accent-foreground`, no un color nuevo: ese token ya es oscuro sobre claro y claro sobre oscuro en los tres temas (9:1 a 13:1) |
 | `border` | Bordes y separadores |
 | `input` | Borde de campos de formulario |
-| `ring` | Anillo de foco |
+| `ring` | Anillo de foco. Minimo **3:1** contra el fondo (WCAG 1.4.11): en Mango claro es `#A87C00`; el `#D9A300` de antes daba 2,2:1 |
+
+**`primary` es de fondo, no de texto.** El amarillo de marca sobre blanco da
+**1,7:1**: como texto no se lee. Va de fondo, con `primary-foreground` encima
+(el "+", la pastilla del destino activo, el boton principal). Los enlaces van en
+`enlace`.
 
 ### Tokens propios del dominio
 
@@ -381,6 +388,12 @@ Lo que no se pudo convertir queda **afuera del total** y se informa con salida a
 cargar la cotizacion: un total con una conversion inventada es peor que un total
 incompleto.
 
+**Al pie, "Ver estadisticas".** En el telefono, Estadisticas no esta en la barra
+(0022), y esta tarjeta es la pregunta de la que Estadisticas es el detalle. Es un
+enlace de ancho completo y 44 px de alto, separado por la misma linea de 1 px.
+**No es la tarjeta entera**: tiene controles adentro, y un enlace no puede
+contener botones.
+
 ### Transacciones pendientes
 
 Se distinguen con el token `pending` y un icono, **no solo por color**. En la
@@ -482,6 +495,18 @@ categorias, medios) y de los grupos de movimientos.
 
 **Las archivadas van en una seccion aparte, al final**, con su propio
 encabezado. Nunca mezcladas con las activas.
+
+### Areas tocables
+
+- **Minimo 24 x 24 px** para todo control (WCAG 2.2, 2.5.8). Es el piso, no la
+  meta.
+- **En el movil, 44 px** para lo que se toca seguido: la barra inferior, los
+  botones del header, las filas con interruptor y los enlaces de seccion.
+- Si el control se ve chico a proposito (un "Ver todos", un monto que abre su
+  edicion), el area se agranda con **padding y margen negativo del mismo
+  tamano**: se toca en 44 px y el layout no se mueve.
+- Un enlace **dentro de una frase** no necesita el minimo (es la excepcion de la
+  norma); uno suelto, si.
 
 ### Acciones de fila
 
@@ -645,6 +670,23 @@ area vacia un instante y no aporta nada (decision 0008).
 
 ---
 
+### Atajos del icono
+
+Los atajos del manifiesto (0023) salen en el menu del icono de Android (los 3
+primeros) y en la lista de saltos de escritorio (hasta 10). iOS no los muestra.
+
+- **Orden por frecuencia**: primero cargar (gasto, ingreso), despues ver lo
+  cargado. El orden es la prioridad, porque cada plataforma corta en un numero
+  distinto.
+- **Nombre que dice la accion**: "Nuevo gasto", no "Gasto". El `short_name` tiene
+  que entrar en el menu del launcher (12 caracteres como maximo).
+- **Icono: circulo lleno con el color del token del tema claro** y el glifo lucide
+  de la app al 50%. Los de un tipo de movimiento usan su token (`expense`,
+  `income`, `transfer`) con el glifo blanco. Los demas usan el amarillo de marca
+  con el glifo en `primary-foreground`. El significado esta tambien en el nombre:
+  el color solo no dice nada.
+- PNG de 96 y 192 px, fuentes SVG en `public/icons/atajos/`.
+
 ## 8. Animacion
 
 Se usa para comunicar cambios de estado, no para decorar.
@@ -672,6 +714,15 @@ de doscientos movimientos, animar cada fila marea.
 ## 9. Lo que no se hace
 
 - Colores literales en componentes. Siempre tokens.
+- Texto en `primary` sobre fondo claro: en Mango da 1,7:1. Los enlaces van en
+  `enlace`.
+- El color de una entidad (grupo, etiqueta) en el **texto**: no garantiza
+  contraste. Va en el punto o en el tinte del fondo, y el nombre en
+  `foreground`.
+- Un checkbox nativo para una opcion binaria por fila: va `Interruptor`.
+- `aria-label` en un `<span>` sin rol: esta prohibido y algunos lectores lo
+  ignoran. El texto para lectores va en un `sr-only`.
+- Sumar un quinto destino a la barra movil (0022): es reemplazar uno.
 - Valores de espaciado fuera de la escala de 4.
 - Comunicar informacion solo por color.
 - Un layout responsive que estire el movil hasta escritorio.

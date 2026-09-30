@@ -82,13 +82,16 @@ export function DetalleMovimiento() {
 
   // Miembros del grupo y splits ya guardados, para editar el reparto (3b.3).
   const { data: miembrosRows } = useQuery<{ user_id: string; display_name: string | null }>(
-    `SELECT gm.user_id, u.display_name FROM group_members gm LEFT JOIN users u ON u.id = gm.user_id
+    `SELECT gm.user_id, u.display_name FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
      WHERE gm.group_id = ? AND gm.deleted_at IS NULL`,
     [tx?.group_id ?? ""],
   )
   const miembros = useMemo(
     () =>
-      miembrosRows.map((m) => ({ user_id: m.user_id, nombre: m.display_name || m.user_id.slice(0, 8) })),
+      miembrosRows.map((m) => ({
+        user_id: m.user_id,
+        nombre: m.display_name || m.user_id.slice(0, 8),
+      })),
     [miembrosRows],
   )
   const { data: splitsActuales } = useQuery<ParteSplit>(
@@ -136,14 +139,16 @@ export function DetalleMovimiento() {
 
   // Si al cambiar el grupo la categoria elegida queda fuera de ambito (personal
   // cuando se comparte, o de otro grupo), se limpia: un gasto compartido usa la
-  // categoria del grupo (0014).
-  useEffect(() => {
-    if (!tx || tx.kind === "transfer" || !categoriaId) return
+  // categoria del grupo (0014). Va en el CAMBIO que hace la persona, no en un
+  // efecto: el efecto corria mientras las consultas llegaban de a una y, con las
+  // categorias todavia sin llegar, abria el detalle con la categoria borrada.
+  function cambiarGrupo(g: string) {
+    setGrupoId(g)
     const valida = categorias.some(
-      (c) => c.id === categoriaId && (grupoId ? c.group_id === grupoId : !c.group_id),
+      (c) => c.id === categoriaId && (g ? c.group_id === g : !c.group_id),
     )
-    if (!valida) setCategoriaId("")
-  }, [grupoId, categorias, categoriaId, tx])
+    if (categoriaId && !valida) setCategoriaId("")
+  }
 
   if (!tx) {
     return <div className="p-6 text-sm text-muted-foreground">Cargando…</div>
@@ -173,7 +178,9 @@ export function DetalleMovimiento() {
     const centavos = aCentavos(monto)
     if (!centavos || centavos <= 0) return setError("Monto inválido")
     if (!cuentaId) return setError("Elegí una cuenta")
-    if (tx!.kind !== "transfer" && !categoriaId) return setError("Elegí una categoría")
+    // Fuera de ambito cuenta como no elegida (0014).
+    if (tx!.kind !== "transfer" && !categoriasDelTipo.some((c) => c.id === categoriaId))
+      return setError("Elegí una categoría")
     if (tx!.kind === "transfer" && !destinoId) return setError("Elegí la cuenta de destino")
     if (tx!.kind === "transfer" && destinoId === cuentaId)
       return setError("Las cuentas deben ser distintas")
@@ -252,7 +259,7 @@ export function DetalleMovimiento() {
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Volver">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl font-semibold">{KIND_LABEL[tx.kind]}</h1>
+        <h1 className="text-2xl font-semibold">{KIND_LABEL[tx.kind]}</h1>
         {grupo && <EtiquetaGrupo nombre={grupo.name} color={grupo.color} />}
       </header>
 
@@ -313,7 +320,7 @@ export function DetalleMovimiento() {
 
       {/* Compartir antes de la categoria: define el ambito de las categorias
           ofrecidas (personales o del grupo, ver 0014). */}
-      {tx.kind !== "transfer" && <CompartirCon valor={grupoId} onCambio={setGrupoId} />}
+      {tx.kind !== "transfer" && <CompartirCon valor={grupoId} onCambio={cambiarGrupo} />}
 
       {tx.kind !== "transfer" && (
         <Campo etiqueta="Categoría">

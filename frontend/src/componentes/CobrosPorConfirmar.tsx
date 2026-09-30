@@ -91,8 +91,10 @@ function Fila({
         </div>
         <div className="grid grid-cols-2 gap-2">
           <SelectorEntidad
-            titulo="Cuenta"
-            placeholder="¿A qué cuenta entró?"
+            // La pregunta va en el titulo de la hoja: en media fila de 390 px
+            // el placeholder largo se cortaba ("¿A qué cue…").
+            titulo="¿A qué cuenta entró?"
+            placeholder="Cuenta"
             opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency }))}
             valor={cuentaId}
             onCambio={setCuentaId}

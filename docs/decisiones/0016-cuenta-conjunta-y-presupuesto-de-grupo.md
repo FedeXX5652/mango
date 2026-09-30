@@ -1,6 +1,6 @@
 # 0016 - Cuenta conjunta y presupuesto del grupo
 
-Estado: aceptada
+Estado: aceptada, ajustada por 0021 (lo que baja por el grupo va a sus propias tablas locales)
 Fecha: 2026-09-25
 
 ## Contexto

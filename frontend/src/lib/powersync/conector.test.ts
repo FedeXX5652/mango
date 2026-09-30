@@ -26,7 +26,8 @@ describe("subir: autenticacion de las escrituras", () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  const headersDe = (i = 0) => (fetchMock.mock.calls[i][1] as RequestInit).headers as Record<string, string>
+  const headersDe = (i = 0) =>
+    (fetchMock.mock.calls[i][1] as RequestInit).headers as Record<string, string>
 
   it("alta, modificacion y baja llevan el Bearer de la sesion", async () => {
     // Regresion: el conector subia SIN token y la API (3a) devolvia 401 a todo.

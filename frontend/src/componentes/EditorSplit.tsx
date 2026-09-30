@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
+import { Interruptor } from "@/componentes/ui/interruptor"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { cn } from "@/lib/utils"
@@ -56,8 +57,11 @@ export function EditorSplit({
   onCambio: (v: ValorSplit) => void
 }) {
   const [modo, setModo] = useState<Modo>("igual")
-  // Igual: quienes participan (por defecto, todos).
-  const [incluidos, setIncluidos] = useState<Set<string>>(new Set(miembros.map((m) => m.user_id)))
+  // Igual: a quienes se SACA del reparto. Se guardan los excluidos y no los
+  // incluidos a proposito: los miembros llegan de una consulta, y un "todos"
+  // armado al montar quedaba vacio si todavia no habian llegado (el editor
+  // arrancaba con nadie elegido y un error). Vacio = todos, siempre.
+  const [excluidos, setExcluidos] = useState<Set<string>>(new Set())
   // Exacto/porcentaje: texto por miembro.
   const [montos, setMontos] = useState<Record<string, string>>({})
   const [pcts, setPcts] = useState<Record<string, string>>({})
@@ -71,7 +75,11 @@ export function EditorSplit({
     const m: Record<string, string> = {}
     for (const s of inicial) m[s.user_id] = (s.amount / 100).toString().replace(".", ",")
     setMontos(m)
-    setIncluidos(new Set(inicial.map((s) => s.user_id)))
+    setExcluidos(
+      new Set(
+        miembros.filter((x) => !inicial.some((s) => s.user_id === x.user_id)).map((x) => x.user_id),
+      ),
+    )
   }, [inicial, miembros, sembrado])
 
   const { splits, valido, sumaExacto, sumaPct } = useMemo((): ValorSplit & {
@@ -79,7 +87,7 @@ export function EditorSplit({
     sumaPct: number
   } => {
     if (modo === "igual") {
-      const part = miembros.filter((m) => incluidos.has(m.user_id))
+      const part = miembros.filter((m) => !excluidos.has(m.user_id))
       if (part.length === 0) return { splits: null, valido: false, sumaExacto: 0, sumaPct: 0 }
       // Igual entre TODOS: es el default, no se guardan filas.
       if (part.length === miembros.length)
@@ -113,8 +121,7 @@ export function EditorSplit({
     const sumaPct = pares.reduce((s, x) => s + x.pct, 0)
     let acumulado = 0
     const arr = pares.map((p, i) => {
-      const amount =
-        i === pares.length - 1 ? total - acumulado : Math.round((total * p.pct) / 100)
+      const amount = i === pares.length - 1 ? total - acumulado : Math.round((total * p.pct) / 100)
       acumulado += amount
       return { user_id: p.user_id, amount }
     })
@@ -124,7 +131,7 @@ export function EditorSplit({
       sumaExacto: total,
       sumaPct,
     }
-  }, [modo, incluidos, montos, pcts, miembros, total, currency])
+  }, [modo, excluidos, montos, pcts, miembros, total, currency])
 
   // Avisar al padre cada vez que cambia el resultado.
   useEffect(() => {
@@ -142,22 +149,22 @@ export function EditorSplit({
           {miembros.map((m) => (
             <div key={m.user_id} className="flex items-center gap-2">
               {modo === "igual" ? (
-                <label className="flex flex-1 items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={incluidos.has(m.user_id)}
-                    onChange={(e) =>
-                      setIncluidos((prev) => {
+                // Binario y por fila: Interruptor, no checkbox (DESIGN.md 7).
+                <div className="flex min-h-11 flex-1 items-center justify-between gap-3 text-sm">
+                  <span className="truncate">{m.nombre}</span>
+                  <Interruptor
+                    encendido={!excluidos.has(m.user_id)}
+                    etiqueta={`Incluir a ${m.nombre}`}
+                    onCambio={(incluir) =>
+                      setExcluidos((prev) => {
                         const s = new Set(prev)
-                        if (e.target.checked) s.add(m.user_id)
-                        else s.delete(m.user_id)
+                        if (incluir) s.delete(m.user_id)
+                        else s.add(m.user_id)
                         return s
                       })
                     }
-                    className="h-4 w-4"
                   />
-                  <span className="truncate">{m.nombre}</span>
-                </label>
+                </div>
               ) : (
                 <>
                   <span className="flex-1 truncate text-sm">{m.nombre}</span>
@@ -191,7 +198,7 @@ export function EditorSplit({
             {sumaPct.toFixed(0)}% de 100%{!valido && " — tiene que sumar 100%"}
           </p>
         )}
-        {modo === "igual" && incluidos.size === 0 && (
+        {modo === "igual" && miembros.every((m) => excluidos.has(m.user_id)) && (
           <p className="text-xs text-destructive">Elegí al menos a una persona.</p>
         )}
       </div>

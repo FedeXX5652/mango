@@ -50,6 +50,8 @@ interface Opcion {
   name: string
   kind?: string
   parent_id?: string | null
+  // Nombre del grupo, en las categorias de un grupo (0014).
+  grupo?: string | null
 }
 
 const DIRECCION: Record<Fila["kind"], Direccion> = {
@@ -158,7 +160,11 @@ export function Movimientos() {
     "SELECT id, name FROM accounts WHERE deleted_at IS NULL ORDER BY name",
   )
   const { data: categorias } = useQuery<Opcion>(
-    "SELECT id, name, kind, parent_id FROM categories WHERE deleted_at IS NULL ORDER BY name",
+    // Con el nombre del grupo: una categoria de Casa y una personal pueden
+    // llamarse igual ("Comida"), y en el filtro tienen que distinguirse.
+    `SELECT c.id, c.name, c.kind, c.parent_id, g.name AS grupo
+     FROM categories c LEFT JOIN groups g ON g.id = c.group_id
+     WHERE c.deleted_at IS NULL ORDER BY c.name`,
   )
   const nombreCat = useMemo(() => new Map(categorias.map((c) => [c.id, c.name])), [categorias])
   const { data: etiquetas } = useQuery<Opcion>(
@@ -323,6 +329,7 @@ export function Movimientos() {
             size="icon"
             onClick={() => setVista("lista")}
             aria-label="Lista"
+            aria-pressed={vista === "lista"}
           >
             <List className="h-4 w-4" />
           </Button>
@@ -331,6 +338,7 @@ export function Movimientos() {
             size="icon"
             onClick={() => setVista("calendario")}
             aria-label="Calendario"
+            aria-pressed={vista === "calendario"}
           >
             <CalendarDays className="h-4 w-4" />
           </Button>
@@ -338,13 +346,19 @@ export function Movimientos() {
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Select value={tipo} onChange={(e) => setTipo(e.target.value)}>
+        {/* Cada filtro con nombre: la opcion "Toda cuenta" no le dice al lector
+            de pantalla que se esta filtrando (WCAG 4.1.2; axe lo marcaba critico). */}
+        <Select
+          aria-label="Tipo de movimiento"
+          value={tipo}
+          onChange={(e) => setTipo(e.target.value)}
+        >
           <option value="">Todos</option>
           <option value="expense">Gastos</option>
           <option value="income">Ingresos</option>
           <option value="transfer">Transferencias</option>
         </Select>
-        <Select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)}>
+        <Select aria-label="Cuenta" value={cuentaId} onChange={(e) => setCuentaId(e.target.value)}>
           <option value="">Toda cuenta</option>
           {cuentas.map((c) => (
             <option key={c.id} value={c.id}>
@@ -352,16 +366,25 @@ export function Movimientos() {
             </option>
           ))}
         </Select>
-        <Select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
+        <Select
+          aria-label="Categoría"
+          value={categoriaId}
+          onChange={(e) => setCategoriaId(e.target.value)}
+        >
           <option value="">Toda categoría</option>
           {ordenarJerarquico(categorias).map((c) => (
             <option key={c.id} value={c.id}>
               {c.parent_id ? `${nombreCat.get(c.parent_id) ?? "—"} › ${c.name}` : c.name}
+              {c.grupo ? ` · ${c.grupo}` : ""}
             </option>
           ))}
         </Select>
         {monedas.length > 1 && (
-          <Select value={monedaFiltro} onChange={(e) => setMonedaFiltro(e.target.value)}>
+          <Select
+            aria-label="Moneda"
+            value={monedaFiltro}
+            onChange={(e) => setMonedaFiltro(e.target.value)}
+          >
             <option value="">Toda moneda</option>
             {monedas.map((m) => (
               <option key={m} value={m}>
@@ -371,7 +394,11 @@ export function Movimientos() {
           </Select>
         )}
         {etiquetasOrden.length > 0 && (
-          <Select value={etiquetaId} onChange={(e) => setEtiquetaId(e.target.value)}>
+          <Select
+            aria-label="Etiqueta"
+            value={etiquetaId}
+            onChange={(e) => setEtiquetaId(e.target.value)}
+          >
             <option value="">Toda etiqueta</option>
             {etiquetasOrden.map((e) => (
               <option key={e.id} value={e.id}>
@@ -381,6 +408,8 @@ export function Movimientos() {
           </Select>
         )}
         <Input
+          type="search"
+          aria-label="Buscar comercio"
           placeholder="Buscar comercio…"
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
@@ -424,7 +453,10 @@ export function Movimientos() {
       ) : (
         <>
           {diaSel && (
-            <button className="text-xs text-primary underline" onClick={() => setDiaSel(null)}>
+            <button
+              className="min-h-6 text-sm font-medium text-enlace underline underline-offset-2"
+              onClick={() => setDiaSel(null)}
+            >
               Día {diaSel} — quitar filtro
             </button>
           )}

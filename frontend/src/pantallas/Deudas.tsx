@@ -92,10 +92,15 @@ export function Deudas() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/ajustes")} aria-label="Volver">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/ajustes")}
+          aria-label="Volver"
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl font-semibold">Deudas y préstamos</h1>
+        <h1 className="text-2xl font-semibold">Deudas y préstamos</h1>
       </header>
 
       <Button className="w-full" onClick={() => setForm(true)}>
@@ -118,9 +123,7 @@ export function Deudas() {
         </div>
       )}
 
-      {saldando && (
-        <SaldarDeuda deuda={saldando} onCerrar={() => setSaldando(null)} />
-      )}
+      {saldando && <SaldarDeuda deuda={saldando} onCerrar={() => setSaldando(null)} />}
       <Confirmar
         abierta={aBorrar !== null}
         onOpenChange={(v) => !v && setABorrar(null)}
@@ -191,7 +194,14 @@ function FormularioDeuda({ onCerrar }: { onCerrar: () => void }) {
     try {
       await db.execute(
         "INSERT INTO debts (id, direction, counterparty, description, amount, currency, amount_settled, due_date) VALUES (?, ?, ?, ?, ?, 'ARS', 0, ?)",
-        [uuidv4(), direction, counterparty.trim(), descripcion.trim() || null, centavos, fecha || null],
+        [
+          uuidv4(),
+          direction,
+          counterparty.trim(),
+          descripcion.trim() || null,
+          centavos,
+          fecha || null,
+        ],
       )
       onCerrar()
     } catch {

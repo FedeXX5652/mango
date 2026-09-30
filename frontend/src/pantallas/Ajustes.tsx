@@ -175,7 +175,7 @@ export function Ajustes() {
                 style={{ backgroundColor: t.muestra }}
               />
               {t.nombre}
-              {temaId === t.id && <Check className="ml-auto h-4 w-4 text-primary" />}
+              {temaId === t.id && <Check className="ml-auto h-4 w-4 text-enlace" aria-hidden />}
             </button>
           ))}
         </div>

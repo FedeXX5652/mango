@@ -1,5 +1,5 @@
 import { useQuery } from "@powersync/react"
-import { Settings, Wallet } from "lucide-react"
+import { ChevronRight, Settings, Wallet } from "lucide-react"
 import { useMemo } from "react"
 import { Link } from "react-router-dom"
 
@@ -14,6 +14,7 @@ import { useMonedaBase } from "@/hooks/monedaBase"
 import { iconoCuenta } from "@/lib/cuentas"
 import { type Direccion } from "@/lib/dinero"
 import type { SaldoMoneda } from "@/lib/patrimonio"
+import { saldoCuenta } from "@/lib/saldos"
 import { cn } from "@/lib/utils"
 
 interface SaldoCuenta {
@@ -43,31 +44,22 @@ const DIR: Record<MovReciente["kind"], Direccion> = {
   transfer: "neutro",
 }
 
+// Salida de una seccion al listado completo. `enlace` y no `primary`: el
+// amarillo como texto no llega al contraste minimo. El margen negativo agranda
+// el area tocable a 44 px sin mover el titulo de la seccion.
+const ENLACE_SECCION =
+  "-my-3 inline-flex items-center gap-0.5 rounded-md py-3 text-sm font-medium text-enlace hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+
 // Topes del resumen: el detalle completo esta a un toque ("Ver todos/todas").
 const MAX_RECIENTES = 5
 const MAX_CUENTAS = 4
 
-// El lado `account_id` usa **COALESCE(amount_account, amount)**: si el
-// movimiento esta en otra moneda, lo que salio de la cuenta es
-// `amount_account`, en la moneda de la cuenta (ver 0005). Restar `amount`
-// descuadraria la cuenta en pesos con una compra en dolares.
-//
-// El lado `transfer_account_id` usa `amount`, que ya esta en la moneda de la
-// cuenta que recibe: es la otra mitad de la misma convencion.
+// La formula del saldo vive en lib/saldos (una sola para toda la app).
+// `transactions` es solo lo mio: mis cuentas no cambian por lo que pagan los
+// demas miembros (0014).
 const SQL_SALDOS = `
   SELECT a.id, a.name, a.type, a.currency, a.off_budget, a.archived,
-    a.opening_balance
-    + COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM transactions
-        WHERE account_id = a.id AND kind='income' AND status='confirmed' AND deleted_at IS NULL), 0)
-    - COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM transactions
-        WHERE account_id = a.id AND kind='expense' AND status='confirmed' AND deleted_at IS NULL), 0)
-    + COALESCE((SELECT SUM(amount) FROM transactions
-        WHERE transfer_account_id = a.id AND kind='transfer' AND status='confirmed' AND deleted_at IS NULL), 0)
-    - COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM transactions
-        WHERE account_id = a.id AND kind='transfer' AND status='confirmed' AND deleted_at IS NULL), 0)
-    - COALESCE((SELECT SUM(amount) FROM settlements
-        WHERE account_id = a.id AND deleted_at IS NULL), 0)
-    AS balance
+    ${saldoCuenta()} AS balance
   FROM accounts a
   WHERE a.deleted_at IS NULL AND a.owner_id IS NOT NULL
   ORDER BY a.archived, a.sort_order, a.created_at
@@ -132,6 +124,9 @@ export function Inicio() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4">
+      {/* Toda pantalla tiene su h1; aca el header muestra la marca, asi que el
+          titulo es solo para lectores de pantalla. */}
+      <h1 className="sr-only">Inicio</h1>
       {/* Header movil: Ajustes vive aca (en escritorio esta en la barra lateral). */}
       <header className="flex items-center justify-between lg:hidden">
         <div className="flex items-center gap-2">
@@ -143,9 +138,9 @@ export function Inicio() {
           <Link
             to="/ajustes"
             aria-label="Ajustes"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <Settings className="h-5 w-5" />
+            <Settings className="h-5 w-5" aria-hidden />
           </Link>
         </div>
       </header>
@@ -168,8 +163,9 @@ export function Inicio() {
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-muted-foreground">Cuentas</h2>
               {activas.length > MAX_CUENTAS && (
-                <Link to="/cuentas" className="text-xs text-primary hover:underline">
+                <Link to="/cuentas" className={ENLACE_SECCION}>
                   Ver todas ({activas.length})
+                  <ChevronRight className="h-4 w-4" aria-hidden />
                 </Link>
               )}
             </div>
@@ -206,8 +202,9 @@ export function Inicio() {
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-muted-foreground">Últimos movimientos</h2>
               {recientes.length > 0 && (
-                <Link to="/movimientos" className="text-xs text-primary hover:underline">
+                <Link to="/movimientos" className={ENLACE_SECCION}>
                   Ver todos
+                  <ChevronRight className="h-4 w-4" aria-hidden />
                 </Link>
               )}
             </div>

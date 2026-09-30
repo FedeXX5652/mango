@@ -19,6 +19,7 @@ import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
+import { Interruptor } from "@/componentes/ui/interruptor"
 import { iconoCuenta } from "@/lib/cuentas"
 import { moverEnOrden } from "@/lib/orden"
 import { aCentavos, formatearSaldo } from "@/lib/dinero"
@@ -209,7 +210,7 @@ export function Cuentas() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl font-semibold">Cuentas</h1>
+        <h1 className="text-2xl font-semibold">Cuentas</h1>
       </header>
 
       <div className="flex gap-2">
@@ -358,14 +359,15 @@ function FormularioCuenta({ inicial, onCerrar }: { inicial: Cuenta | null; onCer
           inputMode="decimal"
         />
       </Campo>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={offBudget}
-          onChange={(e) => setOffBudget(e.target.checked)}
+      {/* Binario: Interruptor, no checkbox nativo (DESIGN.md 7; el nativo media 13 px). */}
+      <div className="flex min-h-11 items-center justify-between gap-3 text-sm">
+        <span>No contar en el patrimonio (plata de terceros)</span>
+        <Interruptor
+          encendido={offBudget}
+          onCambio={setOffBudget}
+          etiqueta="No contar en el patrimonio (plata de terceros)"
         />
-        No contar en el patrimonio (plata de terceros)
-      </label>
+      </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-2">
         <Button className="flex-1" onClick={guardar}>

@@ -51,7 +51,8 @@ export function SelectorIcono({
           "flex shrink-0 items-center justify-center transition-colors",
           variante === "campo"
             ? "h-11 w-11 rounded-xl border border-border bg-card text-foreground hover:bg-muted"
-            : "-m-1 h-7 w-7 rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground",
+            : // 40 px tocables (antes 28): el margen negativo compensa el alto.
+              "-m-2 h-10 w-10 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
       >
         {/* eslint-disable-next-line react-hooks/static-components */}
@@ -114,7 +115,7 @@ function Grilla({
               className={cn(
                 "flex aspect-square w-full items-center justify-center rounded-xl border transition-colors",
                 elegido
-                  ? "border-primary bg-accent text-primary"
+                  ? "border-enlace bg-accent text-enlace"
                   : "border-border bg-card text-foreground hover:bg-muted",
               )}
             >

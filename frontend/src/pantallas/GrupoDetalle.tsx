@@ -1,5 +1,6 @@
 import { useQuery } from "@powersync/react"
 import { ArrowLeft } from "lucide-react"
+import { useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 
 import { CuentaConjunta } from "@/componentes/CuentaConjunta"
@@ -13,6 +14,9 @@ import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Receipt } from "lucide-react"
 import { iconoDe } from "@/lib/iconos"
 import { formatearFechaCorta } from "@/lib/fecha"
+import { LS_ULTIMO_GRUPO } from "@/lib/atajos"
+import { TX_GRUPO } from "@/lib/lente"
+import { SIN_COLOR } from "@/lib/paleta"
 import { usuarioActualId } from "@/lib/sesion"
 import { cn } from "@/lib/utils"
 
@@ -53,16 +57,28 @@ export function GrupoDetalle() {
             c.name AS categoria, c.icon AS icono,
             u.display_name AS quien,
             (t.owner_id = ?) AS es_mio
-     FROM transactions t
+     FROM ${TX_GRUPO} t
      LEFT JOIN categories c ON c.id = t.category_id
-     LEFT JOIN users u ON u.id = t.owner_id
+     LEFT JOIN member_profiles u ON u.id = t.owner_id
      WHERE t.group_id = ? AND t.visibility = 'shared' AND t.deleted_at IS NULL
      ORDER BY t.occurred_at DESC`,
     [miId, id],
   )
 
+  // El ultimo grupo abierto en este dispositivo: a donde va el atajo "Último
+  // grupo" del icono (0023). Solo si el grupo existe (es uno de mis grupos).
+  const existe = grupo.length > 0
+  useEffect(() => {
+    if (!existe) return
+    try {
+      localStorage.setItem(LS_ULTIMO_GRUPO, id)
+    } catch {
+      // Sin storage: el atajo cae al unico grupo o a la lista.
+    }
+  }, [existe, id])
+
   const nombre = grupo[0]?.name ?? "Grupo"
-  const color = grupo[0]?.color ?? "#9CA3AF"
+  const color = grupo[0]?.color ?? SIN_COLOR
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
@@ -75,7 +91,7 @@ export function GrupoDetalle() {
           style={{ backgroundColor: color }}
           aria-hidden
         />
-        <h1 className="text-xl font-semibold">{nombre}</h1>
+        <h1 className="text-2xl font-semibold">{nombre}</h1>
       </header>
 
       <ResumenGrupo groupId={id} />

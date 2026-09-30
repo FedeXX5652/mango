@@ -39,7 +39,7 @@ export function Login({ onEntrar }: { onEntrar: (mustChange: boolean) => void })
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 p-6">
+    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 p-6">
       <div className="text-center">
         <h1 className="text-3xl font-semibold">Mango</h1>
         <p className="mt-1 text-sm text-muted-foreground">Entrá con tu usuario y clave.</p>
@@ -71,7 +71,7 @@ export function Login({ onEntrar }: { onEntrar: (mustChange: boolean) => void })
           {cargando ? "Entrando…" : "Entrar"}
         </Button>
       </form>
-    </div>
+    </main>
   )
 }
 
@@ -105,7 +105,7 @@ export function CambioForzado({ onListo }: { onListo: () => void }) {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 p-6">
+    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 p-6">
       <div className="text-center">
         <h1 className="text-2xl font-semibold">Elegí tu contraseña</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -135,6 +135,6 @@ export function CambioForzado({ onListo }: { onListo: () => void }) {
           Cancelar y salir
         </Button>
       </form>
-    </div>
+    </main>
   )
 }

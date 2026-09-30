@@ -1,4 +1,5 @@
 import { usePowerSync, useQuery } from "@powersync/react"
+import { X } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { Button } from "@/componentes/ui/button"
@@ -6,6 +7,7 @@ import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { iconoDe } from "@/lib/iconos"
+import { TX_GRUPO } from "@/lib/lente"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 
@@ -47,21 +49,15 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
   )
   // Gastado por categoria este mes (gastos compartidos del grupo).
   const { data: gastado } = useQuery<{ category_id: string; total: number }>(
-    `SELECT category_id, SUM(amount) AS total FROM transactions
+    `SELECT category_id, SUM(amount) AS total FROM ${TX_GRUPO}
      WHERE group_id = ? AND visibility = 'shared' AND kind = 'expense' AND deleted_at IS NULL
        AND occurred_at >= ? AND occurred_at < ?
      GROUP BY category_id`,
     [groupId, `${mes.slice(0, 7)}-01T00:00:00.000`, finDeMes(mes)],
   )
 
-  const budgetDe = useMemo(
-    () => new Map(budgets.map((b) => [b.category_id, b])),
-    [budgets],
-  )
-  const gastadoDe = useMemo(
-    () => new Map(gastado.map((g) => [g.category_id, g.total])),
-    [gastado],
-  )
+  const budgetDe = useMemo(() => new Map(budgets.map((b) => [b.category_id, b])), [budgets])
+  const gastadoDe = useMemo(() => new Map(gastado.map((g) => [g.category_id, g.total])), [gastado])
 
   // Solo las categorias con tope o con gasto: no abruma con las 20 vacias.
   const filas = cats.filter((c) => budgetDe.has(c.id) || (gastadoDe.get(c.id) ?? 0) > 0)
@@ -123,7 +119,9 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
                         <button
                           type="button"
                           onClick={() => setEditando(c.id)}
-                          className="tabular shrink-0 text-xs text-muted-foreground hover:text-foreground"
+                          // 44 px de area tocable sin agrandar la fila: el margen
+                          // negativo absorbe el alto extra (WCAG 2.5.8; antes, 16 px).
+                          className="tabular -my-3 -mr-2 inline-flex min-h-11 shrink-0 items-center rounded-md px-2 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           {formatearMonto(usado, { moneda })}
                           {tope > 0 ? ` / ${formatearMonto(tope, { moneda })}` : " · poner tope"}
@@ -133,7 +131,10 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
                     {tope > 0 && (
                       <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-muted">
                         <span
-                          className={cn("block h-full rounded-full", excedido ? "bg-expense" : "bg-primary")}
+                          className={cn(
+                            "block h-full rounded-full",
+                            excedido ? "bg-expense" : "bg-primary",
+                          )}
                           style={{ width: `${pct}%` }}
                         />
                       </span>
@@ -174,14 +175,24 @@ function ToqueMonto({
         inputMode="decimal"
         autoFocus
         placeholder="0"
-        className="tabular h-7 w-20 text-right"
+        className="tabular h-9 w-24 text-right"
         onKeyDown={(e) => {
           if (e.key === "Enter") onGuardar(v)
           if (e.key === "Escape") onCancelar()
         }}
       />
-      <Button size="sm" className="h-7 px-2" onClick={() => onGuardar(v)}>
-        OK
+      <Button size="sm" className="h-9" onClick={() => onGuardar(v)}>
+        Guardar
+      </Button>
+      {/* En el telefono no hay Escape: cancelar tiene que poder tocarse. */}
+      <Button
+        size="icon"
+        variant="ghost"
+        className="h-9 w-9"
+        onClick={onCancelar}
+        aria-label="Cancelar"
+      >
+        <X className="h-4 w-4" aria-hidden />
       </Button>
     </span>
   )

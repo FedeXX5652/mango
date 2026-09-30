@@ -96,9 +96,9 @@ const transactions = new Table(
     notes: column.text,
     source: column.text,
     visibility: column.text,
-    // Grupo con el que se comparte (fase 3b). NULL = privado. En los movimientos
-    // compartidos de OTROS miembros, account_id/payment_method_id vienen NULL: el
-    // stream de grupo no los trae (ver sync-config).
+    // Grupo con el que se comparte (fase 3b). NULL = privado. Aca estan SOLO mis
+    // movimientos, completos: los de los otros miembros no entran (van al lente,
+    // `group_transactions`, ver 0021).
     group_id: column.text,
     // Pagado desde una cuenta conjunta (0016): no genera deuda entre personas.
     paid_from_group: column.integer,
@@ -184,7 +184,9 @@ const transaction_splits = new Table(
 )
 
 // Pagos entre miembros para saldar deudas del grupo (0015). Bajan por `grupo`
-// (por group_id). No mueven plata de ninguna cuenta: ajustan el balance del grupo.
+// (por group_id), una copia por pago, la misma para todos: cualquier miembro
+// los deshace. Ajustan el balance del grupo; si es un pago REAL, ademas sale
+// plata de la cuenta del que paga (0017).
 const settlements = new Table(
   {
     group_id: column.text,
@@ -195,10 +197,14 @@ const settlements = new Table(
     occurred_at: column.text,
     note: column.text,
     created_by: column.text,
-    // Pago REAL (0017): cuenta/medio del que paga. Solo llegan en TU propio pago
-    // (stream `mio`); en los de otros vienen NULL (privacidad).
+    // Pago REAL (0017): cuenta/medio del que paga. La sync NUNCA los baja aca
+    // (privacidad): solo estan mientras un pago mio no subio. Lo sincronizado
+    // de mis pagos llega a `settlement_accounts` (ver 0021).
     account_id: column.text,
     payment_method_id: column.text,
+    // 1 si fue un pago con plata (tenia cuenta), sin decir de cual. Lo calcula
+    // la sync: sirve para rotular "pago" vs "saldado" en los pagos de otros.
+    pago_real: column.integer,
     created_at: column.text,
     updated_at: column.text,
     deleted_at: column.text,
@@ -274,6 +280,62 @@ const users = new Table({
   theme_id: column.text,
   color_scheme: column.text,
   fx_manual: column.text,
+})
+
+// --- Proyecciones del grupo (0021) -------------------------------------------
+//
+// Lo que baja por el stream `grupo` con OTRA forma que la de mis filas va a
+// tablas propias. Si cayera en la misma tabla, el cliente guarda una sola copia
+// por id y la recortada pisaba la completa. Las tres son de SOLO LECTURA: no van
+// en el conector (RUTA) y nada las escribe.
+
+// El lente del grupo: los movimientos compartidos de TODOS los miembros (los
+// mios incluidos) sin lo privado, y los movimientos de las cuentas conjuntas.
+// La cuenta solo viene si es la conjunta. Se lee con `TX_GRUPO` (lib/lente),
+// que usa mi copia completa para lo mio.
+const group_transactions = new Table(
+  {
+    owner_id: column.text,
+    group_id: column.text,
+    visibility: column.text,
+    kind: column.text,
+    status: column.text,
+    occurred_at: column.text,
+    category_id: column.text,
+    amount: column.integer,
+    currency: column.text,
+    payee: column.text,
+    source: column.text,
+    paid_from_group: column.integer,
+    account_id: column.text,
+    amount_account: column.integer,
+    transfer_account_id: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
+  },
+  {
+    indexes: {
+      por_grupo: ["group_id"],
+      por_cuenta: ["account_id"],
+      por_destino: ["transfer_account_id"],
+    },
+  },
+)
+
+// Lo privado de MIS pagos (cuenta y medio), por id de pago. El pago en si esta
+// en `settlements`. Se junta en `SALDO_CUENTA` (lib/saldos).
+const settlement_accounts = new Table({
+  account_id: column.text,
+  payment_method_id: column.text,
+  deleted_at: column.text,
+})
+
+// Perfil publico de los miembros de mis grupos (yo incluido): el nombre para
+// "cargado por X". Mis preferencias siguen en `users`.
+const member_profiles = new Table({
+  username: column.text,
+  display_name: column.text,
 })
 
 // Grupos y membresía (fase 3b). Solo LECTURA en el cliente: se crean y se
@@ -403,6 +465,9 @@ export const AppSchema = new Schema({
   recurring_rules,
   exchange_rates,
   users,
+  group_transactions,
+  settlement_accounts,
+  member_profiles,
   groups,
   group_members,
   notifications,

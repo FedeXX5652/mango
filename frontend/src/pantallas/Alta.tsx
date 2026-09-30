@@ -1,7 +1,7 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
 
 import { Calculadora } from "@/componentes/Calculadora"
 import { CompartirCon } from "@/componentes/CompartirCon"
@@ -17,11 +17,10 @@ import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
+import { tipoDesdeParametro, type TipoMovimiento } from "@/lib/atajos"
 import { aCentavos } from "@/lib/dinero"
 import { ordenarMonedas } from "@/lib/monedas"
 import { uuidv4 } from "@/lib/uuid"
-
-type TipoMovimiento = "expense" | "income" | "transfer"
 
 interface CuentaLocal {
   id: string
@@ -71,9 +70,12 @@ function ahoraLocal(): string {
 // que pasa al guardar (navegar vs cerrar el modal).
 export function FormularioMovimiento({
   plantillaId,
+  tipoInicial = "expense",
   onGuardado,
 }: {
   plantillaId?: string
+  // Con que tipo abre: lo fija el atajo del icono (`/nuevo?tipo=ingreso`, 0023).
+  tipoInicial?: TipoMovimiento
   onGuardado: () => void
 }) {
   const db = usePowerSync()
@@ -95,7 +97,7 @@ export function FormularioMovimiento({
     "SELECT id, name, kind, account_id, category_id, payment_method_id, amount, payee, notes FROM templates WHERE deleted_at IS NULL ORDER BY sort_order, name",
   )
 
-  const [tipo, setTipo] = useState<TipoMovimiento>("expense")
+  const [tipo, setTipo] = useState<TipoMovimiento>(tipoInicial)
   const [centavos, setCentavos] = useState(0)
   const [cuentaId, setCuentaId] = useState("")
   const [cuentaDestinoId, setCuentaDestinoId] = useState("")
@@ -111,7 +113,7 @@ export function FormularioMovimiento({
   const [split, setSplit] = useState<ValorSplit>({ splits: null, valido: true })
   // Miembros del grupo elegido, para repartir el gasto (fase 3b.3).
   const { data: miembrosRows } = useQuery<{ user_id: string; display_name: string | null }>(
-    `SELECT gm.user_id, u.display_name FROM group_members gm LEFT JOIN users u ON u.id = gm.user_id
+    `SELECT gm.user_id, u.display_name FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
      WHERE gm.group_id = ? AND gm.deleted_at IS NULL`,
     [grupoId || ""],
   )
@@ -173,11 +175,26 @@ export function FormularioMovimiento({
 
   // Si la categoria elegida deja de ser valida al cambiar tipo o grupo (p. ej.
   // era personal y ahora se comparte), se limpia en vez de mandar una invalida.
-  useEffect(() => {
-    if (categoriaId && !categoriasDelTipo.some((c) => c.id === categoriaId)) {
-      setCategoriaId("")
-    }
-  }, [categoriasDelTipo, categoriaId])
+  //
+  // Va en el CAMBIO —lo que hace la persona— y no en un efecto: el efecto
+  // corria tambien mientras las consultas llegaban de a una, y con la lista de
+  // categorias todavia vacia borraba una valida (la de una plantilla, p. ej.).
+  function enAmbito(id: string, t: TipoMovimiento, g: string): boolean {
+    return categorias.some(
+      (c) =>
+        c.id === id &&
+        c.kind === (t === "income" ? "income" : "expense") &&
+        (g ? c.group_id === g : !c.group_id),
+    )
+  }
+  function cambiarTipo(t: TipoMovimiento) {
+    setTipo(t)
+    if (categoriaId && !enAmbito(categoriaId, t, grupoId)) setCategoriaId("")
+  }
+  function cambiarGrupo(g: string) {
+    setGrupoId(g)
+    if (categoriaId && !enAmbito(categoriaId, tipo, g)) setCategoriaId("")
+  }
 
   const aplicarPlantilla = useCallback((t: PlantillaLocal) => {
     setTipo(t.kind as TipoMovimiento)
@@ -208,7 +225,10 @@ export function FormularioMovimiento({
     setError("")
     if (centavos <= 0) return setError("Ingresá un monto")
     if (!cuentaId) return setError("Elegí una cuenta")
-    if (tipo !== "transfer" && !categoriaId) return setError("Elegí una categoría")
+    // Fuera de ambito cuenta como no elegida: nunca se guarda una categoria
+    // personal en un gasto compartido ni al reves (0014).
+    if (tipo !== "transfer" && !categoriasDelTipo.some((c) => c.id === categoriaId))
+      return setError("Elegí una categoría")
     if (tipo === "transfer" && !cuentaDestinoId) return setError("Elegí la cuenta de destino")
     if (tipo === "transfer" && cuentaDestinoId === cuentaId)
       return setError("Las cuentas deben ser distintas")
@@ -276,7 +296,7 @@ export function FormularioMovimiento({
 
   return (
     <div className="space-y-5">
-      <Segmentado opciones={TIPOS} valor={tipo} onCambio={setTipo} />
+      <Segmentado opciones={TIPOS} valor={tipo} onCambio={cambiarTipo} />
 
       {plantillas.length > 0 && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
@@ -339,7 +359,11 @@ export function FormularioMovimiento({
             <SelectorEntidad
               titulo={tipo === "transfer" ? "Cuenta de origen" : "Cuenta"}
               placeholder="Elegí una cuenta"
-              opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.group_id ? `${c.currency} · conjunta` : c.currency }))}
+              opciones={cuentas.map((c) => ({
+                id: c.id,
+                nombre: c.name,
+                detalle: c.group_id ? `${c.currency} · conjunta` : c.currency,
+              }))}
               valor={cuentaId}
               onCambio={setCuentaId}
             />
@@ -352,7 +376,11 @@ export function FormularioMovimiento({
                 placeholder="Elegí la cuenta de destino"
                 opciones={cuentas
                   .filter((c) => c.id !== cuentaId)
-                  .map((c) => ({ id: c.id, nombre: c.name, detalle: c.group_id ? `${c.currency} · conjunta` : c.currency }))}
+                  .map((c) => ({
+                    id: c.id,
+                    nombre: c.name,
+                    detalle: c.group_id ? `${c.currency} · conjunta` : c.currency,
+                  }))}
                 valor={cuentaDestinoId}
                 onCambio={setCuentaDestinoId}
               />
@@ -362,7 +390,7 @@ export function FormularioMovimiento({
           {/* Compartir va ANTES de la categoria: define de que ambito son las
               categorias que se ofrecen (personales o del grupo, ver 0014). Las
               transferencias no se comparten: son movimientos entre tus cuentas. */}
-          {tipo !== "transfer" && <CompartirCon valor={grupoId} onCambio={setGrupoId} />}
+          {tipo !== "transfer" && <CompartirCon valor={grupoId} onCambio={cambiarGrupo} />}
 
           {tipo !== "transfer" && (
             <Campo etiqueta="Categoría">
@@ -441,21 +469,38 @@ export function FormularioMovimiento({
 
 // Ruta /nuevo: en movil es la pantalla focal (sin barra ni FAB, sube al entrar).
 // En escritorio el alta se abre como modal desde el boton "Nuevo movimiento"
-// (ver LayoutEscritorio); esta ruta queda de fallback (p. ej. "Usar plantilla").
+// (ver LayoutEscritorio); esta ruta queda para "Usar plantilla" y para los
+// atajos del icono (`?tipo=gasto|ingreso|transferencia`, ver 0023).
 export function Alta() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [params] = useSearchParams()
   const plantillaId = (location.state as { plantillaId?: string } | null)?.plantillaId
+  const tipoInicial = tipoDesdeParametro(params.get("tipo"))
+
+  // Desde un atajo, /nuevo es la PRIMERA pantalla: no hay a donde volver y
+  // `navigate(-1)` no hacia nada. Sin historial propio, cerrar lleva a Inicio.
+  function cerrar() {
+    if (location.key === "default") navigate("/", { replace: true })
+    else navigate(-1)
+  }
 
   return (
-    <div className="mx-auto max-w-md space-y-5 p-4 pb-4 motion-safe:animate-subir">
+    <main className="mx-auto max-w-md space-y-5 p-4 pb-4 motion-safe:animate-subir">
       <header className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Nuevo movimiento</h1>
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Cerrar">
+        <h1 className="text-2xl font-semibold">Nuevo movimiento</h1>
+        <Button variant="ghost" size="icon" onClick={cerrar} aria-label="Cerrar">
           <X className="h-5 w-5" />
         </Button>
       </header>
-      <FormularioMovimiento plantillaId={plantillaId} onGuardado={() => navigate("/movimientos")} />
-    </div>
+      <FormularioMovimiento
+        // Otro `tipo` en la URL con la pantalla abierta (otro atajo) remonta el
+        // formulario: arranca limpio en el tipo nuevo.
+        key={tipoInicial}
+        plantillaId={plantillaId}
+        tipoInicial={tipoInicial}
+        onGuardado={() => navigate("/movimientos")}
+      />
+    </main>
   )
 }

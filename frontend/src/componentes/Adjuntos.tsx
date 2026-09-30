@@ -37,9 +37,7 @@ export function Adjuntos({ transactionId }: { transactionId: string }) {
       await api.subirAdjunto(transactionId, file)
       // La fila aparece sola cuando baja por la sync.
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.detalle : "No se pudo subir. ¿Hay conexión?",
-      )
+      setError(err instanceof ApiError ? err.detalle : "No se pudo subir. ¿Hay conexión?")
     } finally {
       setSubiendo(false)
     }

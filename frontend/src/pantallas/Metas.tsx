@@ -11,6 +11,7 @@ import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
+import { saldoCuenta } from "@/lib/saldos"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 
@@ -26,16 +27,9 @@ interface Meta {
   account_id: string | null
 }
 
-// Saldo por cuenta (misma convencion que Inicio/0005), para el progreso.
+// Saldo por cuenta (la formula unica, lib/saldos), para el progreso.
 const SQL_SALDOS = `
-  SELECT a.id, a.name, a.currency,
-    a.opening_balance
-    + COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM transactions WHERE account_id = a.id AND kind='income' AND status='confirmed' AND deleted_at IS NULL), 0)
-    - COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM transactions WHERE account_id = a.id AND kind='expense' AND status='confirmed' AND deleted_at IS NULL), 0)
-    + COALESCE((SELECT SUM(amount) FROM transactions WHERE transfer_account_id = a.id AND kind='transfer' AND status='confirmed' AND deleted_at IS NULL), 0)
-    - COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM transactions WHERE account_id = a.id AND kind='transfer' AND status='confirmed' AND deleted_at IS NULL), 0)
-    - COALESCE((SELECT SUM(amount) FROM settlements WHERE account_id = a.id AND deleted_at IS NULL), 0)
-    AS balance
+  SELECT a.id, a.name, a.currency, ${saldoCuenta()} AS balance
   FROM accounts a WHERE a.deleted_at IS NULL AND a.owner_id IS NOT NULL`
 
 export function Metas() {
@@ -44,9 +38,12 @@ export function Metas() {
   const { data: metas } = useQuery<Meta>(
     "SELECT id, name, target_amount, currency, target_date, account_id FROM goals WHERE deleted_at IS NULL AND archived = 0 ORDER BY created_at",
   )
-  const { data: cuentas } = useQuery<{ id: string; name: string; currency: string; balance: number }>(
-    SQL_SALDOS,
-  )
+  const { data: cuentas } = useQuery<{
+    id: string
+    name: string
+    currency: string
+    balance: number
+  }>(SQL_SALDOS)
   const saldoDe = useMemo(() => new Map(cuentas.map((c) => [c.id, c.balance])), [cuentas])
 
   const [form, setForm] = useState(false)
@@ -60,10 +57,15 @@ export function Metas() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/ajustes")} aria-label="Volver">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/ajustes")}
+          aria-label="Volver"
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl font-semibold">Metas de ahorro</h1>
+        <h1 className="text-2xl font-semibold">Metas de ahorro</h1>
       </header>
 
       <Button className="w-full" onClick={() => setForm(true)}>
@@ -83,7 +85,8 @@ export function Metas() {
         <div className="space-y-3">
           {metas.map((m) => {
             const usado = m.account_id ? (saldoDe.get(m.account_id) ?? 0) : 0
-            const pct = m.target_amount > 0 ? Math.min(100, Math.round((usado / m.target_amount) * 100)) : 0
+            const pct =
+              m.target_amount > 0 ? Math.min(100, Math.round((usado / m.target_amount) * 100)) : 0
             const listo = usado >= m.target_amount && m.target_amount > 0
             return (
               <section key={m.id} className="rounded-xl border border-border bg-card p-4">
@@ -125,7 +128,9 @@ export function Metas() {
         abierta={aBorrar !== null}
         onOpenChange={(v) => !v && setABorrar(null)}
         titulo="Eliminar meta"
-        detalle={aBorrar ? `Se elimina "${aBorrar.name}". La cuenta y su plata no se tocan.` : undefined}
+        detalle={
+          aBorrar ? `Se elimina "${aBorrar.name}". La cuenta y su plata no se tocan.` : undefined
+        }
         etiqueta="Eliminar"
         destructivo
         onConfirmar={() => aBorrar && borrar(aBorrar)}

@@ -64,7 +64,7 @@ export function Plantillas() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl font-semibold">Plantillas</h1>
+        <h1 className="text-2xl font-semibold">Plantillas</h1>
       </header>
 
       <p className="text-sm text-muted-foreground">

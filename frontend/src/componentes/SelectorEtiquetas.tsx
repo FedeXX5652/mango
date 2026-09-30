@@ -104,7 +104,7 @@ export function SelectorEtiquetas({
                       <span className="truncate text-sm">{e.name}</span>
                     </span>
                     {activa && (
-                      <span className="flex shrink-0 items-center text-primary">
+                      <span className="flex shrink-0 items-center text-enlace">
                         <Check className="h-4 w-4" aria-hidden />
                         <span className="sr-only">seleccionada</span>
                       </span>

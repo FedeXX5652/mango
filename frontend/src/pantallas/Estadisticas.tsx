@@ -15,6 +15,7 @@ import {
   XAxis,
 } from "recharts"
 
+import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { Monto } from "@/componentes/Monto"
 import { SelectorMoneda } from "@/componentes/SelectorMoneda"
 import { Button } from "@/componentes/ui/button"
@@ -42,6 +43,10 @@ interface CatRow {
   id: string
   name: string
   parent_id: string | null
+  // Grupo dueño de la categoria (0014): "Comida" de Casa y "Comida" personal
+  // se llaman igual y tienen que distinguirse.
+  grupo: string | null
+  grupo_color: string | null
 }
 interface GastoRow {
   category_id: string | null
@@ -287,7 +292,9 @@ export function Estadisticas() {
   const { data: cotizaciones } = useQuery<CotizacionConocida>(SQL_COTIZACIONES)
 
   const { data: categorias, isLoading: cargaCats } = useQuery<CatRow>(
-    "SELECT id, name, parent_id FROM categories WHERE deleted_at IS NULL",
+    `SELECT c.id, c.name, c.parent_id, g.name AS grupo, g.color AS grupo_color
+     FROM categories c LEFT JOIN groups g ON g.id = c.group_id
+     WHERE c.deleted_at IS NULL`,
   )
   const catById = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
 
@@ -324,13 +331,21 @@ export function Estadisticas() {
   // de mayor a menor y con la variacion contra el periodo anterior.
   const torta = useMemo(() => {
     const agrupar = (rows: GastoRow[]) => {
-      const acc = new Map<string, { name: string; value: number }>()
+      const acc = new Map<
+        string,
+        { name: string; value: number; grupo: string | null; grupoColor: string | null }
+      >()
       for (const r of rows) {
         const cat = r.category_id ? catById.get(r.category_id) : undefined
         const padre = cat?.parent_id ? catById.get(cat.parent_id) : cat
         const key = padre?.id ?? "sin"
         const name = padre?.name ?? "Sin categoría"
-        const cur = acc.get(key) ?? { name, value: 0 }
+        const cur = acc.get(key) ?? {
+          name,
+          value: 0,
+          grupo: padre?.grupo ?? null,
+          grupoColor: padre?.grupo_color ?? null,
+        }
         cur.value += r.total
         acc.set(key, cur)
       }
@@ -363,6 +378,8 @@ export function Estadisticas() {
         return {
           key,
           name: v.name,
+          grupo: v.grupo,
+          grupoColor: v.grupoColor,
           value: v.value,
           variacion: previo > 0 ? ((v.value - previo) / previo) * 100 : null,
           desglose: (desglose.get(key) ?? []).sort((a, b) => b.value - a.value),
@@ -393,6 +410,7 @@ export function Estadisticas() {
             style={{ backgroundColor: PALETA[i % PALETA.length] }}
           />
           <span className="truncate text-sm">{t.name}</span>
+          {t.grupo && <EtiquetaGrupo variante="punto" nombre={t.grupo} color={t.grupoColor} />}
         </span>
         <span className="flex shrink-0 items-center gap-2">
           <span className="text-right">
@@ -600,7 +618,10 @@ export function Estadisticas() {
         {faltantes.length > 0 && (
           <p className="text-xs text-muted-foreground">
             No incluye {faltantes.join(", ")}: falta su cotización.{" "}
-            <Link to="/cotizaciones" className="text-primary underline-offset-2 hover:underline">
+            <Link
+              to="/cotizaciones"
+              className="font-medium text-enlace underline underline-offset-2"
+            >
               Cargarla
             </Link>
             .

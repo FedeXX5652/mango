@@ -23,22 +23,27 @@ export function EtiquetaGrupo({
   const c = color || SIN_COLOR
   if (variante === "punto") {
     return (
-      <span className={cn("inline-flex items-center gap-1 text-xs text-muted-foreground", className)}>
+      <span
+        className={cn("inline-flex items-center gap-1 text-xs text-muted-foreground", className)}
+      >
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: c }} />
         <span className="truncate">{nombre}</span>
       </span>
     )
   }
+  // El color del grupo va en el punto y en el tinte del fondo, NUNCA en el
+  // texto: un color elegido por la persona no garantiza contraste (el azul daba
+  // 4,5:1 en claro y 2,8:1 en oscuro). El nombre va en `foreground`.
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium",
+        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium leading-none text-foreground",
         className,
       )}
-      style={{ backgroundColor: `${c}1a`, color: c }}
+      style={{ backgroundColor: `${c}1f` }}
     >
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: c }} />
-      {nombre}
+      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: c }} aria-hidden />
+      <span className="truncate">{nombre}</span>
     </span>
   )
 }

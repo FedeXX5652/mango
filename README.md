@@ -20,7 +20,7 @@ decide compartir**, con reparto de gastos estilo Splitwise incluido.
 ![PowerSync](https://img.shields.io/badge/PowerSync-offline--first-1c1c1c)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalable-5A0FC8?logo=pwa&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-419%20verdes-2EA043)
+![Tests](https://img.shields.io/badge/tests-447%20verdes-2EA043)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED?logo=docker&logoColor=white)
 
 </div>
@@ -78,11 +78,25 @@ de un hogar, con tres convicciones:
   deuda.
 - **Presupuesto del grupo** y **notificaciones** in-app de lo que pasa.
 
+### 📲 App instalable
+- **PWA**: se instala desde el navegador en Android, iOS y escritorio, y anda sin
+  conexión.
+- **Atajos del ícono**: mantené apretado el ícono en Android (o usá la lista de
+  saltos en escritorio) para ir directo a **Nuevo gasto**, **Nuevo ingreso**,
+  **Movimientos**, **Estadísticas**, tu **último grupo**, **Transferencia** o
+  **Presupuesto**. iOS no muestra atajos, pero los enlaces directos
+  (`/nuevo?tipo=gasto`, `/grupos/ultimo`…) funcionan igual.
+- **Dos interfaces, no una estirada**: en el teléfono, barra inferior con el
+  **+** al centro para cargar en dos toques; en la compu, barra lateral y paneles
+  para analizar.
+
 ### 🔒 Privacidad y sincronización
 - **Local-first** con PowerSync: base SQLite en cada dispositivo, sincronización
   en segundo plano y resolución de conflictos.
 - **Particionado de la sync**: cada quien recibe lo suyo y lo de sus grupos, nada
-  más — ni siquiera las columnas privadas de un gasto compartido ajeno.
+  más — ni siquiera las columnas privadas de un gasto compartido ajeno. Lo del
+  grupo vive en sus propias tablas locales, así que tus saldos se calculan solo
+  con tu plata.
 - **Autenticación** con usuario y contraseña (Argon2id), sesión por JWT.
 
 > Parte del roadmap (ingesta automática desde correo con IA, multimoneda con
@@ -143,7 +157,7 @@ por **una sola puerta** (nginx), así que se expone un único puerto.
   cliente una versión atrás.
 - **Decisiones de arquitectura documentadas** (20 ADRs en
   [`docs/decisiones/`](docs/decisiones)) — nada importante se decide dos veces.
-- **Incrementos chicos con pruebas**: **419** pruebas (backend + frontend) en
+- **Incrementos chicos con pruebas**: **447** pruebas (backend + frontend) en
   verde, más un banco de compatibilidad para detectar regresiones de esquema.
 - **Deploy por imágenes**: el servidor no tiene el código; baja imágenes
   publicadas, y la base migra sola al arrancar.

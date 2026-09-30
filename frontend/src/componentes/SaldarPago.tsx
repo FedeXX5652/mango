@@ -146,8 +146,8 @@ export function SaldarPago({
               />
             </Campo>
             <p className="text-xs text-muted-foreground">
-              Sale de tu cuenta y baja tu saldo. Si en cambio ya se saldó por fuera, usá
-              “Marcar saldado”.
+              Sale de tu cuenta y baja tu saldo. Si en cambio ya se saldó por fuera, usá “Marcar
+              saldado”.
             </p>
           </>
         )}

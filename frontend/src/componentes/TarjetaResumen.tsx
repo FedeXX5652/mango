@@ -1,4 +1,5 @@
 import { useQuery } from "@powersync/react"
+import { ChevronRight } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 
@@ -224,7 +225,10 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
           {faltantes.length > 0 && (
             <p className="mt-1 text-xs text-muted-foreground">
               No incluye {faltantes.join(", ")}: falta su cotización.{" "}
-              <Link to="/cotizaciones" className="text-primary underline-offset-2 hover:underline">
+              <Link
+                to="/cotizaciones"
+                className="font-medium text-enlace underline underline-offset-2"
+              >
                 Cargarla
               </Link>
               .
@@ -232,6 +236,20 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
           )}
         </>
       )}
+
+      {/* Salida a Estadisticas: en el telefono no esta en la barra (0022), y
+          esta tarjeta es la pregunta de la que Estadisticas es el detalle. Es un
+          enlace propio y no la tarjeta entera: la tarjeta tiene controles adentro
+          (modo y moneda), y un enlace no puede contener botones. */}
+      <div className="mt-4 border-t border-border pt-1">
+        <Link
+          to="/estadisticas"
+          className="-mx-2 flex min-h-11 items-center justify-between rounded-md px-2 text-sm font-medium text-enlace hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Ver estadísticas
+          <ChevronRight className="h-4 w-4" aria-hidden />
+        </Link>
+      </div>
     </section>
   )
 }
