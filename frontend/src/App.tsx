@@ -15,7 +15,12 @@ import { LayoutEscritorio } from "@/layouts/escritorio/LayoutEscritorio"
 import { LayoutMovil } from "@/layouts/movil/LayoutMovil"
 import { Accesos } from "@/pantallas/Accesos"
 import { Grupos } from "@/pantallas/Grupos"
-import { GrupoDetalle } from "@/pantallas/GrupoDetalle"
+import { AjustesGrupo } from "@/pantallas/grupo/AjustesGrupo"
+import { DetalleGastoGrupo } from "@/pantallas/grupo/DetalleGastoGrupo"
+import { EstadisticasGrupo } from "@/pantallas/grupo/EstadisticasGrupo"
+import { InicioGrupo } from "@/pantallas/grupo/InicioGrupo"
+import { MovimientosGrupo } from "@/pantallas/grupo/MovimientosGrupo"
+import { PresupuestoDelGrupo } from "@/pantallas/grupo/PresupuestoDelGrupo"
 import { UltimoGrupo } from "@/pantallas/UltimoGrupo"
 import { Rechazados } from "@/pantallas/Rechazados"
 import { Ajustes } from "@/pantallas/Ajustes"
@@ -52,10 +57,17 @@ function Rutas() {
         <Route path="accesos" element={<Accesos />} />
         <Route path="rechazados" element={<Rechazados />} />
         <Route path="grupos" element={<Grupos />} />
+        {/* Espacios (0026): cada grupo tiene las mismas pantallas que Personal,
+            con los mismos nombres de seccion, bajo /grupos/<grupo>. */}
         {/* Atajo del icono (0023): resuelve en el dispositivo. Estatica, gana
-            sobre `grupos/:id`. */}
+            sobre `grupos/:grupo`. */}
         <Route path="grupos/ultimo" element={<UltimoGrupo />} />
-        <Route path="grupos/:id" element={<GrupoDetalle />} />
+        <Route path="grupos/:grupo" element={<InicioGrupo />} />
+        <Route path="grupos/:grupo/movimientos" element={<MovimientosGrupo />} />
+        <Route path="grupos/:grupo/movimientos/:id" element={<DetalleGastoGrupo />} />
+        <Route path="grupos/:grupo/presupuesto" element={<PresupuestoDelGrupo />} />
+        <Route path="grupos/:grupo/estadisticas" element={<EstadisticasGrupo />} />
+        <Route path="grupos/:grupo/ajustes" element={<AjustesGrupo />} />
         <Route path="cuentas" element={<Cuentas />} />
         <Route path="categorias" element={<Categorias />} />
         <Route path="medios" element={<MediosPago />} />
@@ -63,7 +75,7 @@ function Rutas() {
         <Route path="cotizaciones" element={<Cotizaciones />} />
         <Route path="plantillas" element={<Plantillas />} />
         <Route path="recurrentes" element={<Recurrentes />} />
-        <Route path="presupuestos" element={<Presupuestos />} />
+        <Route path="presupuesto" element={<Presupuestos />} />
         <Route path="metas" element={<Metas />} />
         <Route path="deudas" element={<Deudas />} />
         <Route path="*" element={<Navigate to="/" replace />} />

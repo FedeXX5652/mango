@@ -49,7 +49,8 @@ componente de layout movil importa algo de layout escritorio, algo se hizo mal.
 
 | | Movil | Escritorio |
 |---|---|---|
-| Navegacion | Barra inferior: **4 destinos fijos** (Inicio, Movimientos, Presupuesto, Grupos) y el boton **+** elevado al centro, en cinco columnas iguales. Estadisticas se abre desde la tarjeta de Resumen de Inicio y desde el atajo del icono; Ajustes vive en el header de Inicio (ver 0022) | Barra lateral fija con todos los destinos (Ajustes y Estadisticas incluidos) |
+| Espacio actual | **Selector** arriba a la izquierda de cada pantalla principal (ver "Selector de espacio", 0026) | El mismo selector, arriba de la barra lateral |
+| Navegacion | Barra inferior: **4 destinos fijos** (Inicio, Movimientos, Presupuesto, Grupos) y el boton **+** elevado al centro, en cinco columnas iguales. Inicio, Movimientos y Presupuesto llevan a esa seccion **del espacio actual**. Estadisticas se abre desde la tarjeta de Resumen de Inicio y desde el atajo del icono; Ajustes vive en el header de Inicio (ver 0022) | Barra lateral fija con todos los destinos (Ajustes y Estadisticas incluidos). Las secciones siguen al espacio; en un grupo se suma **Ajustes del grupo** |
 | Lo que no esta en la barra | Panel de **accesos** en Inicio: 4 elegidos y ordenados por la persona + "Más" (ver 0024) | Bloque **Herramientas** en la barra lateral (metas, deudas, recurrentes, plantillas) |
 | Ajustes | Solo **configuracion**: cuentas, categorias, medios, etiquetas, cotizaciones, moneda, apariencia, seguridad (0024) | Igual |
 | Accion principal | El **+** central de la barra inferior (no hay boton flotante) | Boton "Nuevo movimiento" en la barra superior |
@@ -704,6 +705,30 @@ se ven dos y el resto queda oculto (ver "Listas que crecen con el tiempo").
   hacer zoom y el segundo se pierde.
 - Un monto largo **baja de tamaño** (3xl → 2xl → xl) antes que desbordar. Nunca
   se abrevia (0006).
+
+### Selector de espacio
+
+Un **espacio** es Personal o un grupo, con las mismas pantallas (0026). El
+espacio actual se ve siempre en un chip: punto de color (Personal, el amarillo de
+marca; un grupo, su color), nombre truncado y chevron, 44 px de alto. Es la
+defensa contra cargar algo en el espacio equivocado, asi que **no se esconde**.
+
+- Al tocarlo abre una `Hoja` "Espacios" con Personal y cada grupo (tilde en el
+  actual), **Nuevo grupo** y **Administrar**.
+- Cambiar deja en la **misma seccion** del otro espacio.
+- En el movil, el chip encabeza Inicio, Movimientos, Presupuesto y Estadisticas
+  (`EncabezadoEspacio`, con las acciones de la pantalla a la derecha). En
+  escritorio esta arriba de la barra lateral y esa fila no se muestra.
+- Las rutas de los dos espacios usan los mismos nombres de seccion
+  (`/movimientos` y `/grupos/<grupo>/movimientos`); se arman con `rutaEspacio`,
+  nunca a mano.
+
+### El estado de la pantalla va en la URL
+
+El mes y los filtros de una lista van en la direccion (`?mes=2026-09`), no en un
+`useState`. Entrar a un detalle y volver deja la lista donde estaba, y la
+direccion se puede compartir o guardar. El estado efimero (una hoja abierta, un
+campo a medio escribir) sigue en el componente.
 
 ### Hover solo con mouse
 

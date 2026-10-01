@@ -1,20 +1,25 @@
 import { House, List, PieChart, Settings, Users2, Wallet } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
+import type { Seccion } from "@/lib/espacios"
+
 export interface Destino {
   to: string
   etiqueta: string
   icono: LucideIcon
   end?: boolean
+  // Seccion de un espacio (0026): el destino lleva a ESA seccion del espacio
+  // actual (Movimientos de Casa si se esta en Casa). Sin seccion, `to` es fijo.
+  seccion?: Seccion
 }
 
 // Destinos de navegacion. En escritorio la barra lateral los muestra todos.
 export const DESTINOS: Destino[] = [
-  { to: "/", etiqueta: "Inicio", icono: House, end: true },
-  { to: "/movimientos", etiqueta: "Movimientos", icono: List },
-  { to: "/presupuestos", etiqueta: "Presupuesto", icono: Wallet },
-  { to: "/estadisticas", etiqueta: "Estadísticas", icono: PieChart },
-  { to: "/grupos", etiqueta: "Grupos", icono: Users2 },
+  { to: "/", etiqueta: "Inicio", icono: House, end: true, seccion: "" },
+  { to: "/movimientos", etiqueta: "Movimientos", icono: List, seccion: "movimientos" },
+  { to: "/presupuesto", etiqueta: "Presupuesto", icono: Wallet, seccion: "presupuesto" },
+  { to: "/estadisticas", etiqueta: "Estadísticas", icono: PieChart, seccion: "estadisticas" },
+  { to: "/grupos", etiqueta: "Grupos", icono: Users2, end: true },
   { to: "/ajustes", etiqueta: "Ajustes", icono: Settings },
 ]
 
@@ -27,8 +32,8 @@ export const DESTINOS: Destino[] = [
 // tarea de escritorio; en el telefono se llega desde la tarjeta de Resumen de
 // Inicio y desde el atajo del icono (0023).
 export const DESTINOS_MOVIL: Destino[] = [
-  { to: "/", etiqueta: "Inicio", icono: House, end: true },
-  { to: "/movimientos", etiqueta: "Movimientos", icono: List },
-  { to: "/presupuestos", etiqueta: "Presupuesto", icono: Wallet },
-  { to: "/grupos", etiqueta: "Grupos", icono: Users2 },
+  { to: "/", etiqueta: "Inicio", icono: House, end: true, seccion: "" },
+  { to: "/movimientos", etiqueta: "Movimientos", icono: List, seccion: "movimientos" },
+  { to: "/presupuesto", etiqueta: "Presupuesto", icono: Wallet, seccion: "presupuesto" },
+  { to: "/grupos", etiqueta: "Grupos", icono: Users2, end: true },
 ]

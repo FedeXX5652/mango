@@ -1,53 +1,36 @@
-import { usePowerSync, useQuery } from "@powersync/react"
-import { ChevronRight, UserPlus, Users, X } from "lucide-react"
+import { useQuery } from "@powersync/react"
+import { ChevronRight, Users } from "lucide-react"
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 
+import { PaletaColor } from "@/componentes/PaletaColor"
 import { Vacio } from "@/componentes/Vacio"
 import { Button } from "@/componentes/ui/button"
-import { Campo } from "@/componentes/ui/campo"
-import { Confirmar } from "@/componentes/ui/confirmar"
-import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
-import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
-import { ApiError, api } from "@/lib/api"
+import { ListaInset } from "@/componentes/ui/listaInset"
+import { api } from "@/lib/api"
 import { PALETA, SIN_COLOR } from "@/lib/paleta"
-import { usuarioActualId } from "@/lib/sesion"
 import { uuidv4 } from "@/lib/uuid"
-import { cn } from "@/lib/utils"
 
-// Grupos (fase 3b.1): crear un grupo, ver los miembros, y —si sos el dueño—
-// agregar por username o sacar a alguien. Todo se administra por API (crear
-// necesita servidor, agregar es por username) y se lee del SQLite local, que
-// baja por la sync.
+// Mis grupos (0026): la lista para entrar a cada uno —cada grupo es un espacio,
+// con sus propias pantallas en /grupos/<id>— y crear uno nuevo. Administrar un
+// grupo (nombre, color, miembros, categorias) esta en sus Ajustes.
 //
-// El nombre de cada miembro todavía no se muestra: `users` solo sincroniza tu
-// propia fila. Sincronizar el perfil (username/nombre) de los otros miembros del
-// grupo es parte de 3b.2, junto con lo que se comparte de un movimiento.
+// Crear necesita servidor (lo hace la API); lo demas se lee del SQLite local.
 
 interface Grupo {
   id: string
   name: string
-  base_currency: string
   color: string | null
-  created_by: string
-}
-
-interface Miembro {
-  id: string
-  group_id: string
-  user_id: string
-  role: string
+  miembros: number
 }
 
 export function Grupos() {
-  const miId = usuarioActualId() ?? ""
-
+  const [params] = useSearchParams()
   const { data: grupos } = useQuery<Grupo>(
-    "SELECT id, name, base_currency, color, created_by FROM groups WHERE deleted_at IS NULL ORDER BY name",
-  )
-  const { data: miembros } = useQuery<Miembro>(
-    "SELECT id, group_id, user_id, role FROM group_members WHERE deleted_at IS NULL",
+    `SELECT g.id, g.name, g.color,
+            (SELECT count(*) FROM group_members gm WHERE gm.group_id = g.id AND gm.deleted_at IS NULL) AS miembros
+     FROM groups g WHERE g.deleted_at IS NULL ORDER BY g.name`,
   )
 
   const [nuevoNombre, setNuevoNombre] = useState("")
@@ -81,202 +64,51 @@ export function Grupos() {
         los miembros; tus cuentas y medios de pago siguen siendo privados.
       </p>
 
-      <div className="space-y-2">
+      {grupos.length === 0 ? (
+        <Vacio icono={Users} titulo="Sin grupos" detalle="Creá uno para compartir gastos." />
+      ) : (
+        <ListaInset>
+          {grupos.map((g) => (
+            <Link
+              key={g.id}
+              to={`/grupos/${g.id}`}
+              className="flex min-h-14 items-center gap-3 px-4 py-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            >
+              <span
+                className="h-3 w-3 shrink-0 rounded-full"
+                style={{ backgroundColor: g.color || SIN_COLOR }}
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{g.name}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {g.miembros} {g.miembros === 1 ? "miembro" : "miembros"}
+                </span>
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            </Link>
+          ))}
+        </ListaInset>
+      )}
+
+      <section className="space-y-3 rounded-xl border border-border p-4">
+        <h2 className="text-sm font-semibold text-muted-foreground">Nuevo grupo</h2>
         <div className="flex gap-2">
           <Input
             aria-label="Nombre del grupo nuevo"
             value={nuevoNombre}
             onChange={(e) => setNuevoNombre(e.target.value)}
             placeholder="Nombre del grupo (ej: Casa)"
+            // Desde "Nuevo grupo" del selector de espacio, el campo ya esta listo.
+            autoFocus={params.get("nuevo") === "1"}
           />
           <Button onClick={crear} disabled={creando || !nuevoNombre.trim()}>
             Crear
           </Button>
         </div>
         <PaletaColor valor={nuevoColor} onCambio={setNuevoColor} />
-      </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-
-      {grupos.length === 0 ? (
-        <Vacio icono={Users} titulo="Sin grupos" detalle="Creá uno para compartir gastos." />
-      ) : (
-        <div className="space-y-4">
-          {grupos.map((g) => (
-            <TarjetaGrupo
-              key={g.id}
-              grupo={g}
-              miembros={miembros.filter((m) => m.group_id === g.id)}
-              soyDueño={g.created_by === miId}
-              miId={miId}
-            />
-          ))}
-        </div>
-      )}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </section>
     </div>
-  )
-}
-
-// Fila de swatches de la paleta compartida (lib/paleta). El elegido queda con un
-// anillo. Se usa al crear un grupo y al recolorearlo.
-function PaletaColor({
-  valor,
-  onCambio,
-  className,
-}: {
-  valor?: string
-  onCambio: (color: string) => void
-  className?: string
-}) {
-  return (
-    <div className={cn("flex flex-wrap gap-2", className)}>
-      {PALETA.map((c) => (
-        <button
-          key={c}
-          type="button"
-          aria-label={`Color ${c}`}
-          onClick={() => onCambio(c)}
-          className={cn(
-            "h-6 w-6 rounded-full transition-transform",
-            valor === c
-              ? "ring-2 ring-foreground ring-offset-2 ring-offset-card"
-              : "hover:scale-110",
-          )}
-          style={{ backgroundColor: c }}
-        />
-      ))}
-    </div>
-  )
-}
-
-function TarjetaGrupo({
-  grupo,
-  miembros,
-  soyDueño,
-  miId,
-}: {
-  grupo: Grupo
-  miembros: Miembro[]
-  soyDueño: boolean
-  miId: string
-}) {
-  const db = usePowerSync()
-  const navigate = useNavigate()
-  const [agregando, setAgregando] = useState(false)
-  const [username, setUsername] = useState("")
-  const [error, setError] = useState("")
-  const [trabajando, setTrabajando] = useState(false)
-  const [aQuitar, setAQuitar] = useState<Miembro | null>(null)
-
-  async function agregar() {
-    if (!username.trim()) return
-    setTrabajando(true)
-    setError("")
-    try {
-      await api.agregarMiembro(grupo.id, username.trim())
-      setUsername("")
-      setAgregando(false)
-    } catch (e) {
-      setError(
-        e instanceof ApiError && e.status === 422
-          ? e.detalle
-          : "No se pudo agregar. ¿Hay conexión?",
-      )
-    } finally {
-      setTrabajando(false)
-    }
-  }
-
-  async function quitar(m: Miembro) {
-    await api.quitarMiembro(grupo.id, m.user_id)
-    setAQuitar(null)
-    // El borrado baja por la sync; nada que tocar local. `db` queda por si más
-    // adelante hace falta una escritura local.
-    void db
-  }
-
-  return (
-    <section className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => navigate(`/grupos/${grupo.id}`)}
-          className="flex min-w-0 items-center gap-2 font-medium hover:underline"
-        >
-          <span
-            className="h-3 w-3 shrink-0 rounded-full"
-            style={{ backgroundColor: grupo.color || SIN_COLOR }}
-            aria-hidden
-          />
-          <span className="truncate">{grupo.name}</span>
-          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-        </button>
-        {soyDueño && (
-          <Button variant="ghost" size="sm" className="gap-1" onClick={() => setAgregando(true)}>
-            <UserPlus className="h-4 w-4" />
-            Agregar
-          </Button>
-        )}
-      </div>
-
-      {/* Cualquier miembro cambia el color: es la marca de origen del grupo en
-          toda la app (3b.2c). Se guarda al toque por API. */}
-      <PaletaColor
-        valor={grupo.color ?? undefined}
-        onCambio={(c) => void api.editarGrupo(grupo.id, { color: c })}
-        className="mt-3"
-      />
-
-      <ListaInset className="mt-3">
-        {miembros.map((m) => (
-          <FilaInset key={m.id}>
-            <span className="min-w-0 truncate text-sm">
-              {m.user_id === miId ? "Vos" : m.user_id.slice(0, 8)}
-              {m.role === "owner" && (
-                <span className="ml-2 text-xs text-muted-foreground">dueño</span>
-              )}
-            </span>
-            {soyDueño && m.role !== "owner" && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-destructive"
-                aria-label="Quitar del grupo"
-                onClick={() => setAQuitar(m)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </FilaInset>
-        ))}
-      </ListaInset>
-
-      <Hoja abierta={agregando} onOpenChange={setAgregando} titulo={`Agregar a ${grupo.name}`}>
-        <div className="space-y-3">
-          <Campo etiqueta="Nombre de usuario">
-            <Input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="El username de la persona"
-              autoCapitalize="none"
-              autoFocus
-            />
-          </Campo>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button className="w-full" onClick={agregar} disabled={trabajando || !username.trim()}>
-            {trabajando ? "Agregando…" : "Agregar al grupo"}
-          </Button>
-        </div>
-      </Hoja>
-
-      <Confirmar
-        abierta={aQuitar !== null}
-        onOpenChange={(v) => !v && setAQuitar(null)}
-        titulo="Quitar del grupo"
-        detalle="Deja de ver los gastos compartidos del grupo. Sus datos privados no se tocan."
-        etiqueta="Quitar"
-        destructivo
-        onConfirmar={() => aQuitar && quitar(aQuitar)}
-      />
-    </section>
   )
 }

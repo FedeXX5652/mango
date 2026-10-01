@@ -20,8 +20,8 @@ decide compartir**, con reparto de gastos estilo Splitwise incluido.
 ![PowerSync](https://img.shields.io/badge/PowerSync-offline--first-1c1c1c)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalable-5A0FC8?logo=pwa&logoColor=white)
-![Versión](https://img.shields.io/badge/versión-1.0.1-FDBE02)
-![Tests](https://img.shields.io/badge/tests-470%20verdes-2EA043)
+![Versión](https://img.shields.io/badge/versión-1.1.0-FDBE02)
+![Tests](https://img.shields.io/badge/tests-481%20verdes-2EA043)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED?logo=docker&logoColor=white)
 
 </div>
@@ -66,12 +66,17 @@ de un hogar, con tres convicciones:
 - Tarjetas de crédito con día de **cierre** y **vencimiento**.
 
 ### 👥 Compartido (hogar / pareja)
+- **Espacios**: Personal y cada grupo tienen **las mismas pantallas** (Inicio,
+  Movimientos, Presupuesto, Estadísticas). Pasás de uno a otro con el selector de
+  arriba, y la dirección dice dónde estás (`/grupos/<grupo>/movimientos`).
 - **Grupos**: se comparte *solo* lo que marcás como compartido. Lo privado
   (cuenta, medio de pago, monto debitado) **no viaja** a los demás.
 - **Taxonomía del grupo**: categorías y tags propios del grupo, con color, para
   que todos clasifiquen igual.
 - **Reparto estilo Splitwise**: división por partes iguales, montos exactos o
   porcentajes; **balance** de quién puso qué y **quién le debe a quién**.
+- **Historia del grupo**: gastos y pagos entre miembros intercalados, con tu
+  parte en cada gasto y filtros por quién pagó y categoría.
 - **Saldar deudas**: marcar como saldado (por fuera) o registrar un **pago real**
   que sale de tu cuenta, en partes. El cobro le llega al otro para confirmar en
   qué cuenta entró.
@@ -163,7 +168,7 @@ por **una sola puerta** (nginx), así que se expone un único puerto.
   cliente una versión atrás.
 - **Decisiones de arquitectura documentadas** (20 ADRs en
   [`docs/decisiones/`](docs/decisiones)) — nada importante se decide dos veces.
-- **Incrementos chicos con pruebas**: **470** pruebas (backend + frontend) en
+- **Incrementos chicos con pruebas**: **481** pruebas (backend + frontend) en
   verde, más un banco de compatibilidad para detectar regresiones de esquema.
 - **Deploy por imágenes**: el servidor no tiene el código; baja imágenes
   publicadas, y la base migra sola al arrancar.

@@ -11,7 +11,7 @@ import {
   Receipt,
 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 
 import { Calendario } from "@/componentes/Calendario"
 import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
@@ -22,6 +22,7 @@ import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { Button } from "@/componentes/ui/button"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
+import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
 import { useConexion } from "@/hooks/conexion"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { ordenarJerarquico } from "@/lib/categorias"
@@ -141,8 +142,12 @@ function EstadoSync() {
 export function Movimientos() {
   const navigate = useNavigate()
   const hoy = new Date()
-  const [anio, setAnio] = useState(hoy.getFullYear())
-  const [mes, setMes] = useState(hoy.getMonth())
+  // El mes vive en la URL (?mes=2026-09): al abrir un movimiento y volver, la
+  // lista queda en el mismo mes. Antes se reiniciaba al mes actual.
+  const [urlParams, setUrlParams] = useSearchParams()
+  const [anioParam, mesParam] = (urlParams.get("mes") ?? "").split("-").map(Number)
+  const anio = anioParam || hoy.getFullYear()
+  const mes = mesParam ? mesParam - 1 : hoy.getMonth()
   const [vista, setVista] = useState<"lista" | "calendario">("lista")
   const [tipo, setTipo] = useState("")
   const [cuentaId, setCuentaId] = useState("")
@@ -265,8 +270,9 @@ export function Movimientos() {
 
   function cambiarMes(delta: number) {
     const d = new Date(anio, mes + delta, 1)
-    setAnio(d.getFullYear())
-    setMes(d.getMonth())
+    const nuevos = new URLSearchParams(urlParams)
+    nuevos.set("mes", `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`)
+    setUrlParams(nuevos, { replace: true })
     setDiaSel(null)
   }
 
@@ -280,6 +286,7 @@ export function Movimientos() {
   if (cargando) {
     return (
       <div className="mx-auto max-w-2xl space-y-3 p-4">
+        <EncabezadoEspacio />
         <header className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Movimientos</h1>
           <EstadoSync />
@@ -298,6 +305,7 @@ export function Movimientos() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-3 p-4">
+      <EncabezadoEspacio />
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Movimientos</h1>
         <EstadoSync />

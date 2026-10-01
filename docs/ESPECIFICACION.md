@@ -559,7 +559,11 @@ es:
 - **Compartida**: la ven todos los miembros del grupo
 
 Los reportes del grupo suman solo lo compartido. Los reportes personales suman
-todo lo propio. Nadie ve el detalle privado del otro.
+todo lo propio (lo que salio de mis cuentas). Nadie ve el detalle privado del
+otro.
+
+En la interfaz, Personal y cada grupo son **espacios** con las mismas pantallas,
+y se pasa de uno a otro con un selector siempre visible. Ver decision 0026.
 
 En el dispositivo, lo personal y lo del grupo viven en **tablas locales
 distintas**: mis movimientos completos en una y el "lente" del grupo (lo
@@ -1086,6 +1090,16 @@ contador de no leidos (header movil y barra de escritorio) abre la **bandeja** d
 avisos. Los crea el servidor en eventos (`pago_recibido`, `pago_deshecho`,
 `miembro_agregado`); bajan por `mio`; el cliente solo los marca leidos. Tocar un
 aviso lo marca leido y navega a su link.
+
+**Fase 3b.6 (espacios): ETAPA 1 HECHA.** Ver 0026. Personal y cada grupo son
+**espacios** con las mismas pantallas (Inicio, Movimientos, Presupuesto,
+Estadisticas) y un selector siempre a la vista. Un grupo vive en
+`/grupos/<grupo>/…`, con los mismos nombres de seccion que lo personal. En
+Movimientos del grupo los pagos entre miembros van intercalados con los gastos;
+un gasto ajeno se ve en solo lectura (solo lo edita quien lo cargo). Administrar
+el grupo (nombre, color, miembros, categorias) esta en **Ajustes del grupo**.
+Faltan la etapa 2 (el "+" toma el espacio, Poner plata, tarjeta de grupos en el
+Inicio personal, barra con Estadisticas) y la 3 (Reintegros de grupo).
 
 Falta:
 - **Push** (avisos fuera de la app): service worker + `PushManager` + VAPID +

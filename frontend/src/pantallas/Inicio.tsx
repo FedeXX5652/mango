@@ -11,6 +11,7 @@ import { Monto } from "@/componentes/Monto"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { TarjetaResumen } from "@/componentes/TarjetaResumen"
 import { Vacio } from "@/componentes/Vacio"
+import { SelectorEspacio } from "@/componentes/SelectorEspacio"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { iconoCuenta } from "@/lib/cuentas"
 import { type Direccion } from "@/lib/dinero"
@@ -130,9 +131,10 @@ export function Inicio() {
       <h1 className="sr-only">Inicio</h1>
       {/* Header movil: Ajustes vive aca (en escritorio esta en la barra lateral). */}
       <header className="flex items-center justify-between lg:hidden">
-        <div className="flex items-center gap-2">
-          <img src="/icons/svg/mango.svg" alt="" className="h-7 w-7" />
-          <span className="text-lg font-semibold">Mango</span>
+        {/* El espacio en el que se esta (0026), con el logo de la marca al lado. */}
+        <div className="flex min-w-0 items-center gap-2">
+          <img src="/icons/svg/mango.svg" alt="" className="h-7 w-7 shrink-0" />
+          <SelectorEspacio />
         </div>
         <div className="flex items-center gap-1">
           <Notificaciones />

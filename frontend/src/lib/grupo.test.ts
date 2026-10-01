@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import { resumenGrupo, type MiembroGrupo, type TxGrupo } from "@/lib/grupo"
+import {
+  historiaGrupo,
+  parteEnGasto,
+  resumenGrupo,
+  type MiembroGrupo,
+  type TxGrupo,
+} from "@/lib/grupo"
 
 const ANA: MiembroGrupo = { user_id: "aaa", nombre: "Ana" }
 const BETO: MiembroGrupo = { user_id: "bbb", nombre: "Beto" }
@@ -187,5 +193,43 @@ describe("pagos (settlements)", () => {
       settlements: [{ from_user_id: "bbb", to_user_id: "aaa", amount: 20000, currency: "USD" }],
     })[0]
     expect(r.liquidaciones).toEqual([{ de: "bbb", a: "aaa", monto: 20000 }])
+  })
+})
+
+describe("parte de un gasto", () => {
+  const tx = { id: "t1", amount: 1001, paid_from_group: 0 }
+
+  it("sin splits, partes iguales con el centavo de resto al primero (como el balance)", () => {
+    expect(parteEnGasto(tx, [], [ANA, BETO], "aaa")).toBe(501)
+    expect(parteEnGasto(tx, [], [ANA, BETO], "bbb")).toBe(500)
+  })
+
+  it("con splits, la del split; sin split propio, cero", () => {
+    const splits = [{ transaction_id: "t1", user_id: "aaa", amount: 1001 }]
+    expect(parteEnGasto(tx, splits, [ANA, BETO], "aaa")).toBe(1001)
+    expect(parteEnGasto(tx, splits, [ANA, BETO], "bbb")).toBe(0)
+  })
+
+  it("lo pagado con la cuenta conjunta no es parte de nadie", () => {
+    expect(parteEnGasto({ ...tx, paid_from_group: 1 }, [], [ANA, BETO], "aaa")).toBeNull()
+  })
+})
+
+describe("historia del grupo", () => {
+  it("intercala gastos y pagos, de lo mas nuevo a lo mas viejo", () => {
+    const g = (id: string, fecha: string) =>
+      ({ tipo: "gasto", id, fecha, owner_id: "aaa", amount: 1, currency: "ARS" }) as const
+    const p = (id: string, fecha: string) =>
+      ({
+        tipo: "pago",
+        id,
+        fecha,
+        from_user_id: "bbb",
+        to_user_id: "aaa",
+        amount: 1,
+        currency: "ARS",
+      }) as const
+    const h = historiaGrupo([g("g1", "2026-09-01"), g("g2", "2026-09-20")], [p("p1", "2026-09-10")])
+    expect(h.map((x) => x.id)).toEqual(["g2", "p1", "g1"])
   })
 })

@@ -193,3 +193,51 @@ export function resumenGrupo(
     }
   })
 }
+
+// --- Historia del grupo (0026) ----------------------------------------------
+
+// La parte de UN gasto que le toca a un miembro: la de su split si el gasto
+// tiene reparto desigual; si no, su porcion de partes iguales entre todos (con
+// el mismo orden y el mismo reparto de centavos que el balance, asi la suma de
+// las "tu parte" de la lista cierra con el balance). Lo pagado con la cuenta
+// conjunta no es parte de nadie (0016): devuelve null.
+export function parteEnGasto(
+  tx: Pick<TxGrupo, "id" | "amount" | "paid_from_group">,
+  splitsDelTx: SplitRow[],
+  miembros: MiembroGrupo[],
+  userId: string,
+): number | null {
+  if (tx.paid_from_group) return null
+  if (splitsDelTx.length > 0) return splitsDelTx.find((s) => s.user_id === userId)?.amount ?? 0
+  const ordenados = [...miembros].sort((a, b) => a.user_id.localeCompare(b.user_id))
+  const i = ordenados.findIndex((m) => m.user_id === userId)
+  if (i < 0) return 0
+  return partesIguales(tx.amount, ordenados.length)[i] ?? 0
+}
+
+export interface GastoHistoria {
+  tipo: "gasto"
+  id: string
+  fecha: string
+  owner_id: string
+  amount: number
+  currency: string
+}
+export interface PagoHistoria {
+  tipo: "pago"
+  id: string
+  fecha: string
+  from_user_id: string
+  to_user_id: string
+  amount: number
+  currency: string
+}
+
+// La historia del grupo en una sola lista, de lo mas nuevo a lo mas viejo:
+// gastos y pagos entre miembros intercalados por fecha, como Splitwise.
+export function historiaGrupo<G extends GastoHistoria, P extends PagoHistoria>(
+  gastos: G[],
+  pagos: P[],
+): (G | P)[] {
+  return [...gastos, ...pagos].sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0))
+}

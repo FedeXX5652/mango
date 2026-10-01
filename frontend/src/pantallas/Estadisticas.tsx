@@ -22,6 +22,7 @@ import { Button } from "@/componentes/ui/button"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { Segmentado } from "@/componentes/ui/segmentado"
+import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { useRefrescoCotizaciones } from "@/hooks/refrescoCotizaciones"
@@ -566,6 +567,7 @@ export function Estadisticas() {
   if (cargando) {
     return (
       <div className="mx-auto max-w-2xl space-y-8 p-4">
+        <EncabezadoEspacio />
         <h1 className="text-2xl font-semibold">Estadísticas</h1>
         <Cargando visible={mostrarEsqueleto} className="space-y-8" etiqueta="Cargando estadísticas">
           {/* Los esqueletos tienen el tamano de lo que viene, asi el contenido
@@ -587,6 +589,7 @@ export function Estadisticas() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 p-4">
+      <EncabezadoEspacio />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Estadísticas</h1>
         {/* Con una sola moneda no hay nada que unificar. */}

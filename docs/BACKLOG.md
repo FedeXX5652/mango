@@ -73,6 +73,20 @@ tocan el sistema entero, y van con decision propia.
   decimales y el simbolo de `Monto` (piso de 11 px, 0006) quedan debajo de los 13
   px de DESIGN. Revisar junto con la escala tipografica.
 
+## Espacios: lo que sigue (0026)
+
+- **Etapa 2**: el "+" toma el espacio actual ("Nuevo gasto en ● Casa", ya
+  compartido y con las categorias del grupo); **Poner plata** en la cuenta
+  conjunta; accesos del Inicio del grupo (Saldar, Poner plata, Miembros,
+  Categorias); tarjeta por grupo en el Inicio personal y su resumen de una linea
+  en el selector; barra movil **Inicio · Movimientos · + · Presupuesto ·
+  Estadisticas** (la lista de grupos queda en "Administrar").
+- **Etapa 3**: categoria de sistema **Reintegros de grupo** y su separacion en
+  Estadisticas (ver "Conciliar las dos puntas de un pago").
+- **Filtros de Movimientos personal en la URL**: el mes ya va en `?mes=`; la
+  busqueda y los demas filtros todavia se pierden al entrar a un movimiento y
+  volver (en el grupo ya van todos en la URL).
+
 ## PWA: ideas que salieron con los atajos (0023)
 
 - **Grupo favorito** para el atajo del grupo, si "el ultimo abierto" no alcanza
@@ -89,7 +103,13 @@ tocan el sistema entero, y van con decision propia.
 - **Transformaciones de la cola de rechazados** (0011). Hoy un rechazo se guarda y
   se puede reintentar o descartar; falta poder **editarlo** antes de reintentar.
 - **Conciliar las dos puntas de un pago** (0018): que el acreedor no tenga que
-  recategorizar si no quiere (categoria "Cobros" por defecto).
+  recategorizar si no quiere. Decidido en 0026: categoria de sistema
+  **"Reintegros de grupo"**, mostrada aparte de los ingresos en Estadisticas
+  (lo personal muestra lo pagado; el reintegro es lo que lo neta).
+- **Espacios personales aislados** (0026): un emprendimiento separado de lo
+  personal = un grupo de una sola persona con su cuenta comun, fondeada con plata
+  propia. Evaluar despues de los espacios de grupo (y si hace falta una vista
+  "Todo" que sume patrimonios).
 - **Mas eventos de notificacion** (0019): te quitaron de un grupo, gasto compartido
   nuevo, presupuesto del grupo excedido.
 

@@ -1,7 +1,7 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { ArrowLeft, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 
 import { Adjuntos } from "@/componentes/Adjuntos"
 import { CompartirCon } from "@/componentes/CompartirCon"
@@ -10,12 +10,16 @@ import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
+import { Confirmar } from "@/componentes/ui/confirmar"
 import { Input } from "@/componentes/ui/input"
+import { useEspacio } from "@/hooks/useEspacio"
+import { useVolver } from "@/hooks/useVolver"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
+import { rutaEspacio } from "@/lib/espacios"
 import { uuidv4 } from "@/lib/uuid"
 
 interface Tx {
@@ -52,7 +56,10 @@ function isoALocal(iso: string): string {
 
 export function DetalleMovimiento() {
   const { id } = useParams()
-  const navigate = useNavigate()
+  // A la lista de donde se vino (con su mes); si se entro directo, a los
+  // Movimientos del espacio actual (0026): desde un grupo no salta a lo personal.
+  const { espacio } = useEspacio()
+  const volver = useVolver(rutaEspacio(espacio, "movimientos"))
   const db = usePowerSync()
 
   const { data: filas } = useQuery<Tx>("SELECT * FROM transactions WHERE id = ?", [id ?? ""])
@@ -99,6 +106,7 @@ export function DetalleMovimiento() {
     [id ?? ""],
   )
 
+  const [confirmarBorrar, setConfirmarBorrar] = useState(false)
   const [etiquetas, setEtiquetas] = useState<string[]>([])
   const [monto, setMonto] = useState("")
   // Monto debitado de la cuenta, cuando la moneda del movimiento no es la de
@@ -245,18 +253,18 @@ export function DetalleMovimiento() {
         }
       }
     }
-    navigate(-1)
+    volver()
   }
 
   async function borrar() {
     await db.execute("DELETE FROM transactions WHERE id = ?", [tx!.id])
-    navigate("/movimientos")
+    volver()
   }
 
   return (
     <div className="mx-auto max-w-md space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Volver">
+        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-semibold">{KIND_LABEL[tx.kind]}</h1>
@@ -371,10 +379,30 @@ export function DetalleMovimiento() {
         <Button className="flex-1" onClick={guardar}>
           Guardar
         </Button>
-        <Button variant="destructive" size="icon" onClick={borrar} aria-label="Borrar">
+        <Button
+          variant="destructive"
+          size="icon"
+          onClick={() => setConfirmarBorrar(true)}
+          aria-label="Borrar"
+        >
           <Trash2 className="h-5 w-5" />
         </Button>
       </div>
+
+      {/* Eliminar pide confirmacion (DESIGN.md 7). */}
+      <Confirmar
+        abierta={confirmarBorrar}
+        onOpenChange={setConfirmarBorrar}
+        titulo="Borrar movimiento"
+        detalle={
+          tx.group_id
+            ? "Deja de contar en tus saldos y en el balance del grupo."
+            : "Deja de contar en tus saldos y en tus estadísticas."
+        }
+        etiqueta="Borrar"
+        destructivo
+        onConfirmar={borrar}
+      />
     </div>
   )
 }

@@ -1,10 +1,13 @@
-import { Plus } from "lucide-react"
+import { Plus, Settings2 } from "lucide-react"
 import { useState } from "react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
 
 import { HERRAMIENTAS_ESCRITORIO, acceso } from "@/componentes/accesos"
 import { DESTINOS, type Destino as DestinoNav } from "@/componentes/navegacion"
 import { Notificaciones } from "@/componentes/Notificaciones"
+import { SelectorEspacio } from "@/componentes/SelectorEspacio"
+import { useEspacio } from "@/hooks/useEspacio"
+import { rutaEspacio } from "@/lib/espacios"
 import { botonVariants } from "@/componentes/ui/button"
 import { Hoja } from "@/componentes/ui/hoja"
 import { FormularioMovimiento } from "@/pantallas/Alta"
@@ -13,10 +16,12 @@ import { cn } from "@/lib/utils"
 // Layout escritorio: barra lateral fija con todos los destinos y accion
 // principal en la barra superior (DESIGN.md 2). El alta se abre como modal
 // sobre el dashboard (en movil, en cambio, es una pantalla focal).
-function Destino({ to, etiqueta, icono: Icono, end }: DestinoNav) {
+function Destino({ to, etiqueta, icono: Icono, end, seccion }: DestinoNav) {
+  // Los destinos de seccion siguen al espacio actual (0026).
+  const { espacio } = useEspacio()
   return (
     <NavLink
-      to={to}
+      to={seccion !== undefined ? rutaEspacio(espacio, seccion) : to}
       end={end}
       className={({ isActive }) =>
         cn(
@@ -36,19 +41,34 @@ function Destino({ to, etiqueta, icono: Icono, end }: DestinoNav) {
 
 export function LayoutEscritorio() {
   const navigate = useNavigate()
+  const { espacio } = useEspacio()
   const [nuevoAbierto, setNuevoAbierto] = useState(false)
 
   return (
     <div className="grid h-full grid-cols-[240px_1fr]">
       <aside className="flex flex-col gap-1 border-r border-border bg-card p-4">
-        <div className="mb-4 flex items-center gap-2 px-2">
+        <div className="mb-3 flex items-center gap-2 px-2">
           <img src="/icons/svg/mango.svg" alt="" className="h-8 w-8" />
           <span className="text-lg font-semibold">Mango</span>
         </div>
+        {/* El espacio actual, arriba de todo (0026): lo de abajo es de ese espacio. */}
+        <SelectorEspacio className="mb-3 w-full justify-between" />
         {/* Landmark de navegacion: sin el <nav>, un lector de pantalla no
             encontraba los destinos como tales (auditoria de 0022). */}
         <nav aria-label="Principal" className="flex flex-col gap-1">
-          {DESTINOS.filter((d) => d.to !== "/ajustes").map((d) => (
+          {DESTINOS.filter((d) => d.seccion !== undefined).map((d) => (
+            <Destino key={d.to} {...d} />
+          ))}
+          {/* En un grupo, sus ajustes son una seccion mas del espacio: en el movil
+              estan en el engranaje del Inicio del grupo. */}
+          {espacio.tipo === "grupo" && (
+            <Destino
+              to={rutaEspacio(espacio, "ajustes")}
+              etiqueta="Ajustes del grupo"
+              icono={Settings2}
+            />
+          )}
+          {DESTINOS.filter((d) => d.seccion === undefined && d.to !== "/ajustes").map((d) => (
             <Destino key={d.to} {...d} />
           ))}
           {/* Herramientas (0024): lo que salio de Ajustes. En el movil estan en

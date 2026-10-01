@@ -2,6 +2,8 @@ import { Plus } from "lucide-react"
 import { Link, NavLink, Outlet } from "react-router-dom"
 
 import { DESTINOS_MOVIL } from "@/componentes/navegacion"
+import { useEspacio } from "@/hooks/useEspacio"
+import { rutaEspacio } from "@/lib/espacios"
 import { cn } from "@/lib/utils"
 
 // Layout movil: contenido a pantalla completa y barra inferior con dos destinos,
@@ -14,10 +16,13 @@ import { cn } from "@/lib/utils"
 const IZQ = DESTINOS_MOVIL.slice(0, 2)
 const DER = DESTINOS_MOVIL.slice(2)
 
-function Tab({ to, etiqueta, icono: Icono, end }: (typeof DESTINOS_MOVIL)[number]) {
+function Tab({ to, etiqueta, icono: Icono, end, seccion }: (typeof DESTINOS_MOVIL)[number]) {
+  // Las pestañas de seccion siguen al espacio actual (0026): en Casa, Movimientos
+  // es el de Casa.
+  const { espacio } = useEspacio()
   return (
     <NavLink
-      to={to}
+      to={seccion !== undefined ? rutaEspacio(espacio, seccion) : to}
       end={end}
       className={({ isActive }) =>
         cn(

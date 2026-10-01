@@ -21,6 +21,7 @@ import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Interruptor } from "@/componentes/ui/interruptor"
+import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, formatearCentavos, formatearMonto } from "@/lib/dinero"
@@ -287,6 +288,7 @@ export function Presupuestos() {
   if (cargando) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 p-4">
+        <EncabezadoEspacio />
         <Cargando visible={mostrarEsqueleto} className="space-y-4" etiqueta="Cargando presupuesto">
           <Esqueleto className="h-40 w-full rounded-xl" />
           <Esqueleto className="mx-auto h-6 w-40" />
@@ -300,6 +302,7 @@ export function Presupuestos() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
+      <EncabezadoEspacio />
       {/* Cada moneda tiene su propio presupuesto y su propio "por asignar"
           (ver 0005). Con una sola no hay nada que elegir. */}
       {/* Con una sola moneda no hay fila de moneda, pero la pantalla sigue

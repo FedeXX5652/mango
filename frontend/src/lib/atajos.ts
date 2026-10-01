@@ -97,7 +97,7 @@ export const ATAJOS: Atajo[] = [
     name: "Presupuesto",
     short_name: "Presupuesto",
     description: "Ver cuánto queda en cada sobre",
-    url: "/presupuestos",
+    url: "/presupuesto",
     icons: iconos("presupuesto"),
   },
 ]

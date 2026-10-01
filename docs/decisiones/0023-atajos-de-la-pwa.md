@@ -50,7 +50,7 @@ Siete atajos, **en orden de prioridad** (Android corta en el tercero):
 | 4 | Estadísticas | Estadísticas | `/estadisticas` |
 | 5 | Último grupo | Grupo | `/grupos/ultimo` |
 | 6 | Transferencia | Transferir | `/nuevo?tipo=transferencia` |
-| 7 | Presupuesto | Presupuesto | `/presupuestos` |
+| 7 | Presupuesto | Presupuesto | `/presupuesto` |
 
 - **Los tres de Android son cargar y ver lo cargado**, lo que más se hace. Cargar
   un gasto queda en una pulsación larga y un toque, con el tipo ya elegido
