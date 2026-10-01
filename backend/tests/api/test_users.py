@@ -64,3 +64,41 @@ async def test_fx_manual_acepta_el_json_que_manda_la_sync(api: SimpleNamespace) 
 async def test_fx_manual_basura_se_rechaza(api: SimpleNamespace) -> None:
     resp = await api.client.patch(f"/api/v1/users/{api.owner_id}", json={"fx_manual": "no-json"})
     assert resp.status_code == 422
+
+
+# --- Accesos de Inicio (0024) ---
+
+
+async def test_accesos_roundtrip_en_orden(api: SimpleNamespace) -> None:
+    # El orden es parte del dato: es el orden del panel de Inicio.
+    ids = ["deudas", "metas", "recurrentes", "plantillas"]
+    resp = await api.client.patch(f"/api/v1/users/{api.owner_id}", json={"home_shortcuts": ids})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["home_shortcuts"] == ids
+    assert (await api.fila("users", api.owner_id))["home_shortcuts"] == ids
+
+
+async def test_accesos_acepta_el_json_que_manda_la_sync(api: SimpleNamespace) -> None:
+    # Como fx_manual: en el dispositivo es TEXTO con el JSON adentro.
+    resp = await api.client.patch(
+        f"/api/v1/users/{api.owner_id}", json={"home_shortcuts": '["estadisticas","metas"]'}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["home_shortcuts"] == ["estadisticas", "metas"]
+
+
+async def test_accesos_null_vuelve_a_los_de_fabrica(api: SimpleNamespace) -> None:
+    await api.client.patch(f"/api/v1/users/{api.owner_id}", json={"home_shortcuts": ["metas"]})
+    resp = await api.client.patch(f"/api/v1/users/{api.owner_id}", json={"home_shortcuts": None})
+    assert resp.status_code == 200
+    assert resp.json()["home_shortcuts"] is None
+
+
+async def test_accesos_con_forma_invalida_se_rechazan(api: SimpleNamespace) -> None:
+    # El servidor no conoce el catalogo, pero cuida la forma: ids cortos en
+    # minuscula y un techo de cantidad.
+    for malo in (["Metas!"], [""], ["x" * 41], [f"a{i}" for i in range(13)], "no-json"):
+        resp = await api.client.patch(
+            f"/api/v1/users/{api.owner_id}", json={"home_shortcuts": malo}
+        )
+        assert resp.status_code == 422, malo

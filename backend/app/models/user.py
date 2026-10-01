@@ -47,6 +47,12 @@ class User(Base, IdMixin, TimestampMixin):
     # que uno paga. Lista de codigos ISO; vacia o NULL = todas automaticas.
     fx_manual: Mapped[list[str] | None] = mapped_column(JSONB)
 
+    # Accesos de Inicio (0024): que atajos van en el panel de Inicio y en que
+    # orden. Lista de ids del catalogo del cliente (frontend/src/componentes/accesos.ts);
+    # NULL = los de fabrica. Viaja con la sync, como el tema: iguales en todos
+    # los dispositivos.
+    home_shortcuts: Mapped[list[str] | None] = mapped_column(JSONB)
+
     __table_args__ = (
         CheckConstraint("color_scheme IN ('light','dark','system')", name="users_color_scheme_chk"),
     )

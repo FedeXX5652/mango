@@ -3,16 +3,21 @@ import { useEffect, useState } from "react"
 
 import { Button } from "@/componentes/ui/button"
 import {
+  type Op,
+  aEntrada,
   borrarUltimo,
   coma,
+  cuentaEnCurso,
   desdeCentavos,
   digito,
   igual,
   limpiar,
   operador,
+  resultado,
   valorCentavos,
 } from "@/lib/calculadora"
 import { formatearEntrada, partesMonto } from "@/lib/dinero"
+import { cn } from "@/lib/utils"
 
 // Teclado de calculadora para el monto. El display muestra la entrada en curso;
 // el valor en centavos se comunica al padre en cada cambio. `inicial` (centavos)
@@ -63,11 +68,28 @@ export function Calculadora({
   // El simbolo sale de Intl segun la moneda y cual es la base (ver dinero.ts).
   const simbolo = partesMonto(0, { moneda }).simbolo
 
+  // Arriba del numero, la cuenta en curso ("100 +") y, con el segundo numero
+  // tipeado, el resultado parcial: es lo que se va a guardar (ver resultado()).
+  const cuenta = cuentaEnCurso(estado)
+  const parcial = cuenta && !estado.reiniciar ? resultado(estado) : null
+  const texto = formatearEntrada(estado.entrada)
+  // Un monto largo baja de tamaño antes que desbordar (nunca se abrevia, 0006).
+  const tamano = texto.length > 14 ? "text-xl" : texto.length > 10 ? "text-2xl" : "text-3xl"
+  const pulsar = (op: Op) => setEstado((e) => operador(e, op))
+
   return (
     <div className="space-y-3">
-      <div className="flex items-baseline justify-end gap-2 rounded-lg bg-muted px-4 py-3">
-        <span className="text-lg text-muted-foreground">{simbolo}</span>
-        <span className="tabular text-3xl font-semibold">{formatearEntrada(estado.entrada)}</span>
+      <div className="rounded-lg bg-muted px-4 py-2">
+        <div className="tabular flex min-h-5 items-baseline justify-between gap-2 text-sm text-muted-foreground">
+          <span>{cuenta ? `${formatearEntrada(cuenta.izquierda)} ${cuenta.op}` : ""}</span>
+          <span>{parcial !== null ? `= ${formatearEntrada(aEntrada(parcial))}` : ""}</span>
+        </div>
+        <div className="flex items-baseline justify-end gap-2">
+          <span className="text-lg text-muted-foreground">{simbolo}</span>
+          <span aria-live="polite" className={cn("tabular font-semibold", tamano)}>
+            {texto}
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-2">
@@ -76,7 +98,12 @@ export function Calculadora({
             {n}
           </Tecla>
         ))}
-        <Tecla variante="op" onClick={() => setEstado((e) => operador(e, "÷"))}>
+        <Tecla
+          variante="op"
+          activa={estado.op === "÷"}
+          onClick={() => pulsar("÷")}
+          aria-label="Dividir"
+        >
           ÷
         </Tecla>
 
@@ -85,7 +112,12 @@ export function Calculadora({
             {n}
           </Tecla>
         ))}
-        <Tecla variante="op" onClick={() => setEstado((e) => operador(e, "×"))}>
+        <Tecla
+          variante="op"
+          activa={estado.op === "×"}
+          onClick={() => pulsar("×")}
+          aria-label="Multiplicar"
+        >
           ×
         </Tecla>
 
@@ -94,7 +126,12 @@ export function Calculadora({
             {n}
           </Tecla>
         ))}
-        <Tecla variante="op" onClick={() => setEstado((e) => operador(e, "-"))}>
+        <Tecla
+          variante="op"
+          activa={estado.op === "-"}
+          onClick={() => pulsar("-")}
+          aria-label="Restar"
+        >
           −
         </Tecla>
 
@@ -103,13 +140,20 @@ export function Calculadora({
         <Tecla onClick={() => setEstado(borrarUltimo)} aria-label="Borrar">
           <Delete className="mx-auto h-5 w-5" />
         </Tecla>
-        <Tecla variante="op" onClick={() => setEstado((e) => operador(e, "+"))}>
+        <Tecla
+          variante="op"
+          activa={estado.op === "+"}
+          onClick={() => pulsar("+")}
+          aria-label="Sumar"
+        >
           +
         </Tecla>
 
-        <Tecla onClick={() => setEstado(limpiar)}>C</Tecla>
+        <Tecla onClick={() => setEstado(limpiar)} aria-label="Borrar todo">
+          C
+        </Tecla>
         <div className="col-span-3">
-          <Tecla variante="igual" onClick={() => setEstado(igual)}>
+          <Tecla variante="igual" onClick={() => setEstado(igual)} aria-label="Igual">
             =
           </Tecla>
         </div>
@@ -122,18 +166,28 @@ function Tecla({
   children,
   onClick,
   variante = "num",
+  activa = false,
   ...props
 }: {
   children: React.ReactNode
   onClick: () => void
   variante?: "num" | "op" | "igual"
+  // Operador pendiente: queda marcado hasta el segundo numero o el "=".
+  activa?: boolean
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const variant = variante === "igual" ? "default" : variante === "op" ? "secondary" : "outline"
   return (
     <Button
       type="button"
       variant={variant}
-      className="h-12 w-full font-mono text-lg"
+      aria-pressed={variante === "op" ? activa : undefined}
+      // `touch-manipulation`: sin esto, dos toques rapidos en la misma tecla (00,
+      // 55) el telefono los toma como doble toque para hacer zoom y el segundo
+      // se pierde. `select-none`: una pulsacion larga no selecciona el texto.
+      className={cn(
+        "h-12 w-full touch-manipulation select-none font-mono text-lg",
+        activa && "bg-accent text-accent-foreground ring-2 ring-inset ring-ring",
+      )}
       onClick={onClick}
       {...props}
     >

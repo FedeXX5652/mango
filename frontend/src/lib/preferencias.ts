@@ -22,6 +22,9 @@ export interface Preferencias {
   // Monedas que el usuario carga a mano (ver 0005). En Postgres es JSONB, asi
   // que baja como texto y se parsea aca.
   fx_manual: string[]
+  // Accesos del panel de Inicio, en orden (0024). null = los de fabrica. Se
+  // valida contra el catalogo en componentes/accesos (`normalizarAccesos`).
+  home_shortcuts: string[] | null
 }
 
 interface Fila {
@@ -31,23 +34,29 @@ interface Fila {
   theme_id: string
   color_scheme: string
   fx_manual: string | null
+  home_shortcuts: string | null
 }
 
-// SIEMPRE filtrado por mi id: desde 3b la tabla `users` local tiene tambien el
-// perfil de los otros miembros del grupo. Sin el WHERE, se leeria (o peor, con
-// el UPDATE, se pisaria) la fila de otra persona.
+// SIEMPRE filtrado por mi id. Desde 0021 la tabla `users` local tiene solo mi
+// fila (los perfiles de los demas estan en `member_profiles`), pero el WHERE se
+// queda: es lo que garantiza que un UPDATE nunca toque la fila de otra persona.
 const SQL =
-  "SELECT id, display_name, base_currency, theme_id, color_scheme, fx_manual FROM users WHERE id = ?"
+  "SELECT id, display_name, base_currency, theme_id, color_scheme, fx_manual, home_shortcuts FROM users WHERE id = ?"
+
+// Una lista de strings guardada como JSON, o null si no hay o no es JSON.
+export function listaJson(texto: string | null): string[] | null {
+  if (!texto) return null
+  try {
+    const x = JSON.parse(texto)
+    return Array.isArray(x) ? x.map(String) : null
+  } catch {
+    // Texto que no es JSON: se trata como "sin dato" en vez de romper la
+    // pantalla. Es una preferencia, no un dato contable.
+    return null
+  }
+}
 
 function aPreferencias(f: Fila): Preferencias {
-  let manuales: string[] = []
-  try {
-    const x = f.fx_manual ? JSON.parse(f.fx_manual) : []
-    if (Array.isArray(x)) manuales = x.map(String)
-  } catch {
-    // Texto que no es JSON: se trata como "ninguna manual" en vez de romper la
-    // pantalla. Es una preferencia, no un dato contable.
-  }
   return {
     id: f.id,
     display_name: f.display_name,
@@ -56,7 +65,8 @@ function aPreferencias(f: Fila): Preferencias {
     color_scheme: (["light", "dark", "system"] as const).includes(f.color_scheme as EsquemaColor)
       ? (f.color_scheme as EsquemaColor)
       : "system",
-    fx_manual: manuales,
+    fx_manual: listaJson(f.fx_manual) ?? [],
+    home_shortcuts: listaJson(f.home_shortcuts),
   }
 }
 
@@ -92,6 +102,8 @@ export function observarPreferencias(alCambiar: (p: Preferencias) => void): () =
 type Campos = Partial<Pick<Preferencias, "display_name" | "base_currency" | "theme_id">> & {
   color_scheme?: EsquemaColor
   fx_manual?: string[]
+  // null = volver a los de fabrica.
+  home_shortcuts?: string[] | null
 }
 
 // Escribe local; la sync lo sube despues. Sin fila todavia no hace nada: crear
@@ -103,7 +115,14 @@ export async function guardarPreferencias(campos: Campos): Promise<void> {
   if (entradas.length === 0) return
 
   const sets = entradas.map(([k]) => `${k} = ?`).join(", ")
-  const valores = entradas.map(([k, v]) => (k === "fx_manual" ? JSON.stringify(v) : (v as string)))
+  // Las listas van como texto JSON (en SQLite no hay arrays); null queda null.
+  const valores = entradas.map(([k, v]) =>
+    k === "fx_manual" || k === "home_shortcuts"
+      ? v === null
+        ? null
+        : JSON.stringify(v)
+      : (v as string),
+  )
   // WHERE id = mi: nunca tocar la fila de otro miembro (ver SQL arriba).
   await db.execute(`UPDATE users SET ${sets} WHERE id = ?`, [...valores, mi])
 }

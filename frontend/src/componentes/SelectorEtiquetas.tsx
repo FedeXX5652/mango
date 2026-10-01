@@ -1,12 +1,13 @@
-import { useQuery } from "@powersync/react"
-import { Check, ChevronRight } from "lucide-react"
+import { usePowerSync, useQuery } from "@powersync/react"
+import { Check, ChevronRight, Plus } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { Button } from "@/componentes/ui/button"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
-import { SIN_COLOR } from "@/lib/paleta"
+import { PALETA, SIN_COLOR } from "@/lib/paleta"
+import { uuidv4 } from "@/lib/uuid"
 
 interface EtiquetaOpcion {
   id: string
@@ -28,6 +29,7 @@ export function SelectorEtiquetas({
   const { data: etiquetas } = useQuery<EtiquetaOpcion>(
     "SELECT id, name, color FROM tags WHERE deleted_at IS NULL AND archived = 0",
   )
+  const db = usePowerSync()
   const [abierto, setAbierto] = useState(false)
   const [busqueda, setBusqueda] = useState("")
 
@@ -36,11 +38,33 @@ export function SelectorEtiquetas({
     [etiquetas],
   )
 
-  if (orden.length === 0) return null
-
+  // Se muestra SIEMPRE, aunque no haya ninguna etiqueta: antes devolvia null y
+  // el campo quedaba como un titulo suelto pegado a "Guardar", sin forma de
+  // crear la primera desde el alta.
   const elegidas = orden.filter((e) => seleccionadas.includes(e.id))
   const q = busqueda.trim().toLowerCase()
   const filtradas = q ? orden.filter((e) => e.name.toLowerCase().includes(q)) : orden
+
+  // Crear desde el buscador: si lo escrito no es ninguna etiqueta, se crea y
+  // queda elegida. Si ya existe (sin importar mayusculas), se elige esa.
+  const texto = busqueda.trim()
+  const existente = orden.find((e) => e.name.toLowerCase() === texto.toLowerCase())
+  async function crear() {
+    if (!texto) return
+    if (existente) {
+      if (!seleccionadas.includes(existente.id)) onCambio([...seleccionadas, existente.id])
+      setBusqueda("")
+      return
+    }
+    const id = uuidv4()
+    await db.execute("INSERT INTO tags (id, name, color, archived) VALUES (?, ?, ?, 0)", [
+      id,
+      texto,
+      PALETA[orden.length % PALETA.length],
+    ])
+    onCambio([...seleccionadas, id])
+    setBusqueda("")
+  }
 
   function alternar(id: string) {
     onCambio(
@@ -79,16 +103,40 @@ export function SelectorEtiquetas({
 
       <Hoja abierta={abierto} onOpenChange={setAbierto} titulo="Etiquetas">
         <div className="space-y-3">
+          {/* Sin autoFocus: en el telefono abria el teclado y tapaba la lista. */}
           <Input
+            aria-label="Buscar o crear etiqueta"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar etiqueta…"
-            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") crear()
+            }}
+            placeholder={orden.length > 0 ? "Buscar o crear etiqueta…" : "Nombre de la etiqueta…"}
           />
-          {filtradas.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              Ninguna etiqueta coincide con “{busqueda.trim()}”.
-            </p>
+          {texto && !existente && (
+            <ListaInset>
+              <FilaInset onClick={crear}>
+                <span className="flex min-w-0 items-center gap-3 text-sm">
+                  <Plus className="h-4 w-4 shrink-0 text-enlace" aria-hidden />
+                  <span className="truncate">
+                    Crear etiqueta <span className="font-medium">“{texto}”</span>
+                  </span>
+                </span>
+              </FilaInset>
+            </ListaInset>
+          )}
+          {orden.length === 0 ? (
+            !texto && (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                Todavía no tenés etiquetas. Escribí un nombre para crear la primera.
+              </p>
+            )
+          ) : filtradas.length === 0 ? (
+            !texto && (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Ninguna etiqueta coincide.
+              </p>
+            )
           ) : (
             <ListaInset>
               {filtradas.map((e) => {

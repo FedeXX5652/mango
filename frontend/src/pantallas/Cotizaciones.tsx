@@ -1,7 +1,6 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { ArrowLeft, ChevronRight, Coins, Pencil, RefreshCw, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
 
 import { Vacio } from "@/componentes/Vacio"
 import { Button } from "@/componentes/ui/button"
@@ -13,6 +12,7 @@ import { Interruptor } from "@/componentes/ui/interruptor"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
 import { useMonedaBase } from "@/hooks/monedaBase"
+import { useVolver } from "@/hooks/useVolver"
 import { api } from "@/lib/api"
 import { guardarPreferencias, observarPreferencias } from "@/lib/preferencias"
 import { fechaISO, formatearFechaCorta } from "@/lib/fecha"
@@ -34,7 +34,8 @@ interface Cotizacion {
 const FUENTES = ["oficial", "mep", "tarjeta", "manual"]
 
 export function Cotizaciones() {
-  const navigate = useNavigate()
+  // A donde se vino (Inicio, Accesos, Ajustes o un atajo), no a un lugar fijo.
+  const volver = useVolver("/ajustes")
   const db = usePowerSync()
   const base = useMonedaBase()
 
@@ -132,12 +133,7 @@ export function Cotizaciones() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/ajustes")}
-          aria-label="Volver"
-        >
+        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-semibold">Cotizaciones</h1>

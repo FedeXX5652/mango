@@ -1,7 +1,6 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { ArrowLeft, Target, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
 
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Vacio } from "@/componentes/Vacio"
@@ -10,6 +9,7 @@ import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
+import { useVolver } from "@/hooks/useVolver"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { saldoCuenta } from "@/lib/saldos"
 import { uuidv4 } from "@/lib/uuid"
@@ -33,7 +33,8 @@ const SQL_SALDOS = `
   FROM accounts a WHERE a.deleted_at IS NULL AND a.owner_id IS NOT NULL`
 
 export function Metas() {
-  const navigate = useNavigate()
+  // A donde se vino (Inicio, Accesos, Ajustes o un atajo), no a un lugar fijo.
+  const volver = useVolver("/accesos")
   const db = usePowerSync()
   const { data: metas } = useQuery<Meta>(
     "SELECT id, name, target_amount, currency, target_date, account_id FROM goals WHERE deleted_at IS NULL AND archived = 0 ORDER BY created_at",
@@ -57,12 +58,7 @@ export function Metas() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/ajustes")}
-          aria-label="Volver"
-        >
+        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-semibold">Metas de ahorro</h1>

@@ -1,5 +1,5 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft, ChevronRight, UserPlus, Users, X } from "lucide-react"
+import { ChevronRight, UserPlus, Users, X } from "lucide-react"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
@@ -41,7 +41,6 @@ interface Miembro {
 }
 
 export function Grupos() {
-  const navigate = useNavigate()
   const miId = usuarioActualId() ?? ""
 
   const { data: grupos } = useQuery<Grupo>(
@@ -72,15 +71,8 @@ export function Grupos() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
+      {/* Sin "Volver": Grupos es un destino de la barra, como Movimientos. */}
       <header className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/ajustes")}
-          aria-label="Volver"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
         <h1 className="text-2xl font-semibold">Grupos</h1>
       </header>
 

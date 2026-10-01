@@ -64,6 +64,11 @@ tocan el sistema entero, y van con decision propia.
 - **Espaciados fuera de la escala de 4** (DESIGN.md 3): 43 usos en 22 archivos
   (`gap-0.5`, `gap-1.5`, `gap-2.5`, `space-y-1.5`, `space-y-5`, `p-5`…). Pasada
   mecanica.
+- **Alta en la primera sincronizacion**: con la base local todavia vacia muestra
+  "No tenés cuentas todavía (o están sincronizando)". Deberia mostrar el
+  esqueleto hasta la primera sync (`useStatus().hasSynced`), como pide 0008.
+- **Desbloqueo biometrico** (Ajustes > Seguridad) es un boton con el estado en
+  texto: por DESIGN.md 7 va `Interruptor`.
 - **Texto chico deliberado**: los montos por dia del calendario (10 px) y los
   decimales y el simbolo de `Monto` (piso de 11 px, 0006) quedan debajo de los 13
   px de DESIGN. Revisar junto con la escala tipografica.

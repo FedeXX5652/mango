@@ -6,6 +6,7 @@ import { Link } from "react-router-dom"
 import { CobrosPorConfirmar } from "@/componentes/CobrosPorConfirmar"
 import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { Notificaciones } from "@/componentes/Notificaciones"
+import { PanelAccesos } from "@/componentes/PanelAccesos"
 import { Monto } from "@/componentes/Monto"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { TarjetaResumen } from "@/componentes/TarjetaResumen"
@@ -157,6 +158,10 @@ export function Inicio() {
       ) : (
         <>
           <TarjetaResumen saldos={patrimonio} base={base} />
+
+          {/* Accesos (0024): lo que no esta en la barra, a un toque. Solo en el
+              movil: en escritorio la barra lateral ya tiene todo. */}
+          <PanelAccesos className="lg:hidden" />
 
           {/* Cuentas: bloque 2x2 con las primeras segun el orden de Ajustes. */}
           <section className="space-y-3">

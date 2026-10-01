@@ -5,6 +5,10 @@ import type { Config } from "tailwindcss"
 // activo (ver src/styles/tema-mango.css). El modo oscuro se activa por clase.
 export default {
   darkMode: "class",
+  // `hover:` solo en dispositivos con puntero que pasa por encima (mouse). En
+  // una pantalla tactil el hover queda "pegado" en lo ultimo que se toco: en la
+  // calculadora, la tecla anterior quedaba marcada y parecia trabada.
+  future: { hoverOnlyWhenSupported: true },
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {

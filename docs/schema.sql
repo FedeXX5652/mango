@@ -42,6 +42,14 @@ CREATE TABLE users (
     -- color_scheme: 'system' sigue la preferencia del sistema operativo.
     color_scheme    TEXT NOT NULL DEFAULT 'system',
 
+    -- Monedas que se cargan a mano (fuera del refresco automatico, ver 0005).
+    fx_manual       JSONB,
+
+    -- Accesos del panel de Inicio, en orden: lista de ids del catalogo del
+    -- cliente (frontend/src/componentes/accesos.ts). NULL = los de fabrica.
+    -- Viaja con la sync, como el tema (ver 0024).
+    home_shortcuts  JSONB,
+
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at      TIMESTAMPTZ,

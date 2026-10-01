@@ -89,6 +89,11 @@ de un hogar, con tres convicciones:
 - **Dos interfaces, no una estirada**: en el teléfono, barra inferior con el
   **+** al centro para cargar en dos toques; en la compu, barra lateral y paneles
   para analizar.
+- **Accesos a tu medida**: en Inicio, un panel con tus cuatro accesos (metas,
+  deudas, recurrentes, estadísticas…), elegidos y ordenados por vos, y un "Más"
+  con todo lo demás. Viajan con tu usuario a todos tus dispositivos.
+- **Carga rápida**: calculadora en el monto (muestra la cuenta y guarda el
+  resultado), plantillas a un toque y guardar lo cargado como plantilla nueva.
 
 ### 🔒 Privacidad y sincronización
 - **Local-first** con PowerSync: base SQLite en cada dispositivo, sincronización

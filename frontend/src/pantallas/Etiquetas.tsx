@@ -1,7 +1,6 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { Archive, ArchiveRestore, ArrowLeft, Pencil, Tags, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
 
 import { Vacio } from "@/componentes/Vacio"
 import { Button } from "@/componentes/ui/button"
@@ -10,6 +9,7 @@ import { Aviso, Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
+import { useVolver } from "@/hooks/useVolver"
 import { PALETA, SIN_COLOR } from "@/lib/paleta"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
@@ -22,7 +22,8 @@ interface Etiqueta {
 }
 
 export function Etiquetas() {
-  const navigate = useNavigate()
+  // A donde se vino (Inicio, Accesos, Ajustes o un atajo), no a un lugar fijo.
+  const volver = useVolver("/ajustes")
   const db = usePowerSync()
   const { data: etiquetas } = useQuery<Etiqueta>(
     "SELECT id, name, color, archived FROM tags WHERE deleted_at IS NULL",
@@ -118,12 +119,7 @@ export function Etiquetas() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/ajustes")}
-          aria-label="Volver"
-        >
+        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-semibold">Etiquetas</h1>

@@ -13,6 +13,7 @@ import { ProveedorPowerSync } from "@/lib/powersync/proveedor"
 import { Sesion } from "@/componentes/Sesion"
 import { LayoutEscritorio } from "@/layouts/escritorio/LayoutEscritorio"
 import { LayoutMovil } from "@/layouts/movil/LayoutMovil"
+import { Accesos } from "@/pantallas/Accesos"
 import { Grupos } from "@/pantallas/Grupos"
 import { GrupoDetalle } from "@/pantallas/GrupoDetalle"
 import { UltimoGrupo } from "@/pantallas/UltimoGrupo"
@@ -47,6 +48,8 @@ function Rutas() {
         <Route path="movimientos/:id" element={<DetalleMovimiento />} />
         <Route path="estadisticas" element={<Estadisticas />} />
         <Route path="ajustes" element={<Ajustes />} />
+        {/* "Más" del panel de Inicio (0024): todos los accesos y su edicion. */}
+        <Route path="accesos" element={<Accesos />} />
         <Route path="rechazados" element={<Rechazados />} />
         <Route path="grupos" element={<Grupos />} />
         {/* Atajo del icono (0023): resuelve en el dispositivo. Estatica, gana

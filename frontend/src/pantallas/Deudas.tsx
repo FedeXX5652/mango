@@ -1,7 +1,6 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { ArrowLeft, HandCoins, Trash2 } from "lucide-react"
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
 
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Vacio } from "@/componentes/Vacio"
@@ -11,6 +10,7 @@ import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
+import { useVolver } from "@/hooks/useVolver"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
 
@@ -29,7 +29,8 @@ interface Deuda {
 }
 
 export function Deudas() {
-  const navigate = useNavigate()
+  // A donde se vino (Inicio, Accesos, Ajustes o un atajo), no a un lugar fijo.
+  const volver = useVolver("/accesos")
   const db = usePowerSync()
   const { data: deudas } = useQuery<Deuda>(
     "SELECT id, direction, counterparty, description, amount, amount_settled, currency, due_date FROM debts WHERE deleted_at IS NULL ORDER BY settled_at IS NOT NULL, created_at",
@@ -92,12 +93,7 @@ export function Deudas() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/ajustes")}
-          aria-label="Volver"
-        >
+        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-semibold">Deudas y préstamos</h1>

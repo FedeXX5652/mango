@@ -280,6 +280,9 @@ const users = new Table({
   theme_id: column.text,
   color_scheme: column.text,
   fx_manual: column.text,
+  // Accesos del panel de Inicio, en orden (0024). JSONB en Postgres: baja como
+  // texto con el JSON adentro, igual que fx_manual. NULL = los de fabrica.
+  home_shortcuts: column.text,
 })
 
 // --- Proyecciones del grupo (0021) -------------------------------------------

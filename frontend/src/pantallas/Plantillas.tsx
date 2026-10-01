@@ -11,6 +11,7 @@ import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
+import { useVolver } from "@/hooks/useVolver"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, formatearCentavos } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
@@ -42,6 +43,8 @@ function etiquetaTipo(k: string): string {
 
 export function Plantillas() {
   const navigate = useNavigate()
+  // A donde se vino (Inicio, Accesos, Ajustes o un atajo), no a un lugar fijo.
+  const volver = useVolver("/accesos")
   const db = usePowerSync()
   const { data: plantillas } = useQuery<Plantilla>(
     "SELECT id, name, kind, amount FROM templates WHERE deleted_at IS NULL ORDER BY sort_order, name",
@@ -56,12 +59,7 @@ export function Plantillas() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/ajustes")}
-          aria-label="Volver"
-        >
+        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-semibold">Plantillas</h1>

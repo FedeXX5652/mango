@@ -1,7 +1,6 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { ArrowLeft, Pause, Play, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
 
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
@@ -11,6 +10,7 @@ import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
+import { useVolver } from "@/hooks/useVolver"
 import { generarVencidas } from "@/lib/generar"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
@@ -65,7 +65,8 @@ function fechaCorta(iso: string): string {
 }
 
 export function Recurrentes() {
-  const navigate = useNavigate()
+  // A donde se vino (Inicio, Accesos, Ajustes o un atajo), no a un lugar fijo.
+  const volver = useVolver("/accesos")
   const db = usePowerSync()
   const { data: reglas } = useQuery<Regla>(
     `SELECT id, name, kind, amount, currency, frequency, interval_count, next_run_date, active
@@ -103,12 +104,7 @@ export function Recurrentes() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/ajustes")}
-          aria-label="Volver"
-        >
+        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-semibold">Recurrentes</h1>

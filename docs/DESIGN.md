@@ -50,6 +50,8 @@ componente de layout movil importa algo de layout escritorio, algo se hizo mal.
 | | Movil | Escritorio |
 |---|---|---|
 | Navegacion | Barra inferior: **4 destinos fijos** (Inicio, Movimientos, Presupuesto, Grupos) y el boton **+** elevado al centro, en cinco columnas iguales. Estadisticas se abre desde la tarjeta de Resumen de Inicio y desde el atajo del icono; Ajustes vive en el header de Inicio (ver 0022) | Barra lateral fija con todos los destinos (Ajustes y Estadisticas incluidos) |
+| Lo que no esta en la barra | Panel de **accesos** en Inicio: 4 elegidos y ordenados por la persona + "Más" (ver 0024) | Bloque **Herramientas** en la barra lateral (metas, deudas, recurrentes, plantillas) |
+| Ajustes | Solo **configuracion**: cuentas, categorias, medios, etiquetas, cotizaciones, moneda, apariencia, seguridad (0024) | Igual |
 | Accion principal | El **+** central de la barra inferior (no hay boton flotante) | Boton "Nuevo movimiento" en la barra superior |
 | Alta de movimiento | Pantalla focal (ruta `/nuevo`, entra deslizando desde abajo) | Modal centrado sobre el dashboard (mismo formulario: `FormularioMovimiento`) |
 | Lista de movimientos | Agrupada por dia, una tarjeta por grupo (ver 7) | La misma lista, en columna acotada |
@@ -670,6 +672,45 @@ area vacia un instante y no aporta nada (decision 0008).
 
 ---
 
+### Accesos de Inicio
+
+El panel de Inicio en el movil (0024): **cuatro baldosas y "Más"**, en cinco
+columnas iguales, como la barra. Cada baldosa es un icono en un circulo `accent`
+(48 px) y el nombre corto debajo, en hasta dos lineas y con guion si una palabra
+no entra (`hyphens-auto`, el idioma de la pagina es es-AR). "Más" es un circulo
+punteado con un +.
+
+Editar se hace en "Más": **subir / bajar / sacar** y **+ para sumar**, con
+botones de icono y su `aria-label` ("Subir Metas de ahorro"). Nada de
+arrastrar: con el dedo, en una lista que scrollea, es impreciso, y WCAG 2.5.7 pide
+una alternativa igual.
+
+### Plantillas en el alta
+
+Un solo boton **"Plantillas (n)"** en la fila de la moneda, que abre una `Hoja`
+con la lista (buscador con mas de 6) y **"+ Guardar lo cargado como
+plantilla"**. No una fila de chips con scroll horizontal: con muchas plantillas
+se ven dos y el resto queda oculto (ver "Listas que crecen con el tiempo").
+
+### Calculadora
+
+- **Muestra la cuenta**: arriba, a la izquierda, lo acumulado y el operador
+  ("100 +"); a la derecha, el resultado parcial ("= 150"). El operador pendiente
+  queda marcado (`aria-pressed`, fondo `accent` y anillo).
+- **Se guarda lo que se ve**: "100 + 50" sin "=" es 150. Antes se guardaba el
+  numero en pantalla (50).
+- **Toques rapidos**: las teclas llevan `touch-manipulation`. Sin eso, dos
+  toques seguidos en la misma tecla el telefono los toma como doble toque para
+  hacer zoom y el segundo se pierde.
+- Un monto largo **baja de tamaño** (3xl → 2xl → xl) antes que desbordar. Nunca
+  se abrevia (0006).
+
+### Hover solo con mouse
+
+`future.hoverOnlyWhenSupported` en Tailwind: los `hover:` aplican solo donde hay
+un puntero que pasa por encima. En una pantalla tactil el hover queda "pegado"
+en lo ultimo que se toco (en la calculadora, la tecla anterior parecia trabada).
+
 ### Atajos del icono
 
 Los atajos del manifiesto (0023) salen en el menu del icono de Android (los 3
@@ -723,6 +764,12 @@ de doscientos movimientos, animar cada fila marea.
 - `aria-label` en un `<span>` sin rol: esta prohibido y algunos lectores lo
   ignoran. El texto para lectores va en un `sr-only`.
 - Sumar un quinto destino a la barra movil (0022): es reemplazar uno.
+- Una fila de chips con scroll horizontal para algo que crece (plantillas): va
+  un boton que abre una `Hoja` con la lista.
+- Un "Volver" con destino fijo en una pantalla que se abre desde varios lugares:
+  `useVolver(respaldo)` vuelve a donde se vino.
+- Un campo que desaparece cuando no hay opciones (el selector de etiquetas sin
+  etiquetas): se muestra igual y permite crear la primera.
 - Valores de espaciado fuera de la escala de 4.
 - Comunicar informacion solo por color.
 - Un layout responsive que estire el movil hasta escritorio.

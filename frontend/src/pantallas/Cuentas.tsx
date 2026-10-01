@@ -9,7 +9,6 @@ import {
   Trash2,
 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
 
 import { HojaReasignar } from "@/componentes/HojaReasignar"
 import { Button } from "@/componentes/ui/button"
@@ -20,6 +19,7 @@ import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Interruptor } from "@/componentes/ui/interruptor"
+import { useVolver } from "@/hooks/useVolver"
 import { iconoCuenta } from "@/lib/cuentas"
 import { moverEnOrden } from "@/lib/orden"
 import { aCentavos, formatearSaldo } from "@/lib/dinero"
@@ -48,7 +48,8 @@ const TIPOS: Record<string, string> = {
 }
 
 export function Cuentas() {
-  const navigate = useNavigate()
+  // A donde se vino (Inicio, Accesos, Ajustes o un atajo), no a un lugar fijo.
+  const volver = useVolver("/ajustes")
   const db = usePowerSync()
   const { data: cuentas } = useQuery<Cuenta>(
     // Solo personales: las cuentas conjuntas del grupo se administran en la
@@ -202,12 +203,7 @@ export function Cuentas() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/ajustes")}
-          aria-label="Volver"
-        >
+        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-semibold">Cuentas</h1>

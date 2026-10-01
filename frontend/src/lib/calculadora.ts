@@ -21,7 +21,7 @@ function aNumero(entrada: string): number {
   return Number(entrada.replace(",", "."))
 }
 
-function aEntrada(n: number): string {
+export function aEntrada(n: number): string {
   // Redondea a centavos y usa coma decimal, sin decimales sobrantes.
   const r = Math.round(n * 100) / 100
   return r.toString().replace(".", ",")
@@ -72,8 +72,25 @@ export function limpiar(): EstadoCalc {
   return INICIAL
 }
 
+// Lo que vale la cuenta AHORA, con la operacion pendiente resuelta: "100 +"
+// vale 100 y "100 + 50" vale 150, sin tocar "=". Es lo que se guarda: antes se
+// guardaba solo el numero en pantalla, y "100 + 50" sin "=" quedaba en $50.
+export function resultado(e: EstadoCalc): number {
+  if (e.op === null || e.acumulado === null) return aNumero(e.entrada)
+  if (e.reiniciar) return e.acumulado
+  return evaluar(e.acumulado, e.op, aNumero(e.entrada))
+}
+
 export function valorCentavos(e: EstadoCalc): number {
-  return aCentavos(e.entrada) ?? 0
+  return aCentavos(aEntrada(resultado(e))) ?? 0
+}
+
+// La cuenta en curso, para mostrarla arriba del numero ("100 +"). Sin
+// operacion pendiente, null. Antes no se veia: tocar "+" no cambiaba nada en
+// pantalla y parecia que la tecla no respondia.
+export function cuentaEnCurso(e: EstadoCalc): { izquierda: string; op: Op } | null {
+  if (e.op === null || e.acumulado === null) return null
+  return { izquierda: aEntrada(e.acumulado), op: e.op }
 }
 
 // Estado inicial sembrado con un monto (en centavos), p. ej. al aplicar una

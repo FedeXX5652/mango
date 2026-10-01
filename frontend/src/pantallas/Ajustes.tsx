@@ -1,19 +1,5 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import {
-  Check,
-  AlertTriangle,
-  Coins,
-  Users2,
-  CreditCard,
-  Download,
-  Files,
-  HandCoins,
-  Landmark,
-  Repeat,
-  Tag,
-  Tags,
-  Target,
-} from "lucide-react"
+import { AlertTriangle, Check, Download } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 
@@ -38,6 +24,7 @@ import {
   biometriaDisponible,
   desactivarBiometria,
 } from "@/lib/biometria"
+import { ACCESOS } from "@/componentes/accesos"
 import { CambiarMonedaBase } from "@/componentes/CambiarMonedaBase"
 import { cn } from "@/lib/utils"
 
@@ -85,29 +72,21 @@ export function Ajustes() {
     <div className="mx-auto max-w-xl space-y-8 p-6">
       <h1 className="text-2xl font-semibold">Ajustes</h1>
 
-      <Seccion titulo="Gestión">
+      {/* Solo lo que se CONFIGURA (0024). Lo que se usa —metas, deudas,
+          recurrentes, plantillas— esta en los accesos de Inicio y, en
+          escritorio, en la barra lateral. */}
+      <Seccion titulo="Configuración">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {[
-            { to: "/cuentas", etiqueta: "Cuentas", icono: Landmark },
-            { to: "/categorias", etiqueta: "Categorías", icono: Tags },
-            { to: "/medios", etiqueta: "Medios de pago", icono: CreditCard },
-            { to: "/etiquetas", etiqueta: "Etiquetas", icono: Tag },
-            { to: "/plantillas", etiqueta: "Plantillas", icono: Files },
-            { to: "/recurrentes", etiqueta: "Recurrentes", icono: Repeat },
-            { to: "/cotizaciones", etiqueta: "Cotizaciones", icono: Coins },
-            { to: "/grupos", etiqueta: "Grupos", icono: Users2 },
-            { to: "/metas", etiqueta: "Metas de ahorro", icono: Target },
-            { to: "/deudas", etiqueta: "Deudas y préstamos", icono: HandCoins },
-          ].map((i) => (
+          {ACCESOS.filter((a) => a.grupo === "configuracion").map((a) => (
             <Link
-              key={i.to}
-              to={i.to}
-              className="flex flex-col items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted"
+              key={a.id}
+              to={a.to}
+              className="flex flex-col items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-primary">
-                <i.icono className="h-5 w-5" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                <a.icono className="h-5 w-5" aria-hidden />
               </span>
-              <span className="text-sm font-medium">{i.etiqueta}</span>
+              <span className="text-sm font-medium">{a.etiqueta}</span>
             </Link>
           ))}
         </div>

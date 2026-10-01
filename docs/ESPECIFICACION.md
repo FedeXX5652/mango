@@ -498,8 +498,9 @@ persona gana** sobre la automatica.
   del mes que falte. No pisa la que ya existe, venga de una corrida anterior o
   cargada a mano. Reemplaza a `default_budget`.
 - **Plantillas** (`templates`): gastos o ingresos frecuentes precargados que se
-  cargan con un toque (chips en la pantalla de alta). Pueden estar parciales y
-  completarse al aplicarlas.
+  cargan con un toque. En el alta, un boton "Plantillas" abre la lista y permite
+  **guardar lo que esta cargado como plantilla nueva** (ver DESIGN.md 7). Pueden
+  estar parciales y completarse al aplicarlas.
 
 ### 3.8 Visualizacion
 
@@ -1153,9 +1154,10 @@ gastos entre personas, liquidacion de saldos.
 esquema:
 
 - **Metas de ahorro** (`goals`): un objetivo con monto y fecha, asociado a una
-  cuenta; el progreso es el saldo de esa cuenta. Pantalla propia (Ajustes → Metas).
+  cuenta; el progreso es el saldo de esa cuenta. Pantalla propia (accesos de
+  Inicio, ver 0024; antes en Ajustes).
 - **Deudas y prestamos** (`debts`): plata que me deben o que debo, fuera de un
-  grupo, con saldado parcial. Pantalla propia (Ajustes → Deudas).
+  grupo, con saldado parcial. Pantalla propia (accesos de Inicio, ver 0024).
 - **Fechas de tarjeta**: dia de cierre y vencimiento en las tarjetas de credito
   (ya estaban en `payment_methods`; ahora se cargan y se muestran).
 - **Adjuntar fotos de tickets** (`attachments`): foto o PDF en un movimiento. El

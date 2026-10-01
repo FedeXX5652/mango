@@ -1,11 +1,12 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { X } from "lucide-react"
+import { Files, X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
 
 import { Calculadora } from "@/componentes/Calculadora"
 import { CompartirCon } from "@/componentes/CompartirCon"
 import { EditorSplit, type ValorSplit } from "@/componentes/EditorSplit"
+import { HojaPlantillas, type PlantillaLocal } from "@/componentes/HojaPlantillas"
 import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
 import { SelectorMoneda } from "@/componentes/SelectorMoneda"
 import { Button } from "@/componentes/ui/button"
@@ -13,12 +14,13 @@ import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { useMonedaBase } from "@/hooks/monedaBase"
+import { useVolver } from "@/hooks/useVolver"
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
 import { tipoDesdeParametro, type TipoMovimiento } from "@/lib/atajos"
-import { aCentavos } from "@/lib/dinero"
+import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { ordenarMonedas } from "@/lib/monedas"
 import { uuidv4 } from "@/lib/uuid"
 
@@ -41,18 +43,6 @@ interface MedioLocal {
   id: string
   name: string
 }
-interface PlantillaLocal {
-  id: string
-  name: string
-  kind: string
-  account_id: string | null
-  category_id: string | null
-  payment_method_id: string | null
-  amount: number | null
-  payee: string | null
-  notes: string | null
-}
-
 const TIPOS: { valor: TipoMovimiento; etiqueta: string }[] = [
   { valor: "expense", etiqueta: "Gasto" },
   { valor: "income", etiqueta: "Ingreso" },
@@ -94,7 +84,7 @@ export function FormularioMovimiento({
   )
   const comercios = comerciosRows.map((r) => r.payee)
   const { data: plantillas } = useQuery<PlantillaLocal>(
-    "SELECT id, name, kind, account_id, category_id, payment_method_id, amount, payee, notes FROM templates WHERE deleted_at IS NULL ORDER BY sort_order, name",
+    "SELECT id, name, kind, account_id, category_id, payment_method_id, amount, currency, payee, notes FROM templates WHERE deleted_at IS NULL ORDER BY sort_order, name",
   )
 
   const [tipo, setTipo] = useState<TipoMovimiento>(tipoInicial)
@@ -210,6 +200,22 @@ export function FormularioMovimiento({
     }
   }, [])
 
+  const [verPlantillas, setVerPlantillas] = useState(false)
+  const nombreCategoria = useMemo(
+    () => new Map(categorias.map((c) => [c.id, c.name])),
+    [categorias],
+  )
+  // Linea secundaria de cada plantilla en la hoja: tipo · categoria · monto.
+  function detallePlantilla(t: PlantillaLocal): string {
+    return [
+      TIPOS.find((x) => x.valor === t.kind)?.etiqueta,
+      t.category_id ? nombreCategoria.get(t.category_id) : null,
+      t.amount ? formatearMonto(t.amount, { moneda: t.currency ?? moneda }) : null,
+    ]
+      .filter(Boolean)
+      .join(" · ")
+  }
+
   // Prefill al llegar con una plantilla ("Usar"): una sola vez, ya cargadas.
   const aplicada = useRef(false)
   useEffect(() => {
@@ -298,35 +304,50 @@ export function FormularioMovimiento({
     <div className="space-y-5">
       <Segmentado opciones={TIPOS} valor={tipo} onCambio={cambiarTipo} />
 
-      {plantillas.length > 0 && (
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-          {plantillas.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => aplicarPlantilla(t)}
-              className="shrink-0 rounded-full border border-border bg-card px-3 py-1 text-sm transition-colors hover:bg-muted"
-            >
-              {t.name}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Una fila arriba del monto: la moneda (pegada al monto; con la de la
+          cuenta por defecto, el 90% de las veces no hay nada que elegir) y las
+          plantillas. Las plantillas van en una hoja y no en una fila de chips con
+          scroll horizontal: con muchas, se veian dos y el resto quedaba oculto. */}
+      <div className="flex items-center justify-between gap-2">
+        {monedas.length > 1 ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Moneda</span>
+            <SelectorMoneda
+              monedas={monedas}
+              valor={moneda}
+              onCambio={(m) => {
+                setMonedaElegida(m)
+                if (m === monedaCuenta) setDebitado("")
+              }}
+            />
+          </div>
+        ) : (
+          <span />
+        )}
+        <Button variant="outline" onClick={() => setVerPlantillas(true)}>
+          <Files className="h-4 w-4" aria-hidden />
+          Plantillas{plantillas.length > 0 ? ` (${plantillas.length})` : ""}
+        </Button>
+      </div>
 
-      {/* La moneda va pegada al monto, no en un bloque aparte: con la de la
-          cuenta por defecto, el 90% de las veces no hay nada que elegir. */}
-      {monedas.length > 1 && (
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Moneda</span>
-          <SelectorMoneda
-            monedas={monedas}
-            valor={moneda}
-            onCambio={(m) => {
-              setMonedaElegida(m)
-              if (m === monedaCuenta) setDebitado("")
-            }}
-          />
-        </div>
-      )}
+      <HojaPlantillas
+        abierta={verPlantillas}
+        onOpenChange={setVerPlantillas}
+        plantillas={plantillas}
+        detalle={detallePlantilla}
+        onAplicar={aplicarPlantilla}
+        actual={{
+          kind: tipo,
+          account_id: cuentaId || null,
+          category_id: categoriaId || null,
+          payment_method_id: medioId || null,
+          amount: centavos > 0 ? centavos : null,
+          currency: moneda,
+          payee: comercio.trim() || null,
+          notes: notas.trim() || null,
+        }}
+        sugerencia={comercio.trim() || nombreCategoria.get(categoriaId) || ""}
+      />
 
       <Calculadora key={calcKey} moneda={moneda} onCambio={setCentavos} inicial={montoInicial} />
 
@@ -455,11 +476,15 @@ export function FormularioMovimiento({
           </Campo>
 
           {/* CTA fija: en un form largo el boton queda a mano sin scrollear. */}
-          <div className="sticky bottom-0 z-10 -mx-4 mt-2 border-t border-border bg-background px-4 py-3">
+          <div className="sticky bottom-0 z-10 -mx-4 mt-2 border-t border-border bg-background px-4 pt-3">
             {error && <p className="mb-2 text-center text-sm text-destructive">{error}</p>}
             <Button className="w-full" disabled={guardando} onClick={guardar}>
               {guardando ? "Guardando…" : "Guardar"}
             </Button>
+            {/* Aire abajo mas el borde seguro del telefono (indicador de inicio). */}
+            <div className="pb-3">
+              <div className="pb-seguro" />
+            </div>
           </div>
         </div>
       )}
@@ -480,10 +505,7 @@ export function Alta() {
 
   // Desde un atajo, /nuevo es la PRIMERA pantalla: no hay a donde volver y
   // `navigate(-1)` no hacia nada. Sin historial propio, cerrar lleva a Inicio.
-  function cerrar() {
-    if (location.key === "default") navigate("/", { replace: true })
-    else navigate(-1)
-  }
+  const cerrar = useVolver("/")
 
   return (
     <main className="mx-auto max-w-md space-y-5 p-4 pb-4 motion-safe:animate-subir">

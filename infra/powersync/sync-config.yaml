@@ -79,7 +79,9 @@ streams:
       # la lista, y por eso no puede salir del servidor: no es una lista negra
       # que alguien tenga que acordarse de actualizar, es que no se selecciona.
       # Si algun dia se agrega una columna sensible a `users`, no llega sola.
-      - SELECT id, display_name, base_currency, theme_id, color_scheme, fx_manual
+      # `home_shortcuts`: los accesos del panel de Inicio (0024).
+      - SELECT id, display_name, base_currency, theme_id, color_scheme, fx_manual,
+               home_shortcuts
         FROM users WHERE id = auth.user_id()
 
   # Las cotizaciones son **compartidas y a proposito**: el dolar del 12/09 es el

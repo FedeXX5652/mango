@@ -2,7 +2,8 @@ import { Plus } from "lucide-react"
 import { useState } from "react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
 
-import { DESTINOS } from "@/componentes/navegacion"
+import { HERRAMIENTAS_ESCRITORIO, acceso } from "@/componentes/accesos"
+import { DESTINOS, type Destino as DestinoNav } from "@/componentes/navegacion"
 import { Notificaciones } from "@/componentes/Notificaciones"
 import { botonVariants } from "@/componentes/ui/button"
 import { Hoja } from "@/componentes/ui/hoja"
@@ -12,6 +13,27 @@ import { cn } from "@/lib/utils"
 // Layout escritorio: barra lateral fija con todos los destinos y accion
 // principal en la barra superior (DESIGN.md 2). El alta se abre como modal
 // sobre el dashboard (en movil, en cambio, es una pantalla focal).
+function Destino({ to, etiqueta, icono: Icono, end }: DestinoNav) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center gap-3 rounded-md px-3 py-2 text-sm",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          isActive
+            ? "bg-accent font-medium text-accent-foreground"
+            : "text-muted-foreground hover:bg-muted",
+        )
+      }
+    >
+      <Icono className="h-5 w-5" aria-hidden />
+      {etiqueta}
+    </NavLink>
+  )
+}
+
 export function LayoutEscritorio() {
   const navigate = useNavigate()
   const [nuevoAbierto, setNuevoAbierto] = useState(false)
@@ -26,25 +48,22 @@ export function LayoutEscritorio() {
         {/* Landmark de navegacion: sin el <nav>, un lector de pantalla no
             encontraba los destinos como tales (auditoria de 0022). */}
         <nav aria-label="Principal" className="flex flex-col gap-1">
-          {DESTINOS.map((d) => (
-            <NavLink
-              key={d.to}
-              to={d.to}
-              end={d.end}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  isActive
-                    ? "bg-accent font-medium text-accent-foreground"
-                    : "text-muted-foreground hover:bg-muted",
-                )
-              }
-            >
-              <d.icono className="h-5 w-5" aria-hidden />
-              {d.etiqueta}
-            </NavLink>
+          {DESTINOS.filter((d) => d.to !== "/ajustes").map((d) => (
+            <Destino key={d.to} {...d} />
           ))}
+          {/* Herramientas (0024): lo que salio de Ajustes. En el movil estan en
+              los accesos de Inicio; aca, a la vista como el resto. */}
+          <p className="mt-4 px-3 pb-1 text-xs font-semibold text-muted-foreground">Herramientas</p>
+          {HERRAMIENTAS_ESCRITORIO.map((id) => acceso(id))
+            .filter((a) => a !== undefined)
+            .map((a) => (
+              <Destino key={a.id} to={a.to} etiqueta={a.etiqueta} icono={a.icono} />
+            ))}
+          <div className="mt-4">
+            {DESTINOS.filter((d) => d.to === "/ajustes").map((d) => (
+              <Destino key={d.to} {...d} />
+            ))}
+          </div>
         </nav>
       </aside>
 
