@@ -27,6 +27,7 @@ import {
 import { ACCESOS } from "@/componentes/accesos"
 import { CambiarMonedaBase } from "@/componentes/CambiarMonedaBase"
 import { cn } from "@/lib/utils"
+import { textoVersion } from "@/lib/version"
 
 const MODOS: { valor: ColorScheme; etiqueta: string }[] = [
   { valor: "light", etiqueta: "Claro" },
@@ -205,6 +206,11 @@ export function Ajustes() {
           salir()
         }}
       />
+
+      {/* Version (0025), al fondo de todo. Con la PWA en cache, es la forma de
+          saber si este dispositivo ya tomo la ultima: el commit tiene que ser el
+          ultimo de GitHub. */}
+      <p className="tabular pt-4 text-center text-xs text-muted-foreground">{textoVersion()}</p>
     </div>
   )
 }

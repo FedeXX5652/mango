@@ -20,7 +20,8 @@ decide compartir**, con reparto de gastos estilo Splitwise incluido.
 ![PowerSync](https://img.shields.io/badge/PowerSync-offline--first-1c1c1c)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalable-5A0FC8?logo=pwa&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-447%20verdes-2EA043)
+![Versión](https://img.shields.io/badge/versión-1.0.0-FDBE02)
+![Tests](https://img.shields.io/badge/tests-470%20verdes-2EA043)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED?logo=docker&logoColor=white)
 
 </div>
@@ -162,7 +163,7 @@ por **una sola puerta** (nginx), así que se expone un único puerto.
   cliente una versión atrás.
 - **Decisiones de arquitectura documentadas** (20 ADRs en
   [`docs/decisiones/`](docs/decisiones)) — nada importante se decide dos veces.
-- **Incrementos chicos con pruebas**: **447** pruebas (backend + frontend) en
+- **Incrementos chicos con pruebas**: **470** pruebas (backend + frontend) en
   verde, más un banco de compatibilidad para detectar regresiones de esquema.
 - **Deploy por imágenes**: el servidor no tiene el código; baja imágenes
   publicadas, y la base migra sola al arrancar.
@@ -273,6 +274,27 @@ Guía completa —respaldos y cómo restaurarlos, volúmenes, opciones— en
 Desde la máquina de desarrollo, sin CI: `make release` (o `sh scripts/release.sh`)
 arma las cuatro imágenes y las sube a GHCR con el tag del commit y `latest`.
 Detalle en [`infra/README.md`](infra/README.md#publicar-una-versión-mantenimiento).
+
+### Versiones
+
+Mango usa **[SemVer](https://semver.org/lang/es/)**: `MAYOR.MENOR.PARCHE`.
+
+| Sube | Cuándo | Ejemplo |
+|---|---|---|
+| **PARCHE** | Arreglos, sin nada nuevo | 1.0.0 → 1.0.1 |
+| **MENOR** | Algo nuevo que no rompe nada | 1.0.1 → 1.1.0 |
+| **MAYOR** | Algo que pide un paso a mano o deja atrás a los clientes viejos | 1.4.2 → 2.0.0 |
+
+Cada compilación lleva además el **commit** del que salió (el mismo tag de las
+imágenes) y la **fecha**. Se ven **al fondo de Ajustes**:
+`Mango 1.0.0 · 1b6e277 · 01/10/2026`. Si el commit es el último de GitHub, ese
+dispositivo tiene la última versión; si no, cerrá y abrí la app para que tome la
+nueva.
+
+Para sacar una versión: subir el número en `frontend/package.json` **y** en
+`backend/pyproject.toml` (un test frena si no coinciden), el badge de arriba, una
+entrada en [`CHANGELOG.md`](CHANGELOG.md), y etiquetar el commit
+(`git tag v1.1.0`). Ver [decisión 0025](docs/decisiones/0025-versionado.md).
 
 ---
 

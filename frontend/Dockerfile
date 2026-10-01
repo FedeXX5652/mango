@@ -19,6 +19,11 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+# Commit del que sale la compilacion, para la version que se ve en Ajustes
+# (0025). La imagen no tiene .git: lo pasa el compose o release.sh. Va despues
+# de `npm ci` para no invalidar la cache de dependencias en cada commit.
+ARG APP_COMMIT=
+ENV APP_COMMIT=$APP_COMMIT
 RUN npm run build
 
 # --- Servido ---

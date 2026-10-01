@@ -128,6 +128,9 @@ Arma `mango-backend`, `mango-frontend`, `mango-powersync` y `mango-backup` y las
 sube con dos tags: el commit y `latest`. Se niega a publicar con cambios sin
 commitear: cada imagen corresponde a un commit.
 
+El frontend se arma con `APP_COMMIT` = el commit del release: es lo que muestra
+Ajustes al fondo, junto a la versión SemVer (ver 0025).
+
 `POWERSYNC_VERSION` fija la versión base de PowerSync (por defecto `latest`, que
 queda congelada en la imagen publicada): `make release POWERSYNC_VERSION=<x.y.z>`.
 
@@ -141,6 +144,11 @@ queda congelada en la imagen publicada): `make release POWERSYNC_VERSION=<x.y.z>
 |---|---|
 | `make dev` | Levanta solo la capa de datos (Postgres + PowerSync) para correr la API y la PWA a mano |
 | `make deploy` | Construye y levanta **todo** en esta máquina (perfil `app`) — sirve para probar la build de producción |
+
+`make deploy` le pasa al frontend el commit actual (`APP_COMMIT`), para la
+versión que muestra Ajustes. Con `docker compose` a mano, anteponer
+`APP_COMMIT=$(git rev-parse --short HEAD)`; sin eso, Ajustes muestra la versión
+sin commit.
 
 En `make deploy`, PowerSync lee su config por **bind mount**, y `up -d` no
 recrea un contenedor cuando cambia el contenido de un archivo montado: por eso

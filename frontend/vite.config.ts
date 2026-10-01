@@ -1,11 +1,34 @@
+import { execSync } from "node:child_process"
+import { readFileSync } from "node:fs"
+
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
 
 import { ATAJOS } from "./src/lib/atajos"
 
+// Version de la app (0025): SemVer de package.json + el commit corto + la fecha
+// de compilacion. El commit sale de APP_COMMIT (la imagen Docker no tiene .git:
+// lo pasan el compose y release.sh) o de git en desarrollo.
+const VERSION = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).version
+function commitActual(): string {
+  if (process.env.APP_COMMIT) return process.env.APP_COMMIT
+  try {
+    return execSync("git rev-parse --short HEAD", { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim()
+  } catch {
+    return ""
+  }
+}
+
 // PWA instalable con el color de marca mango (#FDBE02). El SW se registra solo.
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(VERSION),
+    __APP_COMMIT__: JSON.stringify(commitActual()),
+    __APP_BUILD__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     VitePWA({

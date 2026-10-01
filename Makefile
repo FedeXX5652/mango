@@ -27,7 +27,7 @@ down:
 # en local. PowerSync lee su config al arrancar y por bind mount un `up` no lo
 # recrea: se reinicia a mano para que tome cambios de sync-config.yaml.
 deploy:
-	$(COMPOSE_DEV) --profile app up -d --build
+	APP_COMMIT=$$(git rev-parse --short HEAD) $(COMPOSE_DEV) --profile app up -d --build
 	$(COMPOSE_DEV) restart powersync
 
 # Produccion: publica las imagenes que baja el servidor (ver 0020).

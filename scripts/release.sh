@@ -53,7 +53,7 @@ publicar() { # nombre contexto [args extra de build...]
 }
 
 publicar mango-backend backend
-publicar mango-frontend frontend
+publicar mango-frontend frontend --build-arg "APP_COMMIT=${TAG}"
 publicar mango-powersync infra/powersync --build-arg "POWERSYNC_VERSION=${POWERSYNC_VERSION}"
 publicar mango-backup infra/backup
 
