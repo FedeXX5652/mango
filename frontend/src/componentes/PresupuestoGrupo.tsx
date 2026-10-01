@@ -1,8 +1,11 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { X } from "lucide-react"
+import { Plus, X } from "lucide-react"
 import { useMemo, useState } from "react"
 
+import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { Button } from "@/componentes/ui/button"
+import { Campo } from "@/componentes/ui/campo"
+import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
@@ -18,6 +21,7 @@ import { cn } from "@/lib/utils"
 interface CatRow {
   id: string
   name: string
+  parent_id: string | null
   icon: string | null
 }
 
@@ -39,7 +43,7 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
 
   // Categorias de gasto del grupo (donde tiene sentido un tope).
   const { data: cats } = useQuery<CatRow>(
-    "SELECT id, name, icon FROM categories WHERE group_id = ? AND kind = 'expense' AND archived = 0 AND deleted_at IS NULL ORDER BY sort_order, name",
+    "SELECT id, name, parent_id, icon FROM categories WHERE group_id = ? AND kind = 'expense' AND archived = 0 AND deleted_at IS NULL ORDER BY sort_order, name",
     [groupId],
   )
   // Presupuestos del grupo de este mes.
@@ -59,9 +63,14 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
   const budgetDe = useMemo(() => new Map(budgets.map((b) => [b.category_id, b])), [budgets])
   const gastadoDe = useMemo(() => new Map(gastado.map((g) => [g.category_id, g.total])), [gastado])
 
-  // Solo las categorias con tope o con gasto: no abruma con las 20 vacias.
-  const filas = cats.filter((c) => budgetDe.has(c.id) || (gastadoDe.get(c.id) ?? 0) > 0)
+  // Solo las categorias CON tope. Antes, sin ninguno, se listaban todas las del
+  // arbol por defecto con "$ 0 · poner tope": un grupo recien creado parecia
+  // tener 20 presupuestos armados. Lo gastado por categoria ya esta en el
+  // resumen del grupo; aca solo lo que alguien decidio topear.
+  const filas = cats.filter((c) => budgetDe.has(c.id))
+  const candidatas = cats.filter((c) => !budgetDe.has(c.id))
   const [editando, setEditando] = useState<string | null>(null)
+  const [agregando, setAgregando] = useState(false)
 
   async function guardar(categoryId: string, texto: string) {
     const centavos = aCentavos(texto, moneda) ?? 0
@@ -91,9 +100,13 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
         )}
       </div>
 
-      {cats.length === 0 ? null : (
+      {filas.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+          Sin topes este mes. Poné uno en una categoría para seguir lo que gasta el grupo ahí.
+        </p>
+      ) : (
         <ListaInset>
-          {(filas.length > 0 ? filas : cats).map((c) => {
+          {filas.map((c) => {
             const b = budgetDe.get(c.id)
             const usado = gastadoDe.get(c.id) ?? 0
             const tope = b?.amount ?? 0
@@ -146,7 +159,84 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
           })}
         </ListaInset>
       )}
+
+      {candidatas.length > 0 && (
+        <Button variant="outline" className="w-full" onClick={() => setAgregando(true)}>
+          <Plus className="h-4 w-4" aria-hidden />
+          Agregar tope
+        </Button>
+      )}
+
+      <HojaAgregarTope
+        abierta={agregando}
+        onOpenChange={setAgregando}
+        candidatas={candidatas}
+        moneda={moneda}
+        onGuardar={async (catId, monto) => {
+          await guardar(catId, monto)
+          setAgregando(false)
+        }}
+      />
     </section>
+  )
+}
+
+// Agregar un tope: elegir la categoria del grupo y el monto del mes (como
+// "Agregar sobre" en el presupuesto personal).
+function HojaAgregarTope({
+  abierta,
+  onOpenChange,
+  candidatas,
+  moneda,
+  onGuardar,
+}: {
+  abierta: boolean
+  onOpenChange: (v: boolean) => void
+  candidatas: CatRow[]
+  moneda: string
+  onGuardar: (categoryId: string, monto: string) => Promise<void>
+}) {
+  const [catId, setCatId] = useState("")
+  const [monto, setMonto] = useState("")
+  const [error, setError] = useState("")
+
+  function cambiar(v: boolean) {
+    onOpenChange(v)
+    if (!v) {
+      setCatId("")
+      setMonto("")
+      setError("")
+    }
+  }
+
+  async function guardar() {
+    if (!catId) return setError("Elegí una categoría")
+    if ((aCentavos(monto, moneda) ?? 0) <= 0) return setError("Poné un monto")
+    await onGuardar(catId, monto)
+    cambiar(false)
+  }
+
+  return (
+    <Hoja abierta={abierta} onOpenChange={cambiar} titulo="Agregar tope">
+      <div className="space-y-3">
+        <Campo etiqueta="Categoría">
+          <SelectorCategoria categorias={candidatas} valor={catId} onCambio={setCatId} />
+        </Campo>
+        <Campo etiqueta={`Tope del mes (${moneda})`}>
+          <Input
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+            inputMode="decimal"
+            placeholder="0"
+            className="tabular"
+          />
+        </Campo>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <Button className="w-full" onClick={guardar}>
+          Guardar
+        </Button>
+      </div>
+    </Hoja>
   )
 }
 

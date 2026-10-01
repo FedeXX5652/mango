@@ -4,6 +4,16 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.0.1] - 2026-10-01
+
+### Arreglado
+
+- **Presupuesto del grupo**: un grupo recién creado mostraba las ~20 categorías
+  de su árbol por defecto con "$ 0 · poner tope", como si tuviera presupuestos
+  armados. Ahora muestra solo las categorías con tope y, sin ninguno, un estado
+  vacío con **Agregar tope** (categoría + monto). No se había creado ningún
+  presupuesto: era solo lo que mostraba la pantalla.
+
 ## [1.0.0] - 2026-10-01
 
 Primera versión numerada: la que ya está en uso diario en el homelab.
