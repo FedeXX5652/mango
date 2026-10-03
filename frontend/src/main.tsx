@@ -9,7 +9,11 @@ import "@fontsource-variable/geist-mono/wght.css"
 import "@fontsource-variable/plus-jakarta-sans/wght.css"
 
 import { App } from "@/App"
+import { iniciarActualizacion } from "@/lib/actualizacion"
 import "@/styles/index.css"
+
+// El service worker y como entra una version nueva (0028).
+iniciarActualizacion()
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

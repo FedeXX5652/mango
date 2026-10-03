@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
+from app.crud import category as categorias
 from app.crud import notification as notif
 from app.crud.group import membresia
 from app.models.account import Account, PaymentMethod
@@ -70,6 +71,11 @@ async def create_settlement(
     if data.account_id is not None:
         quien = await session.get(User, data.from_user_id)
         nombre = quien.display_name if quien else "otro miembro"
+        # Con la categoria "Reintegros de grupo" ya puesta (0026, etapa 3): el
+        # acreedor no tiene que elegir una para confirmarlo.
+        reintegros = await categorias.asegurar_de_sistema(
+            session, data.to_user_id, categorias.REINTEGROS
+        )
         session.add(
             Transaction(
                 id=uuid.uuid4(),
@@ -81,6 +87,7 @@ async def create_settlement(
                 amount=data.amount,
                 currency=data.currency,
                 payee=f"Pago de {nombre}",
+                category_id=reintegros.id,
                 settlement_id=pago.id,
                 pending_reason="cobro_a_confirmar",
             )

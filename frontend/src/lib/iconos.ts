@@ -175,6 +175,8 @@ const CATALOGO: { grupo: string; iconos: [string, LucideIcon, string][] }[] = [
       ["billetera", Wallet, "efectivo billetera caja"],
       ["monedas", Coins, "cambio moneda dolares"],
       ["prestamo", HandCoins, "prestamo deuda cuota"],
+      // La de "Reintegros de grupo" (0026): plata que vuelve de un grupo.
+      ["reintegro", HandCoins, "reintegro devolucion reembolso grupo"],
       ["impuesto", Receipt, "impuesto afip monotributo factura"],
       ["seguro", Umbrella, "seguro poliza"],
       ["compu", Laptop, "compu software suscripcion"],

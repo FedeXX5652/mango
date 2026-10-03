@@ -4,6 +4,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     ForeignKey,
+    Index,
     Integer,
     Text,
     text,
@@ -32,7 +33,22 @@ class Category(Base, IdMixin, TimestampMixin):
     # asignacion recurrente va por el sistema de recurrentes, no aca.
     rollover: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
 
-    __table_args__ = (CheckConstraint("kind IN ('expense','income')", name="categories_kind_chk"),)
+    # Categoria del sistema (0026, etapa 3): la crea el servidor y la app la
+    # reconoce por esta clave, no por el nombre (se puede renombrar). No se
+    # borra ni se archiva. NULL = una categoria comun.
+    system_key: Mapped[str | None] = mapped_column(Text)
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('expense','income')", name="categories_kind_chk"),
+        # Una por usuario y clave, entre las vigentes.
+        Index(
+            "categories_owner_system_key_uniq",
+            "owner_id",
+            "system_key",
+            unique=True,
+            postgresql_where=text("system_key IS NOT NULL AND deleted_at IS NULL"),
+        ),
+    )
 
 
 class CategoryRule(Base, IdMixin, TimestampMixin):

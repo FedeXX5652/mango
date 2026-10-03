@@ -90,6 +90,13 @@ async def update_category(
 ) -> Category:
     campos = data.model_dump(exclude_unset=True)
 
+    # La del sistema se puede renombrar o cambiarle el icono, pero no archivarla
+    # ni moverla: la app la sigue usando aunque no se vea.
+    if category.system_key is not None and (
+        campos.get("archived") or "parent_id" in campos or "kind" in campos
+    ):
+        raise DomainError("Es una categoria del sistema: no se puede archivar ni mover")
+
     if "parent_id" in campos:
         nuevo = campos["parent_id"]
         if nuevo is not None:
@@ -125,8 +132,41 @@ async def update_category(
 
 
 async def soft_delete_category(session: AsyncSession, category: Category) -> None:
+    if category.system_key is not None:
+        raise DomainError("Es una categoria del sistema: no se puede borrar")
     category.deleted_at = func.now()
     await session.commit()
+
+
+# Categorias del sistema (0026, etapa 3): las crea el servidor cuando hacen
+# falta. Se reconocen por `system_key`; el nombre es solo el de arranque.
+REINTEGROS = "reintegros_grupo"
+_SISTEMA = {
+    REINTEGROS: {"name": "Reintegros de grupo", "kind": "income", "icon": "reintegro"},
+}
+
+
+async def asegurar_de_sistema(session: AsyncSession, owner_id: uuid.UUID, clave: str) -> Category:
+    """La categoria del sistema `clave` del usuario; si no existe, la crea.
+
+    No hace commit: corre dentro de la transaccion del evento que la necesita
+    (un cobro, 0018), asi la categoria y el cobro se guardan juntos.
+    """
+    existente = (
+        await session.execute(
+            select(Category).where(
+                Category.owner_id == owner_id,
+                Category.system_key == clave,
+                Category.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if existente is not None:
+        return existente
+    nueva = Category(id=uuid.uuid4(), owner_id=owner_id, system_key=clave, **_SISTEMA[clave])
+    session.add(nueva)
+    await session.flush()
+    return nueva
 
 
 async def es_categoria_de_grupo(

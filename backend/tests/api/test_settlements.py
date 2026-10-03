@@ -192,3 +192,59 @@ async def test_deshacer_pago_borra_cobro_si_pendiente(api: SimpleNamespace) -> N
     assert await _cobro_de(api, pid) is not None
     assert (await api.client.delete(f"/api/v1/settlements/{pid}")).status_code == 204
     assert await _cobro_de(api, pid) is None
+
+
+# --- Reintegros de grupo (0026, etapa 3) --------------------------------------
+
+
+async def _categoria_de(api: SimpleNamespace, settlement_id: str) -> dict:
+    row = (
+        (
+            await api.session.execute(
+                text(
+                    "SELECT c.id, c.owner_id, c.system_key, c.kind FROM transactions t "
+                    "JOIN categories c ON c.id = t.category_id "
+                    "WHERE t.settlement_id = :s AND t.deleted_at IS NULL"
+                ),
+                {"s": settlement_id},
+            )
+        )
+        .mappings()
+        .one()
+    )
+    return dict(row)
+
+
+async def test_cobro_llega_con_la_categoria_de_reintegros(api: SimpleNamespace) -> None:
+    gid, otro = await _grupo_con_miembro(api)
+    acc = await _cuenta(api)
+    p1, p2 = str(uuid.uuid4()), str(uuid.uuid4())
+    for pid in (p1, p2):
+        r = await api.client.post(
+            "/api/v1/settlements",
+            json=_pago(gid, str(api.owner_id), otro, account_id=acc, id=pid),
+        )
+        assert r.status_code == 201, r.text
+    c1, c2 = await _categoria_de(api, p1), await _categoria_de(api, p2)
+    # Del ACREEDOR, de ingreso, reconocida por su clave; y la misma en los dos.
+    assert str(c1["owner_id"]) == otro
+    assert c1["system_key"] == "reintegros_grupo"
+    assert c1["kind"] == "income"
+    assert c1["id"] == c2["id"]
+
+
+async def test_la_categoria_del_sistema_no_se_borra_ni_se_archiva(api: SimpleNamespace) -> None:
+    from app.crud import category as crud_categoria
+
+    cat = await crud_categoria.asegurar_de_sistema(
+        api.session, api.owner_id, crud_categoria.REINTEGROS
+    )
+    await api.session.flush()
+    r = await api.client.delete(f"/api/v1/categories/{cat.id}")
+    assert r.status_code == 422, r.text
+    r = await api.client.patch(f"/api/v1/categories/{cat.id}", json={"archived": True})
+    assert r.status_code == 422, r.text
+    # Renombrarla si: se reconoce por la clave, no por el nombre.
+    r = await api.client.patch(f"/api/v1/categories/{cat.id}", json={"name": "Devoluciones"})
+    assert r.status_code == 200, r.text
+    assert r.json()["system_key"] == "reintegros_grupo"

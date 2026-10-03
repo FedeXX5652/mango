@@ -17,12 +17,14 @@ interface Cobro {
   amount: number
   currency: string
   payee: string | null
+  // "Reintegros de grupo", ya puesta por el servidor (0026, etapa 3).
+  category_id: string | null
 }
 
 export function CobrosPorConfirmar() {
   const db = usePowerSync()
   const { data: cobros } = useQuery<Cobro>(
-    `SELECT id, amount, currency, payee FROM transactions
+    `SELECT id, amount, currency, payee, category_id FROM transactions
      WHERE status = 'pending' AND kind = 'income' AND settlement_id IS NOT NULL
        AND deleted_at IS NULL ORDER BY occurred_at DESC`,
   )
@@ -67,7 +69,8 @@ function Fila({
   db: ReturnType<typeof usePowerSync>
 }) {
   const [cuentaId, setCuentaId] = useState("")
-  const [categoriaId, setCategoriaId] = useState("")
+  // Llega con "Reintegros de grupo": solo hace falta elegir la cuenta.
+  const [categoriaId, setCategoriaId] = useState(cobro.category_id ?? "")
   const [error, setError] = useState("")
 
   async function confirmar() {

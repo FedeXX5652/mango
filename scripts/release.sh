@@ -16,7 +16,8 @@ cd "$(dirname "$0")/.."
 
 REGISTRY="${REGISTRY:-ghcr.io/fedexx5652}"
 PLATFORMS="${PLATFORMS:-linux/amd64}"
-POWERSYNC_VERSION="${POWERSYNC_VERSION:-latest}"
+# La misma que infra/docker-compose.yml e infra/powersync/Dockerfile.
+POWERSYNC_VERSION="${POWERSYNC_VERSION:-1.26.1}"
 
 # Un release sale de un commit: con cambios sin commitear, la imagen no se
 # corresponderia con ningun codigo del repo (y el tag mentiria).

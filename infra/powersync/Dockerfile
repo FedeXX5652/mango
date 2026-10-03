@@ -9,10 +9,10 @@
 # Sin secretos: service.yaml toma todo lo sensible por `!env` (URIs de las
 # bases, clave de los JWT), que llega desde el compose. La imagen es publica.
 #
-# POWERSYNC_VERSION: la version base de PowerSync. `latest` se congela en el
-# momento del release (la imagen publicada no cambia sola); para builds
-# reproducibles, fijarla: make release POWERSYNC_VERSION=<x.y.z>.
-ARG POWERSYNC_VERSION=latest
+# POWERSYNC_VERSION: la version base de PowerSync, FIJA (la misma que el
+# compose y scripts/release.sh; se actualizan juntas). Con `latest` cada release
+# podia traer una version distinta.
+ARG POWERSYNC_VERSION=1.26.1
 FROM journeyapps/powersync-service:${POWERSYNC_VERSION}
 
 LABEL org.opencontainers.image.source="https://github.com/FedeXX5652/mango" \

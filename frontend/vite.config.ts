@@ -33,11 +33,20 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      // El registro lo hace la app (lib/actualizacion.ts), no un script generico:
+      // decide CUANDO recargar con la version nueva (0028).
+      injectRegister: false,
       // SW APAGADO en dev: cacheaba y hacia ver cambios viejos (HMR limpio sin
       // el). Para probar la PWA instalable de verdad: `npm run build && preview`.
       devOptions: { enabled: false },
       // Los WASM de wa-sqlite (SQLite en el navegador) superan los 2 MB.
       workbox: {
+        // Explicitos: con `injectRegister: false` el plugin deja de ponerlos y el
+        // worker nuevo queda ESPERANDO un mensaje que el codigo viejo nunca
+        // manda (los telefonos con la version anterior se trababan). Asi se
+        // activa solo y toma el control; cuando recargar lo decide la app (0028).
+        skipWaiting: true,
+        clientsClaim: true,
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         // El patron por defecto deja afuera las fuentes: sin esto la tipografia
         // no esta disponible sin conexion y la app cae a la del sistema.

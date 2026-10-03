@@ -62,5 +62,7 @@ class CategoryRead(BaseModel):
     sort_order: int
     archived: bool
     rollover: bool
+    # Categoria del sistema ("reintegros_grupo"); None = comun.
+    system_key: str | None = None
     created_at: datetime
     updated_at: datetime

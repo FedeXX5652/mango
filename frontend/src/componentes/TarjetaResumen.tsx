@@ -44,18 +44,25 @@ type Vista = "global" | "moneda"
 
 interface FlujoRow {
   currency: string
-  kind: "income" | "expense"
+  // Un cobro de un pago de grupo es un "reintegro", no un ingreso (0026).
+  tipo: "income" | "expense" | "reintegro"
   total: number
 }
 
 // Ingresos y egresos del mes en curso, por moneda. Sin agrupar por dia: se
 // convierte todo con la ultima cotizacion, la misma que el patrimonio.
+//
+// Los cobros de un pago de grupo (`settlement_id`) van aparte, como
+// "reintegros": es plata propia que vuelve, no un ingreso (0026, etapa 3). Se
+// reconocen por el vinculo con el pago y no por la categoria.
 const SQL_FLUJOS = `
-  SELECT currency, kind, SUM(amount) AS total
+  SELECT currency,
+         CASE WHEN kind = 'income' AND settlement_id IS NOT NULL THEN 'reintegro' ELSE kind END AS tipo,
+         SUM(amount) AS total
   FROM transactions
   WHERE kind IN ('income','expense') AND status = 'confirmed' AND deleted_at IS NULL
     AND occurred_at >= ? AND occurred_at < ?
-  GROUP BY currency, kind
+  GROUP BY currency, tipo
 `
 
 // A igual fecha, **lo cargado a mano gana** sobre lo automatico: si el usuario
@@ -104,32 +111,38 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
   )
 
   const flujos = useMemo(() => {
-    const porMoneda = (kind: FlujoRow["kind"]): SaldoMoneda[] =>
-      flujoRows.filter((f) => f.kind === kind).map((f) => ({ moneda: f.currency, saldo: f.total }))
+    const porMoneda = (tipo: FlujoRow["tipo"]): SaldoMoneda[] =>
+      flujoRows.filter((f) => f.tipo === tipo).map((f) => ({ moneda: f.currency, saldo: f.total }))
 
     if (vista === "moneda") {
       // Sin convertir: solo lo que ya esta en esa moneda.
-      const propio = (kind: FlujoRow["kind"]) =>
+      const propio = (tipo: FlujoRow["tipo"]) =>
         flujoRows
-          .filter((f) => f.kind === kind && f.currency === moneda)
+          .filter((f) => f.tipo === tipo && f.currency === moneda)
           .reduce((s, f) => s + f.total, 0)
       return {
         ingresos: propio("income"),
+        reintegros: propio("reintegro"),
         egresos: propio("expense"),
         sinCotizacion: [] as string[],
       }
     }
     // Misma operacion que el patrimonio: una sola cotizacion, la ultima.
     const ing = calcularPatrimonio(porMoneda("income"), moneda, ultimas)
+    const rei = calcularPatrimonio(porMoneda("reintegro"), moneda, ultimas)
     const egr = calcularPatrimonio(porMoneda("expense"), moneda, ultimas)
     return {
       ingresos: ing.total,
+      reintegros: rei.total,
       egresos: egr.total,
-      sinCotizacion: [...new Set([...ing.sinCotizacion, ...egr.sinCotizacion])].sort(),
+      sinCotizacion: [
+        ...new Set([...ing.sinCotizacion, ...rei.sinCotizacion, ...egr.sinCotizacion]),
+      ].sort(),
     }
   }, [flujoRows, ultimas, moneda, vista])
 
-  const resultado = flujos.ingresos - flujos.egresos
+  // El resultado no cambia por separar los reintegros: la plata entro igual.
+  const resultado = flujos.ingresos + flujos.reintegros - flujos.egresos
 
   // El saldo de la moneda elegida, para el modo "Por moneda".
   const saldoPropio = saldos.find((s) => s.moneda.toUpperCase() === moneda)?.saldo ?? 0
@@ -201,6 +214,15 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
               moneda={moneda}
               clase="text-income"
             />
+            {/* Solo si hubo: en un mes sin cobros de grupo es ruido. */}
+            {flujos.reintegros !== 0 && (
+              <Fila
+                etiqueta="Reintegros"
+                centavos={flujos.reintegros}
+                moneda={moneda}
+                clase="text-income"
+              />
+            )}
             <Fila
               etiqueta="Egresos"
               centavos={flujos.egresos}

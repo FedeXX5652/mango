@@ -1,5 +1,5 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { Archive, ArchiveRestore, ArrowLeft, Trash2 } from "lucide-react"
+import { Archive, ArchiveRestore, ArrowLeft, Lock, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { HojaReasignar } from "@/componentes/HojaReasignar"
@@ -24,6 +24,8 @@ interface Categoria {
   parent_id: string | null
   archived: number
   icon: string | null
+  // Del sistema (0026): no se archiva ni se borra.
+  system_key: string | null
 }
 
 export function Categorias() {
@@ -31,7 +33,7 @@ export function Categorias() {
   const volver = useVolver("/ajustes")
   const db = usePowerSync()
   const { data: categorias } = useQuery<Categoria>(
-    "SELECT id, name, kind, parent_id, archived, icon FROM categories WHERE deleted_at IS NULL ORDER BY sort_order, name",
+    "SELECT id, name, kind, parent_id, archived, icon, system_key FROM categories WHERE deleted_at IS NULL ORDER BY sort_order, name",
   )
   const [mostrarForm, setMostrarForm] = useState(false)
   const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; c: Categoria } | null>(null)
@@ -243,25 +245,34 @@ function Fila({
           {c.name}
         </span>
       </span>
-      <div className="flex shrink-0 items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={c.archived ? "Desarchivar" : "Archivar"}
-          onClick={() => onArchivar(c)}
-        >
-          {c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Eliminar"
-          className="text-expense"
-          onClick={() => onEliminar(c)}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
+      {c.system_key ? (
+        // La crea y la usa la app (los cobros de un grupo): se puede renombrar
+        // o cambiarle el icono, pero no archivar ni borrar.
+        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+          <Lock className="h-3 w-3" aria-hidden />
+          Del sistema
+        </span>
+      ) : (
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={c.archived ? "Desarchivar" : "Archivar"}
+            onClick={() => onArchivar(c)}
+          >
+            {c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Eliminar"
+            className="text-expense"
+            onClick={() => onEliminar(c)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </FilaInset>
   )
 }

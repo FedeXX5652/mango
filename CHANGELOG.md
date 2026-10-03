@@ -4,6 +4,34 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.3.0] - 2026-10-03
+
+### Agregado
+
+- **Reintegros de grupo** (0026, etapa 3): lo que te devuelve alguien de un grupo
+  ya no infla tus ingresos. Estadísticas y la tarjeta de Resumen lo muestran en
+  su propia línea ("Reintegros"), y el resultado no cambia. Se reconoce por el
+  vínculo con el pago, así que cuentan también los cobros que ya habías
+  confirmado con otra categoría.
+- Los cobros por confirmar llegan con la categoría **"Reintegros de grupo"** ya
+  puesta: solo hace falta elegir la cuenta. Es una categoría del sistema: se
+  puede renombrar, no borrar.
+
+### Cambiado
+
+- **La app se actualiza sola al salir o al bloquearse** (0028). Busca versión
+  nueva al volver a primer plano y cada media hora, y recarga solo cuando no se
+  pierde nada: con la app oculta o en la pantalla del PIN. Antes, en Android, un
+  deploy tardaba una o dos aperturas de cero en verse.
+- **PowerSync fijo en la 1.26.1** (con su digest), en vez de `latest`: un deploy
+  ya no puede traer una versión nueva que rompa la sincronización.
+
+### Arreglado
+
+- **El bloqueo por inactividad se podía esquivar en Android**: con la app en
+  segundo plano el temporizador se congelaba, y al volver se reiniciaba aunque
+  hubieran pasado horas. Ahora se mide el tiempo transcurrido.
+
 ## [1.2.0] - 2026-10-02
 
 ### Agregado

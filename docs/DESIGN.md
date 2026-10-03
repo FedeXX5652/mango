@@ -805,6 +805,19 @@ nombre corto ("Vos") terminaba en "V…".
 el "$" quedaba solo arriba del numero. Si no entra, se le da mas lugar a la
 columna.
 
+### Categorias del sistema
+
+Las crea la app y las usa por su cuenta (hoy, "Reintegros de grupo", con la que
+llega cada cobro de un grupo). En la lista de Categorias, en lugar de archivar y
+borrar llevan un **"Del sistema"** chico con un candado: se pueden renombrar o
+cambiarles el icono, nada mas. Un indicador discreto, no una etiqueta que pese.
+
+### Reintegros aparte de los ingresos
+
+En Estadisticas y en la tarjeta de Resumen, lo que vuelve de un grupo va en su
+propia linea ("Reintegros de grupo" / "Reintegros"), entre Ingresos y Egresos,
+**solo si hubo**: en un mes sin cobros seria ruido. El Resultado los incluye.
+
 ### Hover solo con mouse
 
 `future.hoverOnlyWhenSupported` en Tailwind: los `hover:` aplican solo donde hay

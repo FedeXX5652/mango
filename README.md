@@ -20,8 +20,8 @@ decide compartir**, con reparto de gastos estilo Splitwise incluido.
 ![PowerSync](https://img.shields.io/badge/PowerSync-offline--first-1c1c1c)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalable-5A0FC8?logo=pwa&logoColor=white)
-![Versión](https://img.shields.io/badge/versión-1.2.0-FDBE02)
-![Tests](https://img.shields.io/badge/tests-516%20verdes-2EA043)
+![Versión](https://img.shields.io/badge/versión-1.3.0-FDBE02)
+![Tests](https://img.shields.io/badge/tests-521%20verdes-2EA043)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED?logo=docker&logoColor=white)
 
 </div>
@@ -87,7 +87,8 @@ de un hogar, con tres convicciones:
   plata**, Miembros y Categorías.
 - **Saldar deudas**: marcar como saldado (por fuera) o registrar un **pago real**
   que sale de tu cuenta, en partes. El cobro le llega al otro para confirmar en
-  qué cuenta entró.
+  qué cuenta entró, ya como **reintegro**: en tus estadísticas va aparte de los
+  ingresos, porque es plata tuya que vuelve.
 - **Cuenta conjunta**: plata que ya es de todos; lo que se paga con ella no genera
   deuda. **Poner** o **sacar plata** es una transferencia con la conjunta ya
   elegida.
@@ -178,7 +179,7 @@ por **una sola puerta** (nginx), así que se expone un único puerto.
   cliente una versión atrás.
 - **Decisiones de arquitectura documentadas** (20 ADRs en
   [`docs/decisiones/`](docs/decisiones)) — nada importante se decide dos veces.
-- **Incrementos chicos con pruebas**: **516** pruebas (backend + frontend) en
+- **Incrementos chicos con pruebas**: **521** pruebas (backend + frontend) en
   verde, más un banco de compatibilidad para detectar regresiones de esquema.
 - **Deploy por imágenes**: el servidor no tiene el código; baja imágenes
   publicadas, y la base migra sola al arrancar.

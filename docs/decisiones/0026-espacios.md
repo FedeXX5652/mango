@@ -1,7 +1,7 @@
 # 0026 - Espacios: personal y cada grupo, con las mismas pantallas
 
-Estado: aceptada. Etapas 1 (1.1.0) y 2 (1.2.0) implementadas; la 3, pendiente.
-Ver "Etapas".
+Estado: aceptada e implementada: etapas 1 (1.1.0), 2 (1.2.0) y 3 (1.3.0). Ver
+"Etapas".
 Fecha: 2026-10-01
 
 ## Contexto
@@ -125,8 +125,16 @@ No se inventa nada: **el grupo no tiene plata suelta** (0014).
 Las estadísticas personales cuentan **lo que salió de la cuenta**, no "mi
 parte". Si pagué $15.000 para Casa y Beto me devuelve $7.500, ese cobro entra
 como ingreso (0018), y el neto es mi parte real sin que la app calcule nada. El
-reintegro no es un ingreso de verdad: los cobros van a una categoría de sistema
-**"Reintegros de grupo"**, y Estadísticas la muestra aparte de los ingresos.
+reintegro no es un ingreso de verdad:
+
+- Estadísticas y la tarjeta de Resumen lo sacan de "Ingresos" y lo muestran en
+  su propia línea, **"Reintegros"**. El resultado no cambia: la plata entró igual.
+- Se reconoce por su **vínculo con el pago** (`settlement_id`), no por la
+  categoría: así cuentan también los cobros que ya se habían confirmado con otra.
+- Cada cobro llega con la categoría de sistema **"Reintegros de grupo"** ya
+  puesta (`categories.system_key`): el acreedor solo elige la cuenta. La crea el
+  servidor la primera vez que hace falta; se puede renombrar, pero no archivar ni
+  borrar.
 
 ### Barra móvil
 
@@ -169,8 +177,8 @@ que dice dónde va a quedar el gasto y la app que abre en Personal.
    personal (y su resumen en el selector) y la **barra con Estadisticas en lugar
    de Grupos**. Con ella entro el reparto por partes y el reparto por defecto del
    grupo (0027).
-3. **Reintegros de grupo** como categoria de sistema y su separacion en
-   Estadisticas.
+3. **Reintegros de grupo** (hecha, 1.3.0): categoria de sistema con la que llega
+   cada cobro, y su linea propia en Estadisticas y en el Resumen.
 
 ## Consecuencias
 

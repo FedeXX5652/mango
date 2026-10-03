@@ -226,11 +226,19 @@ CREATE TABLE categories (
     -- rollover: el saldo arrastra al mes siguiente (sobre de ahorro). La
     -- asignacion recurrente va por el sistema de recurrentes, no aca.
     rollover        BOOLEAN NOT NULL DEFAULT false,
+    -- Categoria del sistema (0026, etapa 3): 'reintegros_grupo'. La crea el
+    -- servidor; la app la reconoce por esta clave, no por el nombre. No se
+    -- borra ni se archiva. NULL = comun.
+    system_key      TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at      TIMESTAMPTZ,
     CONSTRAINT categories_kind_chk CHECK (kind IN ('expense','income'))
 );
+
+-- Una categoria del sistema por usuario y clave, entre las vigentes.
+CREATE UNIQUE INDEX categories_owner_system_key_uniq ON categories (owner_id, system_key)
+    WHERE system_key IS NOT NULL AND deleted_at IS NULL;
 
 -- Tabla de asociacion comercio -> categoria.
 --

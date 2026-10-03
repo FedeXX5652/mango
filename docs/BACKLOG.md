@@ -11,17 +11,13 @@ Cosas decididas-para-despues y cabos sueltos. El roadmap por fases vive en
   (la clave y el token viajarian en claro).
 - **No publicar `MANGO_PORT` fuera del tailnet.** La API ya tiene auth (3a), pero
   exponerla a internet es innecesario.
-- **Fijar la version base de PowerSync** en el release (`POWERSYNC_VERSION`).
-  Hoy es `latest`, congelada en cada imagen publicada; fijarla da builds
-  reproducibles.
 
-## Notificaciones push (fase futura, ver 0019)
+## Notificaciones push (ver 0019)
 
-La **bandeja in-app ya esta** (0019). El push (avisos fuera de la app) queda:
-- Service worker + `PushManager` + suscripciones (tabla nueva).
-- Claves **VAPID**; el backend enviando los push.
-- Requiere **HTTPS**: ya esta (Caddy), asi que no hay nada que lo bloquee.
-- Reusa los eventos que ya escriben en `notifications`: es otro canal del mismo aviso.
+Va en la 1.4.0 (ver "Plan acordado"). La bandeja in-app ya esta; el push es otro
+canal del mismo aviso: service worker + `PushManager` + suscripciones (tabla
+nueva), claves VAPID en el `.env` de heimdall y el backend enviando. Ya hay
+HTTPS (Caddy), asi que no hay nada que lo bloquee.
 
 ## Auditoria de frontend (2026-09-30, ver 0022)
 
@@ -35,14 +31,40 @@ chico deliberado quedo documentado como excepcion (DESIGN.md 3). Queda:
 - **Contador de pendientes en la navegacion** (DESIGN.md 7). Cobra sentido con
   la bandeja de pendientes de la fase 2.
 
-## Espacios y grupos: lo que sigue (0026, 0027)
+## Plan acordado (2026-10-03)
 
-- **Etapa 3 de espacios**: categoria de sistema **Reintegros de grupo** y su
-  separacion en Estadisticas (ver "Conciliar las dos puntas de un pago").
-- **"Pago otro"** (0027): cargar un gasto que pago otro miembro ("Beto pago la
-  luz"). Cambia el modelo —hoy el gasto es de quien lo carga y su cuenta es
-  privada (0021)—, asi que necesita su decision: quien lo edita y de que cuenta
-  salio.
+En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
+
+- **1.4.0 - Planificador y push.** Un proceso en el backend que corre cada minuto
+  (con candado en la base para no duplicar): avisos push a la hora justa
+  (Web Push con VAPID; `pywebpush`) y la cotizacion de cada dia. Sin heimdall,
+  los avisos se ven dentro de la app al abrirla (nada de alarmas en segundo
+  plano). Cada aviso dice a que pertenece y usa el logo con fondo transparente
+  (`icon` mango-512, `badge` mango-mono-96). Notification Triggers no sirve:
+  Chrome termino su desarrollo y nunca salio a estable.
+- **1.5.0 - Calendario de pagos.** Recordatorios (aviso o vencimiento) con
+  repeticion tipo Samsung (RRULE propio, sin dependencias, mismos casos de prueba
+  en servidor y app), varios avisos por ciclo, seguimiento "¿ya lo pagaste?" hasta
+  responder (limitable), ciclos materializados por el servidor, zona horaria del
+  usuario, botones en la notificacion de Android ("Ya lo pague", "Mas tarde") con
+  un permiso de un solo uso. Asociado a una **plantilla** ("Cargar el pago" abre
+  el alta con ella; si se borra la plantilla, se desvincula); plantillas de grupo
+  para los recordatorios de grupo. "Avisarme" en tarjetas y deudas; recurrentes
+  como informacion. Dia habil: se elige al crear, sin opcion preelegida. Lo
+  automatico (`origen`) se marca con un indicador chico y discreto, y editarlo
+  pide confirmacion y lo pasa a ser del usuario. Formato documentado
+  (`docs/recordatorios.md`) para la ingesta. Sale `recurring_rules.auto_create`,
+  que nunca se uso.
+- **1.6.0 - Fase 4.** Dolar elegible por moneda (MEP por defecto), serie diaria
+  completa con historia (ArgentinaDatos para los dolares, Frankfurter/BCE para el
+  resto, pivote USD: cambiar la moneda base no obliga a regenerar nada) y grafico
+  en Cotizaciones.
+- **1.7.0 - Pagos en conjunto.** Un gasto compartido = total + cuanto puso cada
+  uno + cuanto le toca a cada uno. Lo que puso otro le llega como "pago por
+  confirmar" (de que cuenta salio); cuenta en el balance desde que se carga; lo
+  edita quien lo cargo y cada pagador solo su parte. Rechazar es reversible:
+  deshacer al instante, sin boton negativo en la notificacion, y "Cambiar" desde
+  el gasto. Necesita su propia decision.
 
 ## PWA: ideas que salieron con los atajos (0023)
 
@@ -52,13 +74,11 @@ chico deliberado quedo documentado como excepcion (DESIGN.md 3). Queda:
   que abra un movimiento nuevo con el adjunto (los adjuntos ya existen, fase 5).
 - **`screenshots`** en el manifiesto: Android y Chrome de escritorio muestran un
   dialogo de instalacion mas rico con capturas.
-- **Actualizacion en Android** (2026-10-01, en espera mientras funcione): al
-  "cerrar y abrir", Android retoma la PWA desde memoria, sin navegar, y el
-  navegador no busca un `sw.js` nuevo; cuando lo encuentra, la pagina abierta no
-  se recarga. Tarda una o dos aperturas de cero. Si molesta: registrar el SW a
-  mano (`injectRegister: false`), buscar version al volver a primer plano
-  (`visibilitychange`) y recargar solo con la app oculta o en la pantalla del
-  PIN, nunca en medio de una carga.
+- **App nativa de Android** (descartada por ahora, 2026-10-03): seria la unica
+  forma de tener alarmas locales exactas sin servidor.
+- **Suscribir el calendario del telefono** (.ics) a los recordatorios: alarmas
+  locales exactas sin heimdall, pero sin botones ni enterarse a tiempo de que se
+  pago. Para mas adelante.
 
 ## Cabos sueltos
 
@@ -66,10 +86,6 @@ chico deliberado quedo documentado como excepcion (DESIGN.md 3). Queda:
   la forma este firme, contraer la columna (expandir/contraer, 0012).
 - **Transformaciones de la cola de rechazados** (0011). Hoy un rechazo se guarda y
   se puede reintentar o descartar; falta poder **editarlo** antes de reintentar.
-- **Conciliar las dos puntas de un pago** (0018): que el acreedor no tenga que
-  recategorizar si no quiere. Decidido en 0026: categoria de sistema
-  **"Reintegros de grupo"**, mostrada aparte de los ingresos en Estadisticas
-  (lo personal muestra lo pagado; el reintegro es lo que lo neta).
 - **Espacios personales aislados** (0026): un emprendimiento separado de lo
   personal = un grupo de una sola persona con su cuenta comun, fondeada con plata
   propia. Evaluar despues de los espacios de grupo (y si hace falta una vista

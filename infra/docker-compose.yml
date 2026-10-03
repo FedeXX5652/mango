@@ -38,7 +38,11 @@ services:
 
   powersync:
     restart: unless-stopped
-    image: journeyapps/powersync-service:latest
+    # Version FIJA, con su digest: con `latest`, cualquier deploy podia bajar una
+    # version nueva y romper la sync sin que cambiara nada de Mango. Para
+    # actualizar: cambiar version y digest juntos (aca, en
+    # infra/powersync/Dockerfile y en scripts/release.sh) y probar la sync.
+    image: journeyapps/powersync-service:1.26.1@sha256:413a0c813e96935ebe7203b5759f8a594a7b7cd8aa42134713e63af637e0f079
     container_name: mango-powersync
     command: ["start", "-r", "unified"]
     depends_on:

@@ -42,6 +42,9 @@ const categories = new Table(
     sort_order: column.integer,
     // Ajuste de sobre (ver 3.6 / 0004). rollover = sobre de ahorro (acumula).
     rollover: column.integer,
+    // Categoria del sistema (0026, etapa 3): "reintegros_grupo". La crea el
+    // servidor; no se borra ni se archiva. NULL = comun.
+    system_key: column.text,
     created_at: column.text,
     updated_at: column.text,
     deleted_at: column.text,

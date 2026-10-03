@@ -1091,7 +1091,7 @@ avisos. Los crea el servidor en eventos (`pago_recibido`, `pago_deshecho`,
 `miembro_agregado`); bajan por `mio`; el cliente solo los marca leidos. Tocar un
 aviso lo marca leido y navega a su link.
 
-**Fase 3b.6 (espacios): ETAPAS 1 Y 2 HECHAS.** Ver 0026. Personal y cada grupo
+**Fase 3b.6 (espacios): HECHA (etapas 1, 2 y 3).** Ver 0026. Personal y cada grupo
 son **espacios** con las mismas pantallas (Inicio, Movimientos, Presupuesto,
 Estadisticas) y un selector siempre a la vista. Un grupo vive en
 `/grupos/<grupo>/…`, con los mismos nombres de seccion que lo personal. En
@@ -1105,8 +1105,9 @@ categorias, las cuentas y el reparto del grupo). **Poner plata** en la conjunta
 es una transferencia con la conjunta ya elegida (0017). El Inicio del grupo
 tiene accesos fijos (Saldar, Poner plata, Miembros, Categorias) y el personal,
 una tarjeta por grupo con como quede yo. La barra movil es **Inicio ·
-Movimientos · + · Presupuesto · Estadisticas**. Falta la etapa 3 (Reintegros de
-grupo).
+Movimientos · + · Presupuesto · Estadisticas**. Los cobros de un grupo son
+**reintegros**: llegan con la categoria de sistema "Reintegros de grupo" y
+Estadisticas y el Resumen los muestran aparte de los ingresos (etapa 3).
 
 **Reparto como Splitwise (0027): HECHO.** Al reparto igual, exacto y por
 porcentaje se suma **por partes** ("2 a 1"), y cada grupo puede tener un

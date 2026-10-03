@@ -55,4 +55,10 @@ async def delete_category(
     category = await crud.get_category(session, owner_id, category_id)
     if category is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoria no encontrada")
-    await crud.soft_delete_category(session, category)
+    try:
+        await crud.soft_delete_category(session, category)
+    except DomainError as exc:
+        # La del sistema no se borra (0026, etapa 3).
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 
+import { marcarBloqueo } from "@/lib/actualizacion"
 import { pinDefinido } from "@/lib/pin"
 import { PantallaBloqueo } from "@/pantallas/Bloqueo"
 
@@ -20,22 +21,41 @@ export function ProveedorBloqueo({ children }: { children: React.ReactNode }) {
     pinDefinido() ? "bloqueado" : "sin-pin",
   )
   const timer = useRef<number | undefined>(undefined)
+  // La fija `reiniciar` al arrancar el efecto (Date.now() no va en el render).
+  const ultimaActividad = useRef(0)
 
-  // Timer de inactividad: solo corre desbloqueado; cualquier actividad lo reinicia.
+  // La actualizacion de la app entra en la pantalla del PIN, donde no hay nada
+  // que perder (lib/actualizacion, 0028).
+  useEffect(() => {
+    marcarBloqueo(estado !== "desbloqueado")
+  }, [estado])
+
+  // Inactividad: solo corre desbloqueado; cualquier actividad la reinicia.
   useEffect(() => {
     if (estado !== "desbloqueado") return
 
     const reiniciar = () => {
+      ultimaActividad.current = Date.now()
       window.clearTimeout(timer.current)
       timer.current = window.setTimeout(() => setEstado("bloqueado"), TIMEOUT_MS)
     }
-    const eventos = ["pointerdown", "keydown", "visibilitychange"]
+    // Al volver a la app se mira el TIEMPO que paso, no solo el temporizador:
+    // con la app en segundo plano, Android congela los temporizadores, y antes
+    // volver reiniciaba la cuenta aunque hubieran pasado horas.
+    const alCambiarVisibilidad = () => {
+      if (document.visibilityState !== "visible") return
+      if (Date.now() - ultimaActividad.current >= TIMEOUT_MS) setEstado("bloqueado")
+      else reiniciar()
+    }
+    const eventos = ["pointerdown", "keydown"]
     eventos.forEach((e) => window.addEventListener(e, reiniciar, { passive: true }))
+    document.addEventListener("visibilitychange", alCambiarVisibilidad)
     reiniciar()
 
     return () => {
       window.clearTimeout(timer.current)
       eventos.forEach((e) => window.removeEventListener(e, reiniciar))
+      document.removeEventListener("visibilitychange", alCambiarVisibilidad)
     }
   }, [estado])
 

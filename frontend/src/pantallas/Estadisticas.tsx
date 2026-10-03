@@ -56,12 +56,14 @@ interface GastoRow {
 
 // Fila a grano de movimiento: lo minimo para poder convertirla (ver
 // lib/historico) mas lo que agrupa cada informe.
+// "reintegro": el cobro de un pago de grupo (`settlement_id`). Es plata propia
+// que vuelve, no un ingreso: va en su propia linea (0026, etapa 3).
 interface MovRow extends MovimientoConvertible {
-  kind: "income" | "expense"
+  kind: "income" | "expense" | "reintegro"
   category_id: string | null
 }
 interface EvoRow extends MovimientoConvertible {
-  kind: "income" | "expense"
+  kind: "income" | "expense" | "reintegro"
 }
 interface TagRow extends MovimientoConvertible {
   id: string
@@ -91,8 +93,11 @@ const JOIN = "LEFT JOIN accounts a ON a.id = t.account_id"
 
 // Movimientos de un mes, los dos tipos. De aca salen el gasto por categoria y
 // los totales de ingresos/egresos: una sola consulta para las dos cosas.
+const KIND = `CASE WHEN t.kind = 'income' AND t.settlement_id IS NOT NULL
+  THEN 'reintegro' ELSE t.kind END AS kind`
+
 const SQL_MES = `
-  SELECT t.category_id, t.kind, ${COLS}
+  SELECT t.category_id, ${KIND}, ${COLS}
   FROM transactions t ${JOIN}
   WHERE t.kind IN ('income','expense') AND t.status='confirmed' AND t.deleted_at IS NULL
     AND t.occurred_at >= ? AND t.occurred_at < ?`
@@ -107,7 +112,7 @@ const SQL_ETIQUETAS = `
     AND t.occurred_at >= ? AND t.occurred_at < ?`
 
 const SQL_EVO = `
-  SELECT t.kind, ${COLS}
+  SELECT ${KIND}, ${COLS}
   FROM transactions t ${JOIN}
   WHERE t.kind IN ('income','expense') AND t.status='confirmed' AND t.deleted_at IS NULL
     AND t.occurred_at >= ?`
@@ -324,9 +329,11 @@ export function Estadisticas() {
   const sumar = (kind: MovRow["kind"]) =>
     valoresMes.filas.reduce((s, f) => (f.kind === kind ? s + f.valor : s), 0)
   const ingresosMes = sumar("income")
+  const reintegrosMes = sumar("reintegro")
   const egresosMes = sumar("expense")
-  const resultadoMes = ingresosMes - egresosMes
-  const topeMes = Math.max(ingresosMes, egresosMes, 1)
+  // El resultado no cambia por separar los reintegros: la plata entro igual.
+  const resultadoMes = ingresosMes + reintegrosMes - egresosMes
+  const topeMes = Math.max(ingresosMes, reintegrosMes, egresosMes, 1)
 
   // Gasto por categoria principal (las subcategorias suman al padre), ordenado
   // de mayor a menor y con la variacion contra el periodo anterior.
@@ -512,6 +519,7 @@ export function Estadisticas() {
       desde: v.inicio,
       hasta: v.fin,
       ingresos: 0,
+      reintegros: 0,
       gastos: 0,
     }))
     // Se ubica cada movimiento por sus limites y no por una clave armada a
@@ -520,9 +528,11 @@ export function Estadisticas() {
       const cubo = cubos.find((c) => r.occurred_at >= c.desde && r.occurred_at < c.hasta)
       if (!cubo) continue
       if (r.kind === "income") cubo.ingresos += r.valor
+      else if (r.kind === "reintegro") cubo.reintegros += r.valor
       else cubo.gastos += r.valor
     }
-    return cubos.map((c) => ({ ...c, neto: c.ingresos - c.gastos }))
+    // La linea de ingresos va sin reintegros; el resultado del periodo, con.
+    return cubos.map((c) => ({ ...c, neto: c.ingresos + c.reintegros - c.gastos }))
   }, [evoRows, periodosEvo, tipo])
 
   const etiquetaMes = ventana.etiqueta
@@ -780,6 +790,16 @@ export function Estadisticas() {
           texto="text-income"
           moneda={moneda}
         />
+        {reintegrosMes !== 0 && (
+          <BarraMes
+            etiqueta="Reintegros de grupo"
+            valor={reintegrosMes}
+            tope={topeMes}
+            barra="bg-income"
+            texto="text-income"
+            moneda={moneda}
+          />
+        )}
         <BarraMes
           etiqueta="Egresos"
           valor={egresosMes}
