@@ -45,13 +45,14 @@ class User(Base, IdMixin, TimestampMixin):
     # automatico de cotizaciones (ver 0005). En Argentina es el caso normal
     # para el dolar, donde la cotizacion oficial que publica la API no es la
     # que uno paga. Lista de codigos ISO; vacia o NULL = todas automaticas.
-    fx_manual: Mapped[list[str] | None] = mapped_column(JSONB)
+    # `none_as_null`: "volver a lo de fabrica" deja NULL de SQL, no JSON `null`.
+    fx_manual: Mapped[list[str] | None] = mapped_column(JSONB(none_as_null=True))
 
     # Accesos de Inicio (0024): que atajos van en el panel de Inicio y en que
     # orden. Lista de ids del catalogo del cliente (frontend/src/componentes/accesos.ts);
     # NULL = los de fabrica. Viaja con la sync, como el tema: iguales en todos
     # los dispositivos.
-    home_shortcuts: Mapped[list[str] | None] = mapped_column(JSONB)
+    home_shortcuts: Mapped[list[str] | None] = mapped_column(JSONB(none_as_null=True))
 
     __table_args__ = (
         CheckConstraint("color_scheme IN ('light','dark','system')", name="users_color_scheme_chk"),
@@ -68,6 +69,13 @@ class Group(Base, IdMixin, TimestampMixin):
     # Color del grupo, para distinguir su origen en toda la app (chip de grupo,
     # ver 3b.2c). Opcional: sin color se cae a un neutro en el cliente.
     color: Mapped[str | None] = mapped_column(Text)
+    # Reparto por defecto de un gasto nuevo del grupo (0026), como Splitwise:
+    # cuantas partes le tocan a cada miembro, {user_id: partes} (Casa 60/40 es
+    # {ana: 60, beto: 40}; 2 a 1, {ana: 2, beto: 1}). NULL = partes iguales. Es
+    # solo el punto de partida del formulario: cada gasto guarda su reparto
+    # resuelto en `transaction_splits`.
+    # `none_as_null`: volver a partes iguales deja NULL de SQL, no un JSON `null`.
+    default_split: Mapped[dict[str, int] | None] = mapped_column(JSONB(none_as_null=True))
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
 
 

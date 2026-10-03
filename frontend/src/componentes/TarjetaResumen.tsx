@@ -158,13 +158,14 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
   useRefrescoCotizaciones(faltantes)
 
   return (
-    <section className="rounded-xl bg-card p-5">
+    <section className="rounded-xl bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         {/* Solo "Resumen": los chips ya dicen el modo y el selector la moneda.
             Repetirlo partia la fila en dos en 390 px. */}
         <h2 className="text-sm font-medium text-muted-foreground">Resumen</h2>
         {!unaSola && (
           <Segmentado
+            etiqueta="Cómo ver las monedas"
             opciones={[
               { valor: "global", etiqueta: "Global" },
               { valor: "moneda", etiqueta: "Por moneda" },

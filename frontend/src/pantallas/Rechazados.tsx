@@ -287,7 +287,7 @@ function FilaRechazada({
             readOnly
             tabIndex={-1}
             aria-hidden
-            className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+            className="mt-1 h-4 w-4 shrink-0 accent-primary"
           />
         )}
         <div className="min-w-0 flex-1">

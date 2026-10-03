@@ -1,8 +1,9 @@
 import { usePowerSync } from "@powersync/react"
-import { ArrowRight, HandCoins } from "lucide-react"
+import { ArrowRight, HandCoins, PiggyBank } from "lucide-react"
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 
+import { DeA } from "@/componentes/DeA"
 import { Monto } from "@/componentes/Monto"
 import { Button } from "@/componentes/ui/button"
 import { Confirmar } from "@/componentes/ui/confirmar"
@@ -12,6 +13,7 @@ import { formatearMonto } from "@/lib/dinero"
 import { formatearFechaCorta } from "@/lib/fecha"
 import { type MiembroGrupo, type SplitRow, parteEnGasto } from "@/lib/grupo"
 import { iconoDe } from "@/lib/iconos"
+import { cn } from "@/lib/utils"
 
 // Una fila de la historia de un grupo (0026): un gasto o un pago entre miembros.
 // La usan el Inicio del grupo (lo ultimo) y Movimientos; la lista sale de
@@ -43,6 +45,15 @@ export function FilaHistoria({
   // el "tu parte" en 390 px.
   conFecha?: boolean
 }) {
+  // Abrir un gasto o un aporte. Desde Movimientos del grupo, con su mes y sus
+  // filtros: en escritorio la lista sigue al lado del detalle (ConPanel), y
+  // pasar de uno a otro reemplaza el abierto en vez de apilarlos.
+  const { pathname, search } = useLocation()
+  const lista = `/grupos/${groupId}/movimientos`
+  const enLista = pathname.startsWith(lista)
+  const abierto = enLista ? pathname.slice(lista.length + 1) : ""
+  const destino = (id: string) => ({ pathname: `${lista}/${id}`, search: enLista ? search : "" })
+
   if (item.tipo === "pago") {
     const p = item.pago
     return (
@@ -52,14 +63,12 @@ export function FilaHistoria({
             <HandCoins className="h-4 w-4 text-muted-foreground" aria-hidden />
           </span>
           <span className="min-w-0">
-            <span className="flex min-w-0 items-center gap-1.5 font-medium">
-              <span className="truncate">{nombre(p.from_user_id)}</span>
-              <ArrowRight
-                className="h-4 w-4 shrink-0 text-muted-foreground"
-                aria-label="le pagó a"
-              />
-              <span className="truncate">{nombre(p.to_user_id)}</span>
-            </span>
+            <DeA
+              de={nombre(p.from_user_id)}
+              a={nombre(p.to_user_id)}
+              flecha="le pagó a"
+              className="font-medium"
+            />
             <span className="block truncate text-xs text-muted-foreground">
               {esPagoReal(p) ? "Pago" : "Saldado"}
               {conFecha && ` · ${formatearFechaCorta(p.occurred_at)}`}
@@ -71,6 +80,36 @@ export function FilaHistoria({
     )
   }
 
+  if (item.tipo === "aporte") {
+    const a = item.aporte
+    // Poner o sacar plata de la conjunta (0017): "Beto → Caja comun". Se abre
+    // como un movimiento mas (el detalle sabe que es una transferencia).
+    const [de, a_] =
+      a.sentido === "entra" ? [nombre(a.owner_id), a.cuenta] : [a.cuenta, nombre(a.owner_id)]
+    return (
+      <Link
+        to={destino(a.id)}
+        replace={Boolean(abierto)}
+        aria-current={abierto === a.id ? "true" : undefined}
+        className={cn(FILA, abierto === a.id && "bg-muted")}
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
+            <PiggyBank className="h-4 w-4 text-muted-foreground" aria-hidden />
+          </span>
+          <span className="min-w-0">
+            <DeA de={de} a={a_} flecha="a" className="font-medium" />
+            <span className="block truncate text-xs text-muted-foreground">
+              {a.sentido === "entra" ? "Puso plata en la conjunta" : "Sacó plata de la conjunta"}
+              {conFecha && ` · ${formatearFechaCorta(a.occurred_at)}`}
+            </span>
+          </span>
+        </span>
+        <Monto centavos={a.amount} moneda={a.currency} variante="lista" className="font-medium" />
+      </Link>
+    )
+  }
+
   const g = item.gasto
   const cat = g.category_id ? categoria.get(g.category_id) : undefined
   // `iconoDe` busca en un Map estatico, no crea un componente (ver lib/iconos).
@@ -78,7 +117,12 @@ export function FilaHistoria({
   const parte = parteEnGasto(g, splitsDe.get(g.id) ?? [], miembros, miId)
   const quien = g.paid_from_group ? "Cuenta conjunta" : `Pagó ${nombre(g.owner_id)}`
   return (
-    <Link to={`/grupos/${groupId}/movimientos/${g.id}`} className={FILA}>
+    <Link
+      to={destino(g.id)}
+      replace={Boolean(abierto)}
+      aria-current={abierto === g.id ? "true" : undefined}
+      className={cn(FILA, abierto === g.id && "bg-muted")}
+    >
       <span className="flex min-w-0 items-center gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
           {/* eslint-disable-next-line react-hooks/static-components */}

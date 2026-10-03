@@ -2,8 +2,9 @@
 
 import uuid
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.account import Currency
 
@@ -17,9 +18,17 @@ class GroupCreate(BaseModel):
     color: str | None = None
 
 
+# Partes de un miembro en el reparto por defecto: enteras y acotadas (60/40 se
+# escribe 60 y 40; 2 a 1, 2 y 1).
+Partes = Annotated[int, Field(ge=0, le=10000)]
+
+
 class GroupUpdate(BaseModel):
     name: str | None = None
     color: str | None = None
+    # Reparto por defecto (0026): {user_id: partes}. `null` vuelve a partes
+    # iguales; no mandarlo no lo toca.
+    default_split: dict[uuid.UUID, Partes] | None = None
 
 
 class GroupRead(BaseModel):
@@ -29,6 +38,7 @@ class GroupRead(BaseModel):
     name: str
     base_currency: str
     color: str | None
+    default_split: dict[str, int] | None = None
     created_by: uuid.UUID
     created_at: datetime
 

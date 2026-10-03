@@ -130,3 +130,20 @@ describe("lo que se guarda es lo que se ve", () => {
     expect(cuentaEnCurso(tipear([...cien, mas, ...cincuenta, igual]))).toBeNull()
   })
 })
+
+describe("calculadora en una moneda sin decimales", () => {
+  it("convierte en la moneda del movimiento, no en la base", () => {
+    const e = tipear([(s) => digito(s, "1", 0), (s) => digito(s, "5", 0), (s) => digito(s, "0", 0)])
+    expect(valorCentavos(e, "JPY")).toBe(150)
+    expect(valorCentavos(e, "ARS")).toBe(15000)
+  })
+  it("no tiene coma", () => {
+    const e = tipear([(s) => digito(s, "7", 0), (s) => coma(s, 0), (s) => digito(s, "5", 0)])
+    expect(e.entrada).toBe("75")
+  })
+  it("se siembra con el monto exacto de su moneda", () => {
+    expect(desdeCentavos(500, "JPY").entrada).toBe("500")
+    expect(desdeCentavos(125050, "ARS").entrada).toBe("1250,5")
+    expect(desdeCentavos(150000, "ARS").entrada).toBe("1500")
+  })
+})

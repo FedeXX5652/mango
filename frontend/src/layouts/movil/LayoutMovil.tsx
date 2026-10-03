@@ -26,7 +26,7 @@ function Tab({ to, etiqueta, icono: Icono, end, seccion }: (typeof DESTINOS_MOVI
       end={end}
       className={({ isActive }) =>
         cn(
-          "flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg text-xs tracking-tight",
+          "flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg text-barra tracking-tight",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
           isActive ? "font-semibold text-foreground" : "text-muted-foreground",
         )
@@ -53,6 +53,8 @@ function Tab({ to, etiqueta, icono: Icono, end, seccion }: (typeof DESTINOS_MOVI
 }
 
 export function LayoutMovil() {
+  // El "+" carga en el espacio actual (0026).
+  const { espacio } = useEspacio()
   return (
     <div className="flex h-full flex-col">
       {/* `pb-barra`: el alto de la barra mas el borde seguro del telefono; el
@@ -73,7 +75,7 @@ export function LayoutMovil() {
         ))}
         <div className="flex h-16 items-center justify-center">
           <Link
-            to="/nuevo"
+            to={rutaEspacio(espacio, "nuevo")}
             aria-label="Nuevo movimiento"
             className="-mt-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background transition-transform duration-100 ease-salida focus-visible:outline-none focus-visible:ring-ring motion-safe:active:scale-95"
           >

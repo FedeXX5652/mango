@@ -39,6 +39,40 @@ def _tx(**over) -> dict:
     return base
 
 
+# --- El dueño lo pone la sesion ----------------------------------------------
+
+
+async def test_owner_id_del_cliente_se_ignora(api: SimpleNamespace) -> None:
+    """El cliente manda `owner_id` para que su fila local se vea como va a quedar
+    (sin el, un gasto cargado sin conexion no era "mio" y rompia el balance del
+    grupo). El dueño real lo pone la sesion: el del cuerpo se ignora."""
+    acc = await _account(api)
+    cat = await _category(api, "expense")
+    ajeno = str(uuid.uuid4())
+    resp = await api.client.post(
+        "/api/v1/transactions", json=_tx(account_id=acc, category_id=cat, owner_id=ajeno)
+    )
+    assert resp.status_code == 201, resp.text
+    fila = await api.fila("transactions", resp.json()["id"])
+    assert str(fila["owner_id"]) == str(api.owner_id)
+
+
+async def test_owner_id_de_cuenta_se_ignora(api: SimpleNamespace) -> None:
+    resp = await api.client.post(
+        "/api/v1/accounts",
+        json={
+            "id": str(uuid.uuid4()),
+            "name": "Caja",
+            "type": "cash",
+            "currency": "ARS",
+            "owner_id": str(uuid.uuid4()),
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    fila = await api.fila("accounts", resp.json()["id"])
+    assert str(fila["owner_id"]) == str(api.owner_id)
+
+
 # --- Alta valida de los tres tipos ------------------------------------------
 
 

@@ -102,14 +102,19 @@ export function ReporteGrupo({ groupId }: { groupId: string }) {
   )
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-4">
       {/* Reporte de gasto del periodo */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-muted-foreground">Gasto del grupo</h2>
           <div className="flex items-center gap-2">
-            <Segmentado opciones={MODOS} valor={modo} onCambio={setModo} />
-            <Segmentado opciones={PERIODOS} valor={periodo} onCambio={setPeriodo} />
+            <Segmentado opciones={MODOS} valor={modo} onCambio={setModo} etiqueta="Monedas" />
+            <Segmentado
+              opciones={PERIODOS}
+              valor={periodo}
+              onCambio={setPeriodo}
+              etiqueta="Período"
+            />
           </div>
         </div>
 
@@ -133,7 +138,7 @@ export function ReporteGrupo({ groupId }: { groupId: string }) {
                   const Icono = iconoDe(info?.icon ?? null)
                   return (
                     <FilaInset key={c.category_id ?? "sin"}>
-                      <span className="flex min-w-0 items-center gap-2.5">
+                      <span className="flex min-w-0 items-center gap-3">
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
                           <Icono className="h-4 w-4 text-muted-foreground" aria-hidden />
                         </span>
@@ -176,7 +181,7 @@ export function ReporteGrupo({ groupId }: { groupId: string }) {
                     const Icono = iconoDe(info?.icon ?? null)
                     return (
                       <FilaInset key={c.category_id ?? "sin"}>
-                        <span className="flex min-w-0 items-center gap-2.5">
+                        <span className="flex min-w-0 items-center gap-3">
                           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
                             <Icono className="h-4 w-4 text-muted-foreground" aria-hidden />
                           </span>

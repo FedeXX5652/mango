@@ -1,10 +1,11 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft, Trash2 } from "lucide-react"
+import { Trash2 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
 
 import { Adjuntos } from "@/componentes/Adjuntos"
-import { CompartirCon } from "@/componentes/CompartirCon"
+import { BotonSalir } from "@/componentes/BotonSalir"
+import { EspacioDelMovimiento } from "@/componentes/EspacioDelMovimiento"
 import { EditorSplit, type ParteSplit, type ValorSplit } from "@/componentes/EditorSplit"
 import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
@@ -13,12 +14,13 @@ import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Input } from "@/componentes/ui/input"
 import { useEspacio } from "@/hooks/useEspacio"
+import { usePanel } from "@/hooks/usePanel"
 import { useVolver } from "@/hooks/useVolver"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
-import { aCentavos, formatearMonto } from "@/lib/dinero"
+import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { rutaEspacio } from "@/lib/espacios"
 import { uuidv4 } from "@/lib/uuid"
 
@@ -59,7 +61,10 @@ export function DetalleMovimiento() {
   // A la lista de donde se vino (con su mes); si se entro directo, a los
   // Movimientos del espacio actual (0026): desde un grupo no salta a lo personal.
   const { espacio } = useEspacio()
-  const volver = useVolver(rutaEspacio(espacio, "movimientos"))
+  const volverDePantalla = useVolver(rutaEspacio(espacio, "movimientos"))
+  // En el panel de escritorio, guardar o borrar cierra el panel (la lista
+  // queda como estaba); como pantalla, vuelve.
+  const volver = usePanel()?.cerrar ?? volverDePantalla
   const db = usePowerSync()
 
   const { data: filas } = useQuery<Tx>("SELECT * FROM transactions WHERE id = ?", [id ?? ""])
@@ -125,8 +130,10 @@ export function DetalleMovimiento() {
   // Prefill cuando llega la transaccion (una vez por id).
   useEffect(() => {
     if (!tx) return
-    setMonto((tx.amount / 100).toString().replace(".", ","))
-    setDebitado(tx.amount_account ? (tx.amount_account / 100).toString().replace(".", ",") : "")
+    // Cada monto con los decimales de SU moneda (lib/dinero, aTextoEditable).
+    setMonto(aTextoEditable(tx.amount, tx.currency))
+    const monedaDebito = cuentas.find((c) => c.id === tx.account_id)?.currency ?? tx.currency
+    setDebitado(tx.amount_account ? aTextoEditable(tx.amount_account, monedaDebito) : "")
     setCuentaId(tx.account_id ?? "")
     setDestinoId(tx.transfer_account_id ?? "")
     setCategoriaId(tx.category_id ?? "")
@@ -174,7 +181,7 @@ export function DetalleMovimiento() {
   const cotizacionVista =
     tx && monedaCuentaSel !== tx.currency && debitado.trim()
       ? cotizacionDe(
-          aCentavos(monto) ?? 0,
+          aCentavos(monto, tx.currency) ?? 0,
           tx.currency,
           aCentavos(debitado, monedaCuentaSel) ?? 0,
           monedaCuentaSel,
@@ -183,7 +190,7 @@ export function DetalleMovimiento() {
 
   async function guardar() {
     setError("")
-    const centavos = aCentavos(monto)
+    const centavos = aCentavos(monto, tx!.currency)
     if (!centavos || centavos <= 0) return setError("Monto inválido")
     if (!cuentaId) return setError("Elegí una cuenta")
     // Fuera de ambito cuenta como no elegida (0014).
@@ -264,9 +271,7 @@ export function DetalleMovimiento() {
   return (
     <div className="mx-auto max-w-md space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+        <BotonSalir volver={volver} />
         <h1 className="text-2xl font-semibold">{KIND_LABEL[tx.kind]}</h1>
         {grupo && <EtiquetaGrupo nombre={grupo.name} color={grupo.color} />}
       </header>
@@ -328,7 +333,7 @@ export function DetalleMovimiento() {
 
       {/* Compartir antes de la categoria: define el ambito de las categorias
           ofrecidas (personales o del grupo, ver 0014). */}
-      {tx.kind !== "transfer" && <CompartirCon valor={grupoId} onCambio={cambiarGrupo} />}
+      {tx.kind !== "transfer" && <EspacioDelMovimiento valor={grupoId} onCambio={cambiarGrupo} />}
 
       {tx.kind !== "transfer" && (
         <Campo etiqueta="Categoría">

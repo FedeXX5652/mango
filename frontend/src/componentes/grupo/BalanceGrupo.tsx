@@ -1,6 +1,7 @@
-import { ArrowRight, ChevronDown } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { useState } from "react"
 
+import { DeA } from "@/componentes/DeA"
 import { SaldarPago, type Liquidacion } from "@/componentes/SaldarPago"
 import { Button } from "@/componentes/ui/button"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
@@ -17,7 +18,7 @@ export function BalanceGrupo({ groupId }: { groupId: string }) {
 
   if (balance.length === 0) {
     return (
-      <section className="rounded-xl bg-card p-5">
+      <section className="rounded-xl bg-card p-4">
         <h2 className="text-sm font-medium text-muted-foreground">Balance</h2>
         <p className="mt-1 text-lg font-semibold">Todavía no hay gastos compartidos</p>
       </section>
@@ -36,7 +37,7 @@ export function BalanceGrupo({ groupId }: { groupId: string }) {
               ? `Debés ${formatearMonto(-neto, { moneda: r.currency })}`
               : "Están al día"
         return (
-          <section key={r.currency} className="space-y-4 rounded-xl bg-card p-5">
+          <section key={r.currency} className="space-y-4 rounded-xl bg-card p-4">
             <div>
               <h2 className="text-sm font-medium text-muted-foreground">
                 Balance{balance.length > 1 ? ` (${r.currency})` : ""}
@@ -57,11 +58,16 @@ export function BalanceGrupo({ groupId }: { groupId: string }) {
               <ListaInset>
                 {r.liquidaciones.map((l, i) => (
                   <FilaInset key={i}>
-                    <span className="flex min-w-0 items-center gap-2 text-sm">
-                      <span className="truncate font-medium">{nombre(l.de)}</span>
-                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                      <span className="truncate font-medium">{nombre(l.a)}</span>
-                      <span className="tabular ml-1 shrink-0 text-muted-foreground">
+                    {/* Los nombres arriba y el monto abajo: en una sola linea,
+                        con el boton, en 360 px no entraban. */}
+                    <span className="min-w-0 text-sm">
+                      <DeA
+                        de={nombre(l.de)}
+                        a={nombre(l.a)}
+                        flecha="le debe a"
+                        className="font-medium"
+                      />
+                      <span className="tabular block text-xs text-muted-foreground">
                         {formatearMonto(l.monto, { moneda: r.currency })}
                       </span>
                     </span>

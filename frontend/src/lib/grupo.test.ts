@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest"
 
+import { formatearMonto } from "@/lib/dinero"
+
 import {
   historiaGrupo,
   parteEnGasto,
   resumenGrupo,
+  resumenMio,
+  type AporteHistoria,
+  type GastoHistoria,
   type MiembroGrupo,
+  type PagoHistoria,
   type TxGrupo,
 } from "@/lib/grupo"
 
@@ -229,7 +235,74 @@ describe("historia del grupo", () => {
         amount: 1,
         currency: "ARS",
       }) as const
-    const h = historiaGrupo([g("g1", "2026-09-01"), g("g2", "2026-09-20")], [p("p1", "2026-09-10")])
+    const h = historiaGrupo<GastoHistoria | PagoHistoria>(
+      [g("g1", "2026-09-01"), g("g2", "2026-09-20")],
+      [p("p1", "2026-09-10")],
+    )
     expect(h.map((x) => x.id)).toEqual(["g2", "p1", "g1"])
+  })
+
+  it("los aportes a la conjunta se intercalan igual", () => {
+    const a: AporteHistoria = {
+      tipo: "aporte",
+      id: "a1",
+      fecha: "2026-09-15",
+      owner_id: "aaa",
+      amount: 500000,
+      currency: "ARS",
+      sentido: "entra",
+    }
+    const g: GastoHistoria = {
+      tipo: "gasto",
+      id: "g1",
+      fecha: "2026-09-01",
+      owner_id: "aaa",
+      amount: 1,
+      currency: "ARS",
+    }
+    const h = historiaGrupo<GastoHistoria | AporteHistoria>([g], [a])
+    expect(h.map((x) => x.id)).toEqual(["a1", "g1"])
+  })
+})
+
+describe("como quede yo (una linea)", () => {
+  const CARLA: MiembroGrupo = { user_id: "ccc", nombre: "Carla" }
+  const nombre = (id: string) => (id === "aaa" ? "Vos" : id === "bbb" ? "Beto" : "Carla")
+  const ars = (c: number) => formatearMonto(c, { moneda: "ARS" })
+
+  it("sin gastos, lo dice", () => {
+    expect(resumenMio([], "aaa", nombre)).toBe("Sin gastos todavía")
+  })
+
+  it("con una sola persona del otro lado, la nombra", () => {
+    const b = resumenGrupo([gasto({ owner_id: "aaa", amount: 20000 })], [ANA, BETO])
+    expect(resumenMio(b, "aaa", nombre)).toBe(`Beto te debe ${ars(10000)}`)
+    expect(resumenMio(b, "bbb", nombre)).toBe(`Le debés ${ars(10000)} a Vos`)
+  })
+
+  it("con varias, el total", () => {
+    const b = resumenGrupo([gasto({ owner_id: "aaa", amount: 30000 })], [ANA, BETO, CARLA])
+    expect(resumenMio(b, "aaa", nombre)).toBe(`Te deben ${ars(20000)}`)
+  })
+
+  it("al dia cuando no debe ni le deben", () => {
+    const b = resumenGrupo(
+      [gasto({ owner_id: "aaa", amount: 10000 }), gasto({ owner_id: "bbb", amount: 10000 })],
+      [ANA, BETO],
+    )
+    expect(resumenMio(b, "aaa", nombre)).toBe("Están al día")
+  })
+
+  it("cada moneda por separado", () => {
+    const b = resumenGrupo(
+      [
+        gasto({ owner_id: "aaa", amount: 20000 }),
+        gasto({ owner_id: "bbb", amount: 1000, currency: "USD" }),
+      ],
+      [ANA, BETO],
+    )
+    expect(resumenMio(b, "aaa", nombre)).toBe(
+      `Beto te debe ${ars(10000)} · Le debés ${formatearMonto(500, { moneda: "USD" })} a Beto`,
+    )
   })
 })

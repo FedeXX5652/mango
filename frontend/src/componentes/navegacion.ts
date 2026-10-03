@@ -28,12 +28,13 @@ export const DESTINOS: Destino[] = [
 // centro y las etiquetas no entraban. Sumar un destino aca es reemplazar otro,
 // no apretarlo.
 //
-// Afuera quedan Ajustes (en el header de Inicio) y Estadisticas: analizar es
-// tarea de escritorio; en el telefono se llega desde la tarjeta de Resumen de
-// Inicio y desde el atajo del icono (0023).
+// Son las cuatro secciones de un espacio (0026): llevan a la del espacio actual.
+// Grupos salio de la barra: el selector de espacio la reemplaza (entrar a un
+// grupo, crear uno, "Administrar"), y su lugar volvio a ser de Estadisticas
+// (ajusta 0022). Ajustes vive en el header de Inicio.
 export const DESTINOS_MOVIL: Destino[] = [
   { to: "/", etiqueta: "Inicio", icono: House, end: true, seccion: "" },
   { to: "/movimientos", etiqueta: "Movimientos", icono: List, seccion: "movimientos" },
   { to: "/presupuesto", etiqueta: "Presupuesto", icono: Wallet, seccion: "presupuesto" },
-  { to: "/grupos", etiqueta: "Grupos", icono: Users2, end: true },
+  { to: "/estadisticas", etiqueta: "Estadísticas", icono: PieChart, seccion: "estadisticas" },
 ]

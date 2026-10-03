@@ -1,6 +1,7 @@
 import type { AbstractPowerSyncDatabase } from "@powersync/web"
 
 import { fechaISO } from "@/lib/fecha"
+import { usuarioActualId } from "@/lib/sesion"
 import {
   type ReglaRecurrente,
   type ReglaSobre,
@@ -72,11 +73,13 @@ export async function generarVencidas(
       const r = o.regla
       await tx.execute(
         `INSERT INTO transactions
-           (id, kind, occurred_at, amount, currency, account_id, transfer_account_id,
+           (id, owner_id, kind, occurred_at, amount, currency, account_id, transfer_account_id,
             category_id, payment_method_id, payee, notes, source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'recurring')`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'recurring')`,
         [
           o.id,
+          // Como en el alta: la fila local con su dueño (el servidor lo ignora).
+          usuarioActualId(),
           r.kind,
           o.occurred_at,
           r.amount,

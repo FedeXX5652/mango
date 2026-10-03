@@ -11,7 +11,7 @@ import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { useVolver } from "@/hooks/useVolver"
-import { aCentavos, formatearMonto } from "@/lib/dinero"
+import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
 
 // Deudas y prestamos fuera de un grupo (fase 5). `receivable` = me deben (yo
@@ -136,7 +136,7 @@ export function Deudas() {
 function SaldarDeuda({ deuda, onCerrar }: { deuda: Deuda; onCerrar: () => void }) {
   const db = usePowerSync()
   const pendiente = deuda.amount - deuda.amount_settled
-  const [monto, setMonto] = useState((pendiente / 100).toString().replace(".", ","))
+  const [monto, setMonto] = useState(aTextoEditable(pendiente, deuda.currency))
   const [error, setError] = useState("")
 
   async function guardar() {

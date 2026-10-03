@@ -5,11 +5,10 @@ Cosas decididas-para-despues y cabos sueltos. El roadmap por fases vive en
 
 ## Transporte y seguridad de red
 
-- **Caddy / TLS.** Hoy, hacia afuera de la casa se entra por **Tailscale** (cifra
-  punta a punta). Adentro, por LAN pelada y HTTP, la clave y el token viajan en
-  claro. Mejora barata: **entrar por el nombre de Tailscale tambien desde casa**.
-  TLS con Caddy queda para cuando se publique de verdad. Con 0020 es simple: hay
-  **un solo puerto** (`MANGO_PORT`) y Caddy apunta ahi.
+- **TLS: ya esta.** En el homelab se entra por **HTTPS con Caddy**
+  (`mango.rigr.duckdns.org`), que apunta al unico puerto de la app
+  (`MANGO_PORT`, 0020). Lo que queda: que nadie entre por la LAN pelada en HTTP
+  (la clave y el token viajarian en claro).
 - **No publicar `MANGO_PORT` fuera del tailnet.** La API ya tiene auth (3a), pero
   exponerla a internet es innecesario.
 - **Fijar la version base de PowerSync** en el release (`POWERSYNC_VERSION`).
@@ -21,71 +20,29 @@ Cosas decididas-para-despues y cabos sueltos. El roadmap por fases vive en
 La **bandeja in-app ya esta** (0019). El push (avisos fuera de la app) queda:
 - Service worker + `PushManager` + suscripciones (tabla nueva).
 - Claves **VAPID**; el backend enviando los push.
-- Requiere **HTTPS** (va de la mano con Caddy).
+- Requiere **HTTPS**: ya esta (Caddy), asi que no hay nada que lo bloquee.
 - Reusa los eventos que ya escriben en `notifications`: es otro canal del mismo aviso.
 
 ## Auditoria de frontend (2026-09-30, ver 0022)
 
-Auditoria completa de las 19 vistas en movil (390 y 360 px, claro y oscuro) y
-escritorio (1440 px), con axe (WCAG 2.2 AA) y chequeos de layout. Lo que ya se
-arreglo esta en 0021, 0022 y 0023: sync del grupo, barra movil, contraste,
-nombres accesibles, controles de menos de 24 px, landmarks y h1. Esto es lo que
-queda. **No son defectos de AA**: son diferencias con DESIGN.md o mejoras que
-tocan el sistema entero, y van con decision propia.
+Lo que quedaba se hizo en la 1.2.0: tarjetas de cuenta a Movimientos filtrado,
+escala tipografica de DESIGN.md 3, 44 px en el movil, filtros en hoja, detalle en
+panel lateral, borde de los campos a 3:1, `Segmentado` como grupo de radio,
+header de escritorio, espaciados en la escala de 4, esqueleto del alta en la
+primera sincronizacion y el desbloqueo biometrico como interruptor. El texto
+chico deliberado quedo documentado como excepcion (DESIGN.md 3). Queda:
 
-- **Decidir a donde llevan las tarjetas de cuenta de Inicio.** A Movimientos
-  filtrado por esa cuenta (recomendado: es la pregunta "¿que paso en esta
-  cuenta?") o a Estadisticas. Necesita el filtro por URL en Movimientos
-  (`?cuenta=`).
-- **Escala tipografica vs DESIGN.md 3.** El codigo usa la de Tailwind (12, 14,
-  20, 30) y DESIGN define 13 (secundaria), 15 (cuerpo), 24 (titulo) y 32 (monto
-  destacado). Propuesta: tamaños con nombre de rol en `tailwind.config.ts`
-  (`text-secundaria`, `text-cuerpo`, `text-titulo`, `text-destacado`) y migrar
-  por pantalla, con pasada visual en 360 px.
-- **44 px en movil** para los controles que hoy miden 40 (botones de icono:
-  archivar, eliminar, editar, volver, mes anterior/siguiente; campos y
-  desplegables), 32 (`Segmentado`) o 24 (muestras de color de Grupos,
-  `Interruptor`). Todos pasan el minimo de AA (24); 44 es la recomendacion para
-  touch. Propuesta: variante `icon` a 44 solo en el arbol movil.
-- **Filtros de Movimientos en movil**: DESIGN.md 2 dice "Hoja inferior
-  desplegable". Hoy son seis controles en tres filas arriba de la lista.
-- **Detalle de movimiento en escritorio**: DESIGN.md 2 dice "Panel lateral, la
-  lista queda visible". Hoy es pantalla completa.
-- **Contador de pendientes en la navegacion** (DESIGN.md 7): todavia no esta.
-  Cobra sentido con la bandeja de pendientes de la fase 2.
-- **Borde de los campos** (`input` `#CFC5AD` sobre blanco: 1,7:1). WCAG 1.4.11
-  pide 3:1 cuando el borde es lo que delimita el control. Oscurecer el token o
-  darle fondo `muted` al campo.
-- **`Segmentado` usa roles de pestañas** (`tablist`/`tab`) sin panel: lo que hace
-  es elegir un valor, asi que semanticamente es un grupo de radio (`radiogroup`,
-  `aria-checked`, flechas del teclado).
-- **Header de escritorio**: dice "Finanzas", un texto de relleno. Deberia mostrar
-  el titulo de la pantalla o nada.
-- **Espaciados fuera de la escala de 4** (DESIGN.md 3): 43 usos en 22 archivos
-  (`gap-0.5`, `gap-1.5`, `gap-2.5`, `space-y-1.5`, `space-y-5`, `p-5`…). Pasada
-  mecanica.
-- **Alta en la primera sincronizacion**: con la base local todavia vacia muestra
-  "No tenés cuentas todavía (o están sincronizando)". Deberia mostrar el
-  esqueleto hasta la primera sync (`useStatus().hasSynced`), como pide 0008.
-- **Desbloqueo biometrico** (Ajustes > Seguridad) es un boton con el estado en
-  texto: por DESIGN.md 7 va `Interruptor`.
-- **Texto chico deliberado**: los montos por dia del calendario (10 px) y los
-  decimales y el simbolo de `Monto` (piso de 11 px, 0006) quedan debajo de los 13
-  px de DESIGN. Revisar junto con la escala tipografica.
+- **Contador de pendientes en la navegacion** (DESIGN.md 7). Cobra sentido con
+  la bandeja de pendientes de la fase 2.
 
-## Espacios: lo que sigue (0026)
+## Espacios y grupos: lo que sigue (0026, 0027)
 
-- **Etapa 2**: el "+" toma el espacio actual ("Nuevo gasto en ● Casa", ya
-  compartido y con las categorias del grupo); **Poner plata** en la cuenta
-  conjunta; accesos del Inicio del grupo (Saldar, Poner plata, Miembros,
-  Categorias); tarjeta por grupo en el Inicio personal y su resumen de una linea
-  en el selector; barra movil **Inicio · Movimientos · + · Presupuesto ·
-  Estadisticas** (la lista de grupos queda en "Administrar").
-- **Etapa 3**: categoria de sistema **Reintegros de grupo** y su separacion en
-  Estadisticas (ver "Conciliar las dos puntas de un pago").
-- **Filtros de Movimientos personal en la URL**: el mes ya va en `?mes=`; la
-  busqueda y los demas filtros todavia se pierden al entrar a un movimiento y
-  volver (en el grupo ya van todos en la URL).
+- **Etapa 3 de espacios**: categoria de sistema **Reintegros de grupo** y su
+  separacion en Estadisticas (ver "Conciliar las dos puntas de un pago").
+- **"Pago otro"** (0027): cargar un gasto que pago otro miembro ("Beto pago la
+  luz"). Cambia el modelo —hoy el gasto es de quien lo carga y su cuenta es
+  privada (0021)—, asi que necesita su decision: quien lo edita y de que cuenta
+  salio.
 
 ## PWA: ideas que salieron con los atajos (0023)
 
@@ -95,6 +52,13 @@ tocan el sistema entero, y van con decision propia.
   que abra un movimiento nuevo con el adjunto (los adjuntos ya existen, fase 5).
 - **`screenshots`** en el manifiesto: Android y Chrome de escritorio muestran un
   dialogo de instalacion mas rico con capturas.
+- **Actualizacion en Android** (2026-10-01, en espera mientras funcione): al
+  "cerrar y abrir", Android retoma la PWA desde memoria, sin navegar, y el
+  navegador no busca un `sw.js` nuevo; cuando lo encuentra, la pagina abierta no
+  se recarga. Tarda una o dos aperturas de cero. Si molesta: registrar el SW a
+  mano (`injectRegister: false`), buscar version al volver a primer plano
+  (`visibilitychange`) y recargar solo con la app oculta o en la pantalla del
+  PIN, nunca en medio de una carga.
 
 ## Cabos sueltos
 

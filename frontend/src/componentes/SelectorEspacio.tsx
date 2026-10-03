@@ -3,6 +3,8 @@ import { Check, ChevronDown, Plus, Settings2 } from "lucide-react"
 import { useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 
+import { PuntoEspacio } from "@/componentes/PuntoEspacio"
+import { ResumenGrupoLinea } from "@/componentes/grupo/TarjetaGrupos"
 import { Button } from "@/componentes/ui/button"
 import { Hoja } from "@/componentes/ui/hoja"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
@@ -22,7 +24,6 @@ interface GrupoFila {
   id: string
   name: string
   color: string | null
-  miembros: number
 }
 
 export function SelectorEspacio({ className }: { className?: string }) {
@@ -31,9 +32,7 @@ export function SelectorEspacio({ className }: { className?: string }) {
   const navigate = useNavigate()
   const [abierto, setAbierto] = useState(false)
   const { data: grupos } = useQuery<GrupoFila>(
-    `SELECT g.id, g.name, g.color,
-            (SELECT count(*) FROM group_members gm WHERE gm.group_id = g.id AND gm.deleted_at IS NULL) AS miembros
-     FROM groups g WHERE g.deleted_at IS NULL ORDER BY g.name`,
+    "SELECT id, name, color FROM groups WHERE deleted_at IS NULL ORDER BY name",
   )
 
   const enGrupo = espacio.tipo === "grupo"
@@ -60,7 +59,7 @@ export function SelectorEspacio({ className }: { className?: string }) {
           className,
         )}
       >
-        <Punto color={enGrupo ? (grupo?.color ?? SIN_COLOR) : null} />
+        <PuntoEspacio color={enGrupo ? (grupo?.color ?? SIN_COLOR) : null} />
         <span className="min-w-0 flex-1 truncate text-left">{nombre}</span>
         <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
       </button>
@@ -70,7 +69,7 @@ export function SelectorEspacio({ className }: { className?: string }) {
           <ListaInset>
             <FilaInset onClick={() => ir(PERSONAL)}>
               <span className="flex min-w-0 items-center gap-3">
-                <Punto color={null} />
+                <PuntoEspacio color={null} />
                 <span className="min-w-0">
                   <span className="block truncate font-medium">Personal</span>
                   <span className="block text-xs text-muted-foreground">
@@ -83,12 +82,14 @@ export function SelectorEspacio({ className }: { className?: string }) {
             {grupos.map((g) => (
               <FilaInset key={g.id} onClick={() => ir({ tipo: "grupo", id: g.id })}>
                 <span className="flex min-w-0 items-center gap-3">
-                  <Punto color={g.color ?? SIN_COLOR} />
+                  <PuntoEspacio color={g.color ?? SIN_COLOR} />
                   <span className="min-w-0">
                     <span className="block truncate font-medium">{g.name}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {g.miembros} {g.miembros === 1 ? "miembro" : "miembros"}
-                    </span>
+                    {/* Como quede yo en el grupo, como en el Inicio personal. */}
+                    <ResumenGrupoLinea
+                      groupId={g.id}
+                      className="block truncate text-xs text-muted-foreground"
+                    />
                   </span>
                 </span>
                 {enGrupo && espacio.id === g.id && (
@@ -110,19 +111,6 @@ export function SelectorEspacio({ className }: { className?: string }) {
         </div>
       </Hoja>
     </>
-  )
-}
-
-// Personal lleva el amarillo de marca; un grupo, su color (dato, no token).
-function Punto({ color }: { color: string | null }) {
-  return color ? (
-    <span
-      className="h-3 w-3 shrink-0 rounded-full"
-      style={{ backgroundColor: color }}
-      aria-hidden
-    />
-  ) : (
-    <span className="h-3 w-3 shrink-0 rounded-full bg-primary" aria-hidden />
   )
 }
 

@@ -2,6 +2,7 @@ import { useQuery } from "@powersync/react"
 import { useMemo } from "react"
 
 import {
+  type AporteHistoria,
   type GastoHistoria,
   type MiembroGrupo,
   type PagoHistoria,
@@ -34,6 +35,19 @@ export interface PagoGrupo {
   pago_real: number | null
 }
 
+// Plata que un miembro puso en (o saco de) una cuenta conjunta del grupo: una
+// transferencia comun (0017), que la sync le muestra al grupo sin decir de que
+// cuenta personal salio (sync-config, lente b/c).
+export interface AporteGrupo {
+  id: string
+  owner_id: string
+  amount: number
+  currency: string
+  occurred_at: string
+  sentido: "entra" | "sale"
+  cuenta: string
+}
+
 export interface CategoriaGrupo {
   id: string
   name: string
@@ -63,6 +77,17 @@ export function useGrupo(groupId: string) {
     `SELECT id, from_user_id, to_user_id, amount, currency, occurred_at, account_id, pago_real
      FROM settlements WHERE group_id = ? AND deleted_at IS NULL ORDER BY occurred_at DESC`,
     [groupId],
+  )
+  const { data: aportes } = useQuery<AporteGrupo>(
+    `SELECT t.id, t.owner_id, t.amount, t.currency, t.occurred_at,
+            CASE WHEN ca.id IS NOT NULL THEN 'entra' ELSE 'sale' END AS sentido,
+            COALESCE(ca.name, co.name) AS cuenta
+     FROM ${TX_GRUPO} t
+     LEFT JOIN accounts ca ON ca.id = t.transfer_account_id AND ca.group_id = ?
+     LEFT JOIN accounts co ON co.id = t.account_id AND co.group_id = ?
+     WHERE t.kind = 'transfer' AND t.deleted_at IS NULL AND (ca.id IS NOT NULL OR co.id IS NOT NULL)
+     ORDER BY t.occurred_at DESC`,
+    [groupId, groupId],
   )
   const { data: miembrosRows } = useQuery<{ user_id: string; display_name: string | null }>(
     `SELECT gm.user_id, u.display_name FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
@@ -103,6 +128,7 @@ export function useGrupo(groupId: string) {
     gastos,
     splitsDe,
     pagos,
+    aportes,
     miembros,
     categoria,
     categorias,
@@ -112,13 +138,20 @@ export function useGrupo(groupId: string) {
   }
 }
 
-// La historia de un grupo (0026): gastos y pagos entre miembros intercalados por
-// fecha, como Splitwise. La usan el Inicio del grupo (lo ultimo) y Movimientos.
+// La historia de un grupo (0026): gastos, pagos entre miembros y aportes a la
+// conjunta, intercalados por fecha como en Splitwise. La usan el Inicio del
+// grupo (lo ultimo) y Movimientos.
 export type ItemHistoria =
-  (GastoHistoria & { gasto: GastoGrupo }) | (PagoHistoria & { pago: PagoGrupo })
+  | (GastoHistoria & { gasto: GastoGrupo })
+  | (PagoHistoria & { pago: PagoGrupo })
+  | (AporteHistoria & { aporte: AporteGrupo })
 
-export function armarHistoria(gastos: GastoGrupo[], pagos: PagoGrupo[]): ItemHistoria[] {
-  return historiaGrupo(
+export function armarHistoria(
+  gastos: GastoGrupo[],
+  pagos: PagoGrupo[],
+  aportes: AporteGrupo[] = [],
+): ItemHistoria[] {
+  return historiaGrupo<ItemHistoria>(
     gastos.map((g) => ({
       tipo: "gasto" as const,
       id: g.id,
@@ -137,6 +170,16 @@ export function armarHistoria(gastos: GastoGrupo[], pagos: PagoGrupo[]): ItemHis
       amount: p.amount,
       currency: p.currency,
       pago: p,
+    })),
+    aportes.map((a) => ({
+      tipo: "aporte" as const,
+      id: a.id,
+      fecha: a.occurred_at,
+      owner_id: a.owner_id,
+      amount: a.amount,
+      currency: a.currency,
+      sentido: a.sentido,
+      aporte: a,
     })),
   )
 }

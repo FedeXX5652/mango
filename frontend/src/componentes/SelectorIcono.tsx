@@ -51,8 +51,9 @@ export function SelectorIcono({
           "flex shrink-0 items-center justify-center transition-colors",
           variante === "campo"
             ? "h-11 w-11 rounded-xl border border-border bg-card text-foreground hover:bg-muted"
-            : // 40 px tocables (antes 28): el margen negativo compensa el alto.
-              "-m-2 h-10 w-10 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground",
+            : // 44 px tocables en el movil, 40 en escritorio: el margen negativo
+              // compensa el alto en la fila.
+              "-m-2 h-11 w-11 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground lg:h-10 lg:w-10",
         )}
       >
         {/* eslint-disable-next-line react-hooks/static-components */}

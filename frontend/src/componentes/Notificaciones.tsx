@@ -98,7 +98,7 @@ export function Notificaciones() {
                   >
                     <span
                       className={cn(
-                        "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+                        "mt-2 h-2 w-2 shrink-0 rounded-full",
                         a.read_at ? "bg-transparent" : "bg-primary",
                       )}
                       aria-hidden
@@ -112,7 +112,7 @@ export function Notificaciones() {
                           {formatearFechaCorta(a.created_at)}
                         </span>
                       </span>
-                      <span className="mt-0.5 block text-sm text-muted-foreground">{a.body}</span>
+                      <span className="mt-1 block text-sm text-muted-foreground">{a.body}</span>
                     </span>
                   </button>
                 </li>

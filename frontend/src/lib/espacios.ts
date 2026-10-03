@@ -4,10 +4,13 @@
 //
 //   Personal: /            /movimientos            /presupuesto  /estadisticas  /ajustes
 //   Grupo:    /grupos/<id> /grupos/<id>/movimientos ...                         /grupos/<id>/ajustes
+//
+// El alta tambien: `/nuevo` y `/grupos/<id>/nuevo` (el "+" carga en el espacio
+// donde se esta).
 
 export type Espacio = { tipo: "personal" } | { tipo: "grupo"; id: string }
 
-export type Seccion = "" | "movimientos" | "presupuesto" | "estadisticas" | "ajustes"
+export type Seccion = "" | "movimientos" | "presupuesto" | "estadisticas" | "ajustes" | "nuevo"
 
 export const PERSONAL: Espacio = { tipo: "personal" }
 
@@ -38,4 +41,17 @@ export function seccionDeRuta(pathname: string): Seccion {
   const resto = pathname.replace(/^\/grupos\/[^/]+/, "")
   const primera = resto.split("/").filter(Boolean)[0] ?? ""
   return (COMUNES as string[]).includes(primera) ? (primera as Seccion) : ""
+}
+
+// Poner o sacar plata de la conjunta de un grupo (0017, 0026): el alta de una
+// transferencia en el grupo, con la conjunta ya elegida como destino (poner) u
+// origen (sacar). Sin cuenta (varias conjuntas), se elige en el formulario.
+export function rutaMoverPlata(
+  grupoId: string,
+  sentido: "poner" | "sacar",
+  cuentaId?: string,
+): string {
+  const q = new URLSearchParams({ tipo: "transferencia" })
+  if (cuentaId) q.set(sentido === "poner" ? "hacia" : "desde", cuentaId)
+  return `${rutaEspacio({ tipo: "grupo", id: grupoId }, "nuevo")}?${q}`
 }

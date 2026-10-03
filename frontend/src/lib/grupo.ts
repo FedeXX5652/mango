@@ -9,6 +9,8 @@
 // Multi-moneda: no se mezclan monedas (no hay una cotizacion del grupo). Se
 // arma un resumen por cada moneda que aparezca en los gastos compartidos.
 
+import { formatearMonto } from "@/lib/dinero"
+
 export interface TxGrupo {
   id: string
   owner_id: string
@@ -233,11 +235,49 @@ export interface PagoHistoria {
   currency: string
 }
 
+// Plata que un miembro pone en la cuenta conjunta ("entra") o saca de ella
+// ("sale"). Es una transferencia comun (0017): no toca el balance de deudas.
+export interface AporteHistoria {
+  tipo: "aporte"
+  id: string
+  fecha: string
+  owner_id: string
+  amount: number
+  currency: string
+  sentido: "entra" | "sale"
+}
+
 // La historia del grupo en una sola lista, de lo mas nuevo a lo mas viejo:
-// gastos y pagos entre miembros intercalados por fecha, como Splitwise.
-export function historiaGrupo<G extends GastoHistoria, P extends PagoHistoria>(
-  gastos: G[],
-  pagos: P[],
-): (G | P)[] {
-  return [...gastos, ...pagos].sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0))
+// gastos, pagos entre miembros y aportes a la conjunta intercalados por fecha,
+// como Splitwise.
+export function historiaGrupo<T extends { fecha: string }>(...listas: T[][]): T[] {
+  return listas.flat().sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0))
+}
+
+// Una linea con como quede YO en un grupo (0026): la tarjeta del grupo en el
+// Inicio personal y su fila en el selector de espacio. Si hay una sola persona
+// del otro lado, se la nombra ("Beto te debe $X"); si no, el total. Cada
+// moneda por separado: no se mezclan (0015).
+export function resumenMio(
+  balance: ResumenMoneda[],
+  miId: string,
+  nombre: (userId: string) => string,
+): string {
+  if (balance.length === 0) return "Sin gastos todavía"
+  const partes = balance.flatMap((r) => {
+    const neto = r.balances.find((b) => b.user_id === miId)?.neto ?? 0
+    if (neto === 0) return []
+    const monto = formatearMonto(Math.abs(neto), { moneda: r.currency })
+    if (neto > 0) {
+      const deudores = r.liquidaciones.filter((l) => l.a === miId)
+      return [
+        deudores.length === 1 ? `${nombre(deudores[0].de)} te debe ${monto}` : `Te deben ${monto}`,
+      ]
+    }
+    const acreedores = r.liquidaciones.filter((l) => l.de === miId)
+    return [
+      acreedores.length === 1 ? `Le debés ${monto} a ${nombre(acreedores[0].a)}` : `Debés ${monto}`,
+    ]
+  })
+  return partes.length > 0 ? partes.join(" · ") : "Están al día"
 }

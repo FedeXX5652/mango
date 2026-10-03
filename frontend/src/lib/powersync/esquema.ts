@@ -349,6 +349,9 @@ const groups = new Table({
   base_currency: column.text,
   // Color del grupo, para el chip de origen en toda la app (ver 3b.2c).
   color: column.text,
+  // Reparto por defecto de un gasto nuevo (0026): JSON {user_id: partes}, o
+  // NULL = partes iguales. Se lee con `leerReparto` (lib/reparto).
+  default_split: column.text,
   created_by: column.text,
   created_at: column.text,
   updated_at: column.text,

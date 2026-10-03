@@ -155,7 +155,7 @@ function Fila({
   const sangria = Boolean(c.parent_id)
   return (
     <FilaInset>
-      <span className={cn("flex min-w-0 items-center gap-2.5", sangria && "pl-6")}>
+      <span className={cn("flex min-w-0 items-center gap-3", sangria && "pl-6")}>
         <SelectorIcono variante="fila" valor={c.icon} onCambio={(clave) => onIcono(c, clave)} />
         <span
           className={cn(
@@ -167,7 +167,7 @@ function Fila({
           {c.name}
         </span>
       </span>
-      <div className="flex shrink-0 items-center gap-0.5">
+      <div className="flex shrink-0 items-center gap-1">
         <Button
           variant="ghost"
           size="icon"

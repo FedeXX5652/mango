@@ -48,7 +48,7 @@ export function Puntos({
   etiqueta?: string
 }) {
   return (
-    <span role="status" className={cn("inline-flex items-center gap-1.5", className)}>
+    <span role="status" className={cn("inline-flex items-center gap-2", className)}>
       {[0, 1, 2].map((i) => (
         <span
           key={i}
@@ -93,7 +93,7 @@ export function Cargando({
       {!visible
         ? null
         : (children ?? (
-            <div className="flex justify-center py-10 text-muted-foreground">
+            <div className="flex justify-center py-12 text-muted-foreground">
               <Puntos etiqueta={etiqueta} />
             </div>
           ))}

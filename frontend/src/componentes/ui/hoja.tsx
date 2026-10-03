@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useId, useRef } from "react"
 import { Drawer } from "vaul"
 
 import { useLayout } from "@/hooks/useLayout"
@@ -45,29 +45,80 @@ export function Hoja({ abierta, onOpenChange, titulo, children }: Props) {
   )
 }
 
+// Lo que recibe foco con Tab adentro del modal.
+const ENFOCABLES =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
 function ModalEscritorio({ abierta, onOpenChange, titulo, children }: Props) {
+  const caja = useRef<HTMLDivElement>(null)
+  const idTitulo = useId()
+
+  // Foco (WCAG 2.4.3): al abrir entra al modal; al cerrar vuelve a lo que lo
+  // abrio. Antes quedaba atras, y con Tab se seguia por la pantalla de abajo.
   useEffect(() => {
     if (!abierta) return
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onOpenChange(false)
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [abierta, onOpenChange])
+    const previo = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    caja.current?.focus()
+    return () => {
+      if (previo?.isConnected) previo.focus()
+    }
+  }, [abierta])
 
   if (!abierta) return null
+
+  // Las teclas las atiende el modal de ARRIBA y no siguen: con un selector
+  // abierto sobre el alta, Escape (escuchado en la ventana) cerraba los dos y se
+  // perdia lo cargado. Un modal anidado es descendiente del de abajo en el DOM,
+  // asi que el suyo corre primero y corta la propagacion.
+  function alTecla(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Escape") {
+      e.stopPropagation()
+      onOpenChange(false)
+      return
+    }
+    if (e.key !== "Tab" || !caja.current) return
+    // Tab da la vuelta adentro del modal (WCAG 2.1.2: se sale con Escape).
+    e.stopPropagation()
+    const focos = [...caja.current.querySelectorAll<HTMLElement>(ENFOCABLES)].filter(
+      (el) => el.offsetParent !== null,
+    )
+    if (focos.length === 0) return e.preventDefault()
+    const primero = focos[0]
+    const ultimo = focos[focos.length - 1]
+    const actual = document.activeElement
+    if (e.shiftKey && (actual === primero || actual === caja.current)) {
+      e.preventDefault()
+      ultimo.focus()
+    } else if (!e.shiftKey && (actual === ultimo || actual === caja.current)) {
+      e.preventDefault()
+      primero.focus()
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
         type="button"
         aria-label="Cerrar"
+        tabIndex={-1}
         className="absolute inset-0 cursor-default bg-black/40 motion-safe:animate-fundir"
         onClick={() => onOpenChange(false)}
       />
       <div
+        ref={caja}
         role="dialog"
         aria-modal="true"
-        className="relative z-10 max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-4 shadow-xl motion-safe:animate-aparecer"
+        aria-labelledby={titulo ? idTitulo : undefined}
+        aria-label={titulo ? undefined : "Panel"}
+        tabIndex={-1}
+        onKeyDown={alTecla}
+        className="relative z-10 max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-4 shadow-xl outline-none motion-safe:animate-aparecer"
       >
-        {titulo && <h2 className="mb-3 text-lg font-semibold">{titulo}</h2>}
+        {titulo && (
+          <h2 id={idTitulo} className="mb-3 text-lg font-semibold">
+            {titulo}
+          </h2>
+        )}
         {children}
       </div>
     </div>

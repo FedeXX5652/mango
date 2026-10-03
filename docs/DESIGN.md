@@ -50,15 +50,15 @@ componente de layout movil importa algo de layout escritorio, algo se hizo mal.
 | | Movil | Escritorio |
 |---|---|---|
 | Espacio actual | **Selector** arriba a la izquierda de cada pantalla principal (ver "Selector de espacio", 0026) | El mismo selector, arriba de la barra lateral |
-| Navegacion | Barra inferior: **4 destinos fijos** (Inicio, Movimientos, Presupuesto, Grupos) y el boton **+** elevado al centro, en cinco columnas iguales. Inicio, Movimientos y Presupuesto llevan a esa seccion **del espacio actual**. Estadisticas se abre desde la tarjeta de Resumen de Inicio y desde el atajo del icono; Ajustes vive en el header de Inicio (ver 0022) | Barra lateral fija con todos los destinos (Ajustes y Estadisticas incluidos). Las secciones siguen al espacio; en un grupo se suma **Ajustes del grupo** |
+| Navegacion | Barra inferior: **4 destinos fijos**, las cuatro secciones del espacio actual (Inicio, Movimientos, Presupuesto, Estadisticas), y el boton **+** elevado al centro, en cinco columnas iguales. Los grupos se eligen con el selector; Ajustes vive en el header de Inicio (ver 0022 y 0026) | Barra lateral fija con todos los destinos (Ajustes, Estadisticas y Grupos incluidos). Las secciones siguen al espacio; en un grupo se suma **Ajustes del grupo** |
 | Lo que no esta en la barra | Panel de **accesos** en Inicio: 4 elegidos y ordenados por la persona + "Más" (ver 0024) | Bloque **Herramientas** en la barra lateral (metas, deudas, recurrentes, plantillas) |
 | Ajustes | Solo **configuracion**: cuentas, categorias, medios, etiquetas, cotizaciones, moneda, apariencia, seguridad (0024) | Igual |
 | Accion principal | El **+** central de la barra inferior (no hay boton flotante) | Boton "Nuevo movimiento" en la barra superior |
 | Alta de movimiento | Pantalla focal (ruta `/nuevo`, entra deslizando desde abajo) | Modal centrado sobre el dashboard (mismo formulario: `FormularioMovimiento`) |
 | Lista de movimientos | Agrupada por dia, una tarjeta por grupo (ver 7) | La misma lista, en columna acotada |
-| Detalle de movimiento | Pantalla completa | Panel lateral, la lista queda visible |
+| Detalle de movimiento | Pantalla completa | Panel lateral, la lista queda visible (`ConPanel`, ver 7) |
 | Graficos | Uno por pantalla, apilados | Grilla de dos o tres por fila |
-| Filtros | Hoja inferior desplegable | Barra de filtros siempre visible |
+| Filtros | La busqueda a la vista, el resto en una **hoja inferior** ("Filtros (n)") y los activos como chips que se quitan | Barra de filtros siempre visible |
 | Calendario | Mes con totales por dia, toque abre el dia | Mes con los movimientos visibles en cada celda |
 
 ### Estructura de carpetas
@@ -99,7 +99,7 @@ siempre el token.
 | `accent-foreground` | Texto sobre `accent` |
 | `enlace` | Texto de enlaces y acciones de texto ("Ver todos", "Cargarla") e iconos que dicen un estado (el check de lo elegido). Es un **alias** de `accent-foreground`, no un color nuevo: ese token ya es oscuro sobre claro y claro sobre oscuro en los tres temas (9:1 a 13:1) |
 | `border` | Bordes y separadores |
-| `input` | Borde de campos de formulario |
+| `input` | Borde de campos de formulario y de los botones `outline`. Minimo **3:1** contra `background` y `card` (WCAG 1.4.11: el borde es lo que delimita el control). En Mango claro es `#A49163`; el `#CFC5AD` de antes daba 1,7:1. Los seis temas/modos estan en 3,0:1 o mas |
 | `ring` | Anillo de foco. Minimo **3:1** contra el fondo (WCAG 1.4.11): en Mango claro es `#A87C00`; el `#D9A300` de antes daba 2,2:1 |
 
 **`primary` es de fondo, no de texto.** El amarillo de marca sobre blanco da
@@ -133,7 +133,11 @@ tiene alguna deficiencia en la percepcion del rojo y el verde.
 Escala de espaciado, en multiplos de 4: **4, 8, 12, 16, 24, 32, 48, 64**.
 
 No usar valores fuera de esa escala. Si algo necesita 13 px, casi siempre es
-que se eligio mal el contenedor.
+que se eligio mal el contenedor. Al pasar el codigo a la escala, lo que estaba
+afuera se llevo asi: 2 y 6 px a 4 y 8 (separaciones minimas), 10 a 12 (icono y
+texto en una fila), 20 a 16 en tarjetas y formularios (con 24, en 360 px se
+cortaban montos), la sangria de una subcategoria a 24 y el espaciador de carga
+a 48.
 
 ### Tipografia
 
@@ -167,6 +171,24 @@ Grotesk como familia, y DM Sans porque no tiene `tabular-nums`.
 **Los montos usan siempre cifras tabulares** (`font-variant-numeric:
 tabular-nums`). Sin eso, una columna de numeros no alinea y se vuelve dificil
 de comparar de un vistazo.
+
+**En el codigo**, la escala de Tailwind esta llevada a esta tabla
+(`tailwind.config.ts`): `text-xs` es 13, `text-sm` 15, `text-base` 16, `text-lg`
+18, `text-2xl` 24 y `text-3xl` 32. Para codigo nuevo hay nombres por rol con los
+mismos valores: `text-secundaria`, `text-cuerpo`, `text-monto-lista`,
+`text-seccion`, `text-titulo` y `text-destacado`. `cn()` los conoce
+(tailwind-merge): sin eso, un tamaño propio junto a un color se perdia.
+
+Excepciones deliberadas, con nombre y no como valores sueltos:
+
+- `text-barra` (12 px): las etiquetas de la barra inferior. Con 13, "Estadisticas"
+  no entra en una columna de 360 px.
+- `text-celda` (10 px): los montos por dia de las celdas del calendario (solo en
+  escritorio).
+- Los decimales y el simbolo de `Monto` van a 0,72 y 0,85 em con piso de 11 px
+  (0006).
+- En el movil, `Segmentado` usa 13 px, como el control segmentado de iOS: con 15,
+  "Transferencia" no entraba en un tercio de 360 px. En escritorio, 15.
 
 ---
 
@@ -503,8 +525,11 @@ encabezado. Nunca mezcladas con las activas.
 
 - **Minimo 24 x 24 px** para todo control (WCAG 2.2, 2.5.8). Es el piso, no la
   meta.
-- **En el movil, 44 px** para lo que se toca seguido: la barra inferior, los
-  botones del header, las filas con interruptor y los enlaces de seccion.
+- **En el movil, 44 px** para todo control: botones (tambien los de icono y los
+  `sm`), campos, desplegables, `Segmentado`, chips de filtro, muestras de color y
+  el area del interruptor. En escritorio, con mouse, vuelven a su tamaño (40,
+  36, 32). El corte es `lg:`, el mismo que separa los dos layouts: `h-11
+  lg:h-10`.
 - Si el control se ve chico a proposito (un "Ver todos", un monto que abre su
   edicion), el area se agranda con **padding y margen negativo del mismo
   tamano**: se toca en 44 px y el layout no se mueve.
@@ -611,13 +636,20 @@ distinto en cada sistema y no admite la pastilla—. El deslizamiento es
 `motion-safe`; con movimiento reducido queda el cambio de color solo.
 
 Se usa cuando la opcion es binaria y **por fila** (una moneda en automatico o a
-mano). Para elegir entre dos alternativas con nombre va `Segmentado`; para
-encender algo, el interruptor.
+mano, el desbloqueo biometrico). Para elegir entre dos alternativas con nombre
+va `Segmentado`; para encender algo, el interruptor. La pastilla mide 40×24, pero
+el boton que la contiene es de 44×44: el area tocable crece sin agrandar el
+dibujo.
 
 ### Control segmentado: `Segmentado`
 
 Pista con pildora deslizante para elegir entre pocas opciones excluyentes (tipo
 de movimiento, apariencia). El desplazamiento de la pildora es `motion-safe`.
+
+Es un **grupo de radio** (`radiogroup` con `radio` y `aria-checked`), no
+pestañas: elige un valor, no muestra un panel. Con el teclado se comporta como
+uno nativo: Tab entra a la opcion elegida y las flechas cambian la eleccion. Se
+le pasa `etiqueta` para que el grupo tenga nombre ("Tipo de movimiento").
 
 **Si la cantidad de opciones depende de los datos, el control cambia con ella**
 (decision 0007): 1 opcion no se dibuja, 2 van en chips, **3 o mas pasan a
@@ -686,6 +718,10 @@ botones de icono y su `aria-label` ("Subir Metas de ahorro"). Nada de
 arrastrar: con el dedo, en una lista que scrollea, es impreciso, y WCAG 2.5.7 pide
 una alternativa igual.
 
+En un **grupo** los accesos son fijos y van en cuatro columnas: Saldar, Poner
+plata, Miembros y Categorias (0026). Se ven tambien en escritorio: son acciones,
+no destinos que ya esten en la barra lateral.
+
 ### Plantillas en el alta
 
 Un solo boton **"Plantillas (n)"** en la fila de la moneda, que abre una `Hoja`
@@ -714,7 +750,11 @@ marca; un grupo, su color), nombre truncado y chevron, 44 px de alto. Es la
 defensa contra cargar algo en el espacio equivocado, asi que **no se esconde**.
 
 - Al tocarlo abre una `Hoja` "Espacios" con Personal y cada grupo (tilde en el
-  actual), **Nuevo grupo** y **Administrar**.
+  actual), **Nuevo grupo** y **Administrar**. Cada grupo dice como quedo yo en
+  una linea ("Beto te debe $X"), la misma de la tarjeta de grupos del Inicio
+  personal.
+- El alta dice **"Se carga en ● Casa ▾"** con el mismo chip, y deja cambiar el
+  espacio sin salir del formulario.
 - Cambiar deja en la **misma seccion** del otro espacio.
 - En el movil, el chip encabeza Inicio, Movimientos, Presupuesto y Estadisticas
   (`EncabezadoEspacio`, con las acciones de la pantalla a la derecha). En
@@ -725,10 +765,45 @@ defensa contra cargar algo en el espacio equivocado, asi que **no se esconde**.
 
 ### El estado de la pantalla va en la URL
 
-El mes y los filtros de una lista van en la direccion (`?mes=2026-09`), no en un
-`useState`. Entrar a un detalle y volver deja la lista donde estaba, y la
+El mes, la vista y los filtros de una lista van en la direccion
+(`?mes=2026-09&cuenta=…&q=…`), no en un `useState`. Cambiar un filtro reemplaza
+la entrada del historial (`replace`): "volver" sale de la lista, no deshace
+filtros de a uno. Un id de la direccion que ya no existe (una cuenta borrada) no
+filtra. Entrar a un detalle y volver deja la lista donde estaba, y la
 direccion se puede compartir o guardar. El estado efimero (una hoja abierta, un
 campo a medio escribir) sigue en el componente.
+
+### Repartir un gasto
+
+El editor de reparto (`EditorSplit`) tiene cuatro modos: **Igual** (con
+interruptor por persona), **Exacto**, **%** y **Partes** (0027). Salvo en Exacto,
+donde se escribe el monto, debajo de cada nombre se ve lo que le toca. Un gasto
+nuevo de un grupo con reparto por defecto arranca en Partes, ya cargado; se
+cambia ahi mismo. Al pasar a Partes a mano, cada uno arranca con 1. Quien queda
+con 0 partes o 0 % se nombra ("Carla queda afuera de este gasto"): no se deja que
+se deduzca de un "$ 0,00".
+
+### Panel de detalle en escritorio
+
+`ConPanel` dibuja la lista y, al costado, el detalle abierto (la ruta hija
+`movimientos/:id`). La lista y el panel scrollean cada uno por su lado (el
+layout de escritorio tiene alto fijo: scrollea `main`, no el documento). La fila
+abierta se marca con fondo y `aria-current`. En el panel, "Volver" es
+**Cerrar** (X), y guardar o borrar lo cierra; la lista queda con su mes y sus
+filtros, que van en la URL. Pasar de una fila a otra reemplaza la entrada del
+historial en vez de apilarla.
+
+### Dos nombres en una linea
+
+"Beto → Vos" va en **una sola linea que se corta al final** (`DeA`), no como dos
+nombres que se truncan cada uno: el navegador los achicaba en proporcion y un
+nombre corto ("Vos") terminaba en "V…".
+
+### Un monto no se parte
+
+`Monto` no se corta en dos lineas (`whitespace-nowrap`): en una columna angosta
+el "$" quedaba solo arriba del numero. Si no entra, se le da mas lugar a la
+columna.
 
 ### Hover solo con mouse
 

@@ -14,11 +14,13 @@ const botonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground",
         destructive: "bg-destructive text-destructive-foreground hover:opacity-90",
       },
+      // 44 px en el movil (el minimo tactil recomendado, DESIGN.md 7) y 40 en
+      // escritorio, con mouse. `lg` es el mismo corte que separa los layouts.
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 px-3",
+        default: "h-11 px-4 py-2 lg:h-10",
+        sm: "h-11 px-3 lg:h-9",
         lg: "h-11 px-6",
-        icon: "h-10 w-10",
+        icon: "h-11 w-11 lg:h-10 lg:w-10",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

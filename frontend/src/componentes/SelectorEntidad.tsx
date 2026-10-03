@@ -90,7 +90,7 @@ export function SelectorEntidad({
         // como un campo mas. Lo unico distinto es la flecha, y a proposito:
         // `›` abre un panel, `▾` despliega en el lugar.
         className={cn(
-          "flex h-10 w-full items-center gap-2.5 rounded-md border border-input bg-background px-3 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "flex h-11 w-full items-center gap-3 rounded-md lg:h-10 border border-input bg-background px-3 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           className,
         )}
       >
@@ -182,16 +182,16 @@ function Fila({
       type="button"
       onClick={onElegir}
       aria-pressed={elegida}
-      className="flex w-full items-center gap-2.5 px-3 py-3 text-left transition-colors hover:bg-muted"
+      className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-muted"
     >
       {conIcono && (
         // eslint-disable-next-line react-hooks/static-components
         <Icono
-          className={cn("h-4 w-4 shrink-0 text-muted-foreground", sangria && "ml-5")}
+          className={cn("h-4 w-4 shrink-0 text-muted-foreground", sangria && "ml-6")}
           aria-hidden
         />
       )}
-      <span className={cn("min-w-0 flex-1", !conIcono && sangria && "pl-5")}>
+      <span className={cn("min-w-0 flex-1", !conIcono && sangria && "pl-6")}>
         <span
           className={cn(
             "block truncate text-sm",

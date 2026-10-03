@@ -1,11 +1,11 @@
 import { useQuery } from "@powersync/react"
-import { ArrowLeft } from "lucide-react"
 import { useParams } from "react-router-dom"
 
+import { BotonSalir } from "@/componentes/BotonSalir"
 import { Monto } from "@/componentes/Monto"
-import { Button } from "@/componentes/ui/button"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { useGrupo } from "@/hooks/useGrupo"
+import { usePanel } from "@/hooks/usePanel"
 import { useVolver } from "@/hooks/useVolver"
 import { formatearMonto } from "@/lib/dinero"
 import { formatearFechaCorta } from "@/lib/fecha"
@@ -24,21 +24,32 @@ interface FilaGasto {
   payee: string | null
   occurred_at: string
   paid_from_group?: number
+  kind: "expense" | "income" | "transfer"
+  // Si es un aporte a (o retiro de) la conjunta: su nombre y hacia donde fue.
+  cuenta_conjunta: string | null
+  sentido: "entra" | "sale"
 }
 
-// Un gasto del grupo (0026). Si lo cargue yo, es el detalle de siempre
-// (editable). Si lo cargo otro, se ve en SOLO LECTURA: solo lo edita quien lo
-// cargo, que es la regla del servidor y la que protege lo privado de cada uno
-// (su cuenta ni siquiera viaja, 0021).
+// Un movimiento del grupo (0026): un gasto compartido o un aporte a la cuenta
+// conjunta. Si lo cargue yo, es el detalle de siempre (editable). Si lo cargo
+// otro, se ve en SOLO LECTURA: solo lo edita quien lo cargo, que es la regla del
+// servidor y la que protege lo privado de cada uno (su cuenta ni siquiera
+// viaja, 0021).
 export function DetalleGastoGrupo() {
   const { id: txId = "" } = useParams()
   const { id, grupo, cargando } = useGrupoDeRuta()
   const datos = useGrupo(id)
-  const volver = useVolver(`/grupos/${id}/movimientos`)
+  const volverDePantalla = useVolver(`/grupos/${id}/movimientos`)
+  const volver = usePanel()?.cerrar ?? volverDePantalla
   const { data, isLoading } = useQuery<FilaGasto>(
-    `SELECT id, owner_id, amount, currency, category_id, payee, occurred_at, paid_from_group
-     FROM ${TX_GRUPO} t WHERE t.id = ? AND t.group_id = ? AND t.deleted_at IS NULL`,
-    [txId, id],
+    `SELECT t.id, t.owner_id, t.kind, t.amount, t.currency, t.category_id, t.payee, t.occurred_at,
+            t.paid_from_group, c.name AS cuenta_conjunta,
+            CASE WHEN c.id = t.transfer_account_id THEN 'entra' ELSE 'sale' END AS sentido
+     FROM ${TX_GRUPO} t
+     LEFT JOIN accounts c ON c.group_id = ? AND t.kind = 'transfer'
+       AND c.id IN (t.account_id, t.transfer_account_id)
+     WHERE t.id = ? AND t.deleted_at IS NULL AND (t.group_id = ? OR c.id IS NOT NULL)`,
+    [id, txId, id],
   )
   const tx = data[0]
 
@@ -46,15 +57,15 @@ export function DetalleGastoGrupo() {
   if (!grupo) return <GrupoNoEncontrado />
   if (tx && tx.owner_id === datos.miId) return <DetalleMovimiento />
 
+  if (tx?.kind === "transfer") return <AporteAjeno tx={tx} volver={volver} nombre={datos.nombre} />
+
   const cat = tx?.category_id ? datos.categoria.get(tx.category_id) : undefined
   const splits = tx ? (datos.splitsDe.get(tx.id) ?? []) : []
 
   return (
     <div className="mx-auto max-w-md space-y-4 p-4">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+        <BotonSalir volver={volver} />
         <h1 className="min-w-0 truncate text-2xl font-semibold">
           {tx ? tx.payee || cat?.name || "Gasto" : "Gasto"}
         </h1>
@@ -101,6 +112,39 @@ export function DetalleGastoGrupo() {
           </p>
         </>
       )}
+    </div>
+  )
+}
+
+// El aporte de otro miembro a la conjunta: quien, cuanto, cuando y a que cuenta.
+// De que cuenta personal salio no viaja (sync-config, lente b).
+function AporteAjeno({
+  tx,
+  volver,
+  nombre,
+}: {
+  tx: FilaGasto
+  volver: () => void
+  nombre: (userId: string) => string
+}) {
+  const entra = tx.sentido === "entra"
+  return (
+    <div className="mx-auto max-w-md space-y-4 p-4">
+      <header className="flex items-center gap-2">
+        <BotonSalir volver={volver} />
+        <h1 className="min-w-0 truncate text-2xl font-semibold">
+          {entra ? "Aporte a la conjunta" : "Retiro de la conjunta"}
+        </h1>
+      </header>
+      <Monto centavos={tx.amount} moneda={tx.currency} className="block text-3xl font-semibold" />
+      <ListaInset>
+        <Dato etiqueta={entra ? "Puso" : "Sacó"}>{nombre(tx.owner_id)}</Dato>
+        <Dato etiqueta="Cuenta">{tx.cuenta_conjunta ?? "Conjunta"}</Dato>
+        <Dato etiqueta="Fecha">{formatearFechaCorta(tx.occurred_at)}</Dato>
+      </ListaInset>
+      <p className="text-sm text-muted-foreground">
+        Lo cargó {nombre(tx.owner_id)}: solo esa persona lo puede editar.
+      </p>
     </div>
   )
 }

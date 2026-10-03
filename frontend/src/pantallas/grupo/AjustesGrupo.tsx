@@ -4,6 +4,7 @@ import { useState } from "react"
 
 import { GrupoCategorias } from "@/componentes/GrupoCategorias"
 import { PaletaColor } from "@/componentes/PaletaColor"
+import { RepartoDelGrupo } from "@/componentes/grupo/RepartoDelGrupo"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
@@ -11,6 +12,7 @@ import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { useGrupo } from "@/hooks/useGrupo"
+import { useIrAAncla } from "@/hooks/useIrAAncla"
 import { useVolver } from "@/hooks/useVolver"
 import { ApiError, api } from "@/lib/api"
 import { useGrupoDeRuta } from "@/hooks/useEspacio"
@@ -38,6 +40,10 @@ export function AjustesGrupo() {
   const [aQuitar, setAQuitar] = useState<string | null>(null)
   const [error, setError] = useState("")
   const [trabajando, setTrabajando] = useState(false)
+
+  // Los accesos del Inicio del grupo llegan a una seccion (`#miembros`,
+  // `#categorias`).
+  useIrAAncla(!cargando)
 
   if (cargando) return <CargandoGrupo />
   if (!grupo) return <GrupoNoEncontrado />
@@ -112,7 +118,7 @@ export function AjustesGrupo() {
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section id="miembros" className="scroll-mt-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground">Miembros</h2>
           {soyDueño && (
@@ -149,7 +155,11 @@ export function AjustesGrupo() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <GrupoCategorias groupId={id} />
+      <RepartoDelGrupo groupId={id} miembros={miembros} nombre={nombre} />
+
+      <div id="categorias" className="scroll-mt-4">
+        <GrupoCategorias groupId={id} />
+      </div>
 
       <Hoja abierta={agregando} onOpenChange={setAgregando} titulo={`Agregar a ${grupo.name}`}>
         <div className="space-y-3">

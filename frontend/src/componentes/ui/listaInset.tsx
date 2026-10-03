@@ -25,10 +25,14 @@ export function FilaInset({
   children,
   onClick,
   className,
+  actual,
 }: {
   children: React.ReactNode
   onClick?: () => void
   className?: string
+  // La fila abierta (el detalle del panel de escritorio): lo dice tambien al
+  // lector de pantalla, no solo con el fondo.
+  actual?: boolean
 }) {
   const clases = cn(
     "flex w-full items-center justify-between gap-3 px-4 py-3 text-left",
@@ -37,7 +41,12 @@ export function FilaInset({
   )
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={clases}>
+      <button
+        type="button"
+        onClick={onClick}
+        className={clases}
+        aria-current={actual ? "true" : undefined}
+      >
         {children}
       </button>
     )

@@ -87,7 +87,7 @@ export function Calendario({
                       tocar el dia. En escritorio la celda es ancha y va el
                       numero. El signo no se comunica solo por color: la barra
                       lleva la flecha. */}
-                  <span className="flex items-center gap-0.5 lg:hidden">
+                  <span className="flex items-center gap-1 lg:hidden">
                     {neto < 0 ? (
                       <ArrowDown className="h-2.5 w-2.5 shrink-0 text-expense" aria-hidden />
                     ) : (
@@ -100,7 +100,7 @@ export function Calendario({
                   </span>
                   <span
                     className={cn(
-                      "tabular hidden text-[10px] leading-tight lg:block",
+                      "tabular hidden text-celda lg:block",
                       neto < 0 ? "text-expense" : "text-income",
                     )}
                   >

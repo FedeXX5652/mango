@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest"
 
 import {
   aCentavos,
+  aTextoEditable,
   configurarMonedaBase,
   decimalesDe,
   factorDe,
@@ -178,5 +179,24 @@ describe("espacio no-separable", () => {
     for (const v of [p.simbolo, p.entero, p.separador, p.fraccion, p.numero]) {
       expect(v).not.toContain(NBSP)
     }
+  })
+})
+
+describe("texto editable de un monto", () => {
+  it("con los decimales de la moneda, sin separador de miles", () => {
+    expect(aTextoEditable(230272, "ARS")).toBe("2302,72")
+    expect(aTextoEditable(100000, "ARS")).toBe("1000,00")
+    expect(aTextoEditable(5, "ARS")).toBe("0,05")
+    expect(aTextoEditable(500, "JPY")).toBe("500")
+    expect(aTextoEditable(-1250, "USD")).toBe("-12,50")
+  })
+  it("ida y vuelta con aCentavos en la misma moneda", () => {
+    for (const [c, m] of [
+      [230272, "ARS"],
+      [500, "JPY"],
+      [123456, "CLP"],
+      [1, "USD"],
+    ] as [number, string][])
+      expect(aCentavos(aTextoEditable(c, m), m)).toBe(c)
   })
 })

@@ -55,7 +55,9 @@ export function Monto({
 
   if (variante === "suelto") {
     return (
-      <span className={cn("tabular", className)} title={completo}>
+      // Un monto nunca se parte en dos lineas: en una columna angosta el "$"
+      // quedaba solo arriba del numero.
+      <span className={cn("tabular whitespace-nowrap", className)} title={completo}>
         <span aria-hidden>
           {signo}
           <span className="text-[max(0.85em,11px)] text-muted-foreground">{simbolo}</span> {entero}

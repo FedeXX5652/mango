@@ -65,8 +65,11 @@ Por eso el boton principal es mango con texto casi negro, y no al reves.
 | Token | Hex |
 |---|---|
 | `border` | `#D8CFBA` |
-| `input` | `#CFC5AD` |
+| `input` | `#A49163` |
 | `ring` | `#A87C00` |
+
+`input` es el borde de los campos: 3,0:1 contra `background` y `card` (WCAG
+1.4.11, el borde es lo que delimita el control). Antes `#CFC5AD`, 1,7:1.
 
 ### Destructivo
 
@@ -123,8 +126,10 @@ Por eso el boton principal es mango con texto casi negro, y no al reves.
 | Token | Hex |
 |---|---|
 | `border` | `#474030` |
-| `input` | `#474030` |
+| `input` | `#766B50` |
 | `ring` | `#FDBE02` |
+
+`input`: 3,0:1 contra `background` y `card` (antes igual a `border`, 1,5:1).
 
 ### Destructivo
 

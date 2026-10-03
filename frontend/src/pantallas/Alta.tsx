@@ -1,16 +1,17 @@
-import { usePowerSync, useQuery } from "@powersync/react"
+import { usePowerSync, useQuery, useStatus } from "@powersync/react"
 import { Files, X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { Calculadora } from "@/componentes/Calculadora"
-import { CompartirCon } from "@/componentes/CompartirCon"
 import { EditorSplit, type ValorSplit } from "@/componentes/EditorSplit"
+import { EspacioDelMovimiento } from "@/componentes/EspacioDelMovimiento"
 import { HojaPlantillas, type PlantillaLocal } from "@/componentes/HojaPlantillas"
 import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
 import { SelectorMoneda } from "@/componentes/SelectorMoneda"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
+import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { Input } from "@/componentes/ui/input"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { useMonedaBase } from "@/hooks/monedaBase"
@@ -21,7 +22,10 @@ import { ordenarJerarquico } from "@/lib/categorias"
 import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
 import { tipoDesdeParametro, type TipoMovimiento } from "@/lib/atajos"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
+import { PERSONAL, rutaEspacio } from "@/lib/espacios"
 import { ordenarMonedas } from "@/lib/monedas"
+import { leerReparto } from "@/lib/reparto"
+import { usuarioActualId } from "@/lib/sesion"
 import { uuidv4 } from "@/lib/uuid"
 
 interface CuentaLocal {
@@ -61,12 +65,22 @@ function ahoraLocal(): string {
 export function FormularioMovimiento({
   plantillaId,
   tipoInicial = "expense",
+  grupoInicial = "",
+  cuentaInicial = "",
+  destinoInicial = "",
   onGuardado,
 }: {
   plantillaId?: string
   // Con que tipo abre: lo fija el atajo del icono (`/nuevo?tipo=ingreso`, 0023).
   tipoInicial?: TipoMovimiento
-  onGuardado: () => void
+  // El espacio desde el que se toco el "+" (0026): "" es Personal.
+  grupoInicial?: string
+  // Cuentas ya elegidas: "Poner plata" en la conjunta llega con el destino
+  // (`?hacia=`), "Sacar plata" con el origen (`?desde=`).
+  cuentaInicial?: string
+  destinoInicial?: string
+  // Recibe el espacio donde quedo el movimiento ("" = Personal).
+  onGuardado: (grupoId: string) => void
 }) {
   const db = usePowerSync()
 
@@ -89,8 +103,8 @@ export function FormularioMovimiento({
 
   const [tipo, setTipo] = useState<TipoMovimiento>(tipoInicial)
   const [centavos, setCentavos] = useState(0)
-  const [cuentaId, setCuentaId] = useState("")
-  const [cuentaDestinoId, setCuentaDestinoId] = useState("")
+  const [cuentaId, setCuentaId] = useState(cuentaInicial)
+  const [cuentaDestinoId, setCuentaDestinoId] = useState(destinoInicial)
   const [categoriaId, setCategoriaId] = useState("")
   const [medioId, setMedioId] = useState("")
   const [comercio, setComercio] = useState("")
@@ -98,7 +112,14 @@ export function FormularioMovimiento({
   const [cuando, setCuando] = useState(ahoraLocal)
   const [etiquetas, setEtiquetas] = useState<string[]>([])
   // Grupo con el que se comparte, "" = privado (fase 3b.2).
-  const [grupoId, setGrupoId] = useState("")
+  const [grupoElegido, setGrupoId] = useState(grupoInicial)
+  const { data: misGrupos } = useQuery<{ id: string }>(
+    "SELECT id FROM groups WHERE deleted_at IS NULL",
+  )
+  // Las transferencias son entre cuentas propias: no se cargan en un grupo. Un
+  // grupo que no es (o ya no es) mio —una direccion vieja— cae en Personal.
+  const grupoId =
+    tipo === "transfer" || !misGrupos.some((g) => g.id === grupoElegido) ? "" : grupoElegido
   // Reparto del gasto compartido (fase 3b.3). null = igual entre todos.
   const [split, setSplit] = useState<ValorSplit>({ splits: null, valido: true })
   // Miembros del grupo elegido, para repartir el gasto (fase 3b.3).
@@ -107,6 +128,12 @@ export function FormularioMovimiento({
      WHERE gm.group_id = ? AND gm.deleted_at IS NULL`,
     [grupoId || ""],
   )
+  // El reparto por defecto del grupo (0026): un gasto nuevo arranca con el.
+  const { data: grupoFila } = useQuery<{ default_split: string | null }>(
+    "SELECT default_split FROM groups WHERE id = ?",
+    [grupoId || ""],
+  )
+  const repartoDelGrupo = useMemo(() => leerReparto(grupoFila[0]?.default_split), [grupoFila])
   const miembros = useMemo(
     () =>
       miembrosRows.map((m) => ({
@@ -121,6 +148,17 @@ export function FormularioMovimiento({
   // (que maneja su estado interno) para que tome el nuevo valor inicial.
   const [montoInicial, setMontoInicial] = useState(0)
   const [calcKey, setCalcKey] = useState(0)
+
+  // Cuentas que se ofrecen (0026): las propias y, en un grupo, la conjunta de
+  // ESE grupo. En una transferencia, todas (poner plata en la conjunta es
+  // eso). Pagar algo personal con la conjunta de un grupo no tiene sentido.
+  const cuentasDelEspacio = useMemo(
+    () =>
+      tipo === "transfer" ? cuentas : cuentas.filter((c) => !c.group_id || c.group_id === grupoId),
+    [cuentas, tipo, grupoId],
+  )
+  const cuentaValida = (id: string, t: TipoMovimiento, g: string) =>
+    cuentas.some((c) => c.id === id && (t === "transfer" || !c.group_id || c.group_id === g))
 
   const base = useMonedaBase()
   const cuentaSel = cuentas.find((c) => c.id === cuentaId)
@@ -179,11 +217,14 @@ export function FormularioMovimiento({
   }
   function cambiarTipo(t: TipoMovimiento) {
     setTipo(t)
-    if (categoriaId && !enAmbito(categoriaId, t, grupoId)) setCategoriaId("")
+    const g = t === "transfer" ? "" : grupoElegido
+    if (categoriaId && !enAmbito(categoriaId, t, g)) setCategoriaId("")
+    if (cuentaId && !cuentaValida(cuentaId, t, g)) setCuentaId("")
   }
   function cambiarGrupo(g: string) {
     setGrupoId(g)
     if (categoriaId && !enAmbito(categoriaId, tipo, g)) setCategoriaId("")
+    if (cuentaId && !cuentaValida(cuentaId, tipo, g)) setCuentaId("")
   }
 
   const aplicarPlantilla = useCallback((t: PlantillaLocal) => {
@@ -230,12 +271,15 @@ export function FormularioMovimiento({
   async function guardar() {
     setError("")
     if (centavos <= 0) return setError("Ingresá un monto")
-    if (!cuentaId) return setError("Elegí una cuenta")
+    // Que exista, no solo que haya algo: una cuenta que llego por la direccion
+    // puede no ser (o ya no ser) una de las mias.
+    if (!cuentasDelEspacio.some((c) => c.id === cuentaId)) return setError("Elegí una cuenta")
     // Fuera de ambito cuenta como no elegida: nunca se guarda una categoria
     // personal en un gasto compartido ni al reves (0014).
     if (tipo !== "transfer" && !categoriasDelTipo.some((c) => c.id === categoriaId))
       return setError("Elegí una categoría")
-    if (tipo === "transfer" && !cuentaDestinoId) return setError("Elegí la cuenta de destino")
+    if (tipo === "transfer" && !cuentas.some((c) => c.id === cuentaDestinoId))
+      return setError("Elegí la cuenta de destino")
     if (tipo === "transfer" && cuentaDestinoId === cuentaId)
       return setError("Las cuentas deben ser distintas")
     if (tipo === "expense" && grupoId && !split.valido)
@@ -246,14 +290,18 @@ export function FormularioMovimiento({
       // El id se genera aca porque las etiquetas lo necesitan para asociarse.
       const idTx = uuidv4()
       // Escritura LOCAL: PowerSync la encola y la sube por la API en segundo plano.
+      // `owner_id` va para que la fila local se vea como va a quedar: sin el, un
+      // gasto cargado sin conexion no era "mio" (se veia de solo lectura) y el
+      // balance del grupo se rompia. El servidor lo ignora y pone el de la sesion.
       await db.execute(
         `INSERT INTO transactions
-           (id, kind, occurred_at, amount, currency, account_id, transfer_account_id,
+           (id, owner_id, kind, occurred_at, amount, currency, account_id, transfer_account_id,
             category_id, payment_method_id, payee, notes, amount_account, exchange_rate,
             visibility, group_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           idTx,
+          usuarioActualId(),
           tipo,
           new Date(cuando).toISOString(),
           centavos,
@@ -289,20 +337,53 @@ export function FormularioMovimiento({
           )
         }
       }
-      onGuardado()
+      // Una transferencia que toca la conjunta de un grupo (poner o sacar plata)
+      // es del grupo para quien la mira: se vuelve a ese grupo.
+      const grupoDeLaConjunta =
+        cuentas.find((c) => c.id === cuentaDestinoId)?.group_id ??
+        cuentas.find((c) => c.id === cuentaId)?.group_id ??
+        ""
+      onGuardado(tipo === "transfer" ? grupoDeLaConjunta : grupoId)
     } catch {
       setError("No se pudo guardar")
       setGuardando(false)
     }
   }
 
-  if (isLoading) {
-    return <div className="p-6 text-sm text-muted-foreground">Cargando…</div>
+  // Hasta la primera sincronizacion la base local esta vacia: "No tenés
+  // cuentas" era mentira. Se muestra el esqueleto, como pide 0008, y el aviso
+  // de que no hay cuentas solo cuando ya bajo todo.
+  const { hasSynced } = useStatus()
+  const esperando = isLoading || (!hasSynced && cuentas.length === 0)
+  const verEsqueleto = useDemora(esperando)
+  if (esperando) {
+    return (
+      <Cargando visible={verEsqueleto} className="space-y-4" etiqueta="Cargando tus cuentas">
+        <Esqueleto className="h-11 w-full rounded-lg" />
+        <Esqueleto className="h-20 w-full rounded-lg" />
+        <div className="grid grid-cols-4 gap-2">
+          {Array.from({ length: 16 }, (_, i) => (
+            <Esqueleto key={i} className="h-12" />
+          ))}
+        </div>
+        <Esqueleto className="h-11 w-full" />
+      </Cargando>
+    )
   }
 
   return (
-    <div className="space-y-5">
-      <Segmentado opciones={TIPOS} valor={tipo} onCambio={cambiarTipo} />
+    <div className="space-y-4">
+      <Segmentado
+        opciones={TIPOS}
+        valor={tipo}
+        onCambio={cambiarTipo}
+        etiqueta="Tipo de movimiento"
+      />
+
+      {/* Donde queda (0026), a la vista desde el principio: define las
+          categorias y las cuentas que se ofrecen. Las transferencias son
+          personales. */}
+      {tipo !== "transfer" && <EspacioDelMovimiento valor={grupoId} onCambio={cambiarGrupo} />}
 
       {/* Una fila arriba del monto: la moneda (pegada al monto; con la de la
           cuenta por defecto, el 90% de las veces no hay nada que elegir) y las
@@ -372,7 +453,7 @@ export function FormularioMovimiento({
 
       {cuentas.length === 0 ? (
         <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-          No tenés cuentas todavía (o están sincronizando). Creá una en Ajustes → Cuentas.
+          No tenés cuentas todavía. Creá una en Ajustes → Cuentas.
         </p>
       ) : (
         <div className="space-y-4">
@@ -380,7 +461,7 @@ export function FormularioMovimiento({
             <SelectorEntidad
               titulo={tipo === "transfer" ? "Cuenta de origen" : "Cuenta"}
               placeholder="Elegí una cuenta"
-              opciones={cuentas.map((c) => ({
+              opciones={cuentasDelEspacio.map((c) => ({
                 id: c.id,
                 nombre: c.name,
                 detalle: c.group_id ? `${c.currency} · conjunta` : c.currency,
@@ -408,11 +489,6 @@ export function FormularioMovimiento({
             </Campo>
           )}
 
-          {/* Compartir va ANTES de la categoria: define de que ambito son las
-              categorias que se ofrecen (personales o del grupo, ver 0014). Las
-              transferencias no se comparten: son movimientos entre tus cuentas. */}
-          {tipo !== "transfer" && <CompartirCon valor={grupoId} onCambio={cambiarGrupo} />}
-
           {tipo !== "transfer" && (
             <Campo etiqueta="Categoría">
               <SelectorCategoria
@@ -427,9 +503,12 @@ export function FormularioMovimiento({
               un monto ya cargado. Por defecto, igual entre todos. */}
           {tipo === "expense" && grupoId && centavos > 0 && (
             <EditorSplit
+              // Otro grupo, otro reparto: el editor arranca de nuevo.
+              key={grupoId}
               total={centavos}
               currency={moneda}
               miembros={miembros}
+              partesIniciales={repartoDelGrupo}
               onCambio={setSplit}
             />
           )}
@@ -502,13 +581,17 @@ export function Alta() {
   const [params] = useSearchParams()
   const plantillaId = (location.state as { plantillaId?: string } | null)?.plantillaId
   const tipoInicial = tipoDesdeParametro(params.get("tipo"))
+  // `/grupos/<grupo>/nuevo`: el "+" tocado dentro de un grupo (0026).
+  const { grupo = "" } = useParams()
+  const desde = params.get("desde") ?? ""
+  const hacia = params.get("hacia") ?? ""
 
   // Desde un atajo, /nuevo es la PRIMERA pantalla: no hay a donde volver y
   // `navigate(-1)` no hacia nada. Sin historial propio, cerrar lleva a Inicio.
-  const cerrar = useVolver("/")
+  const cerrar = useVolver(grupo ? rutaEspacio({ tipo: "grupo", id: grupo }) : "/")
 
   return (
-    <main className="mx-auto max-w-md space-y-5 p-4 pb-4 motion-safe:animate-subir">
+    <main className="mx-auto max-w-md space-y-4 p-4 pb-4 motion-safe:animate-subir">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Nuevo movimiento</h1>
         <Button variant="ghost" size="icon" onClick={cerrar} aria-label="Cerrar">
@@ -518,10 +601,18 @@ export function Alta() {
       <FormularioMovimiento
         // Otro `tipo` en la URL con la pantalla abierta (otro atajo) remonta el
         // formulario: arranca limpio en el tipo nuevo.
-        key={tipoInicial}
+        key={`${tipoInicial}-${grupo}-${desde}-${hacia}`}
         plantillaId={plantillaId}
         tipoInicial={tipoInicial}
-        onGuardado={() => navigate("/movimientos")}
+        grupoInicial={grupo}
+        cuentaInicial={desde}
+        destinoInicial={hacia}
+        // A los Movimientos del espacio donde quedo, no del que se partio.
+        onGuardado={(g) =>
+          navigate(rutaEspacio(g ? { tipo: "grupo", id: g } : PERSONAL, "movimientos"), {
+            replace: true,
+          })
+        }
       />
     </main>
   )

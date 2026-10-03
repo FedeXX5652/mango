@@ -1,5 +1,5 @@
 import { Delete } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { Button } from "@/componentes/ui/button"
 import {
@@ -16,7 +16,7 @@ import {
   resultado,
   valorCentavos,
 } from "@/lib/calculadora"
-import { formatearEntrada, partesMonto } from "@/lib/dinero"
+import { decimalesDe, formatearEntrada, partesMonto } from "@/lib/dinero"
 import { cn } from "@/lib/utils"
 
 // Teclado de calculadora para el monto. El display muestra la entrada en curso;
@@ -31,23 +31,46 @@ export function Calculadora({
   onCambio: (centavos: number) => void
   inicial?: number
 }) {
-  const [estado, setEstado] = useState(() => desdeCentavos(inicial ?? 0))
+  const [estado, setEstado] = useState(() => desdeCentavos(inicial ?? 0, moneda))
+  // Los decimales de la moneda (0 en JPY o CLP): limitan lo que se tipea y el
+  // valor se convierte en ESA moneda.
+  const dec = decimalesDe(moneda)
+  const decRef = useRef(dec)
+  useEffect(() => {
+    decRef.current = dec
+  }, [dec])
 
   useEffect(() => {
-    onCambio(valorCentavos(estado))
-  }, [estado, onCambio])
+    onCambio(valorCentavos(estado, moneda))
+  }, [estado, onCambio, moneda])
 
   // Teclado fisico. Se ignora si el foco esta en otro campo (notas, comercio…)
   // para no pisar lo que el usuario escribe ahi.
+  const raiz = useRef<HTMLDivElement>(null)
   useEffect(() => {
     function alTecla(ev: KeyboardEvent) {
       const foco = document.activeElement?.tagName
       if (foco === "INPUT" || foco === "TEXTAREA" || foco === "SELECT") return
+      // Con una hoja abierta encima (elegir cuenta, categoria…) las teclas son
+      // de la hoja: Escape la cierra y no tiene que borrar el monto, ni un
+      // numero tipeado ahi sumarse a la cuenta de atras.
+      const yo = raiz.current
+      const capas = document.querySelectorAll('[role="dialog"], [role="alertdialog"]')
+      if ([...capas].some((c) => !yo || !c.contains(yo))) return
+      // Enter sobre un control de afuera (Guardar, un selector) es de ese
+      // control: tomarlo como "=" le impedia activarse con el teclado.
+      const destino = ev.target instanceof Element ? ev.target : null
+      if (
+        ev.key === "Enter" &&
+        destino?.closest("button, a, [role=button], [role=radio], [role=tab]") &&
+        !yo?.contains(destino)
+      )
+        return
 
       const k = ev.key
       let accion: ((e: typeof estado) => typeof estado) | null = null
-      if (/^[0-9]$/.test(k)) accion = (e) => digito(e, k)
-      else if (k === "," || k === ".") accion = coma
+      if (/^[0-9]$/.test(k)) accion = (e) => digito(e, k, decRef.current)
+      else if (k === "," || k === ".") accion = (e) => coma(e, decRef.current)
       else if (k === "+") accion = (e) => operador(e, "+")
       else if (k === "-") accion = (e) => operador(e, "-")
       else if (k === "*" || k === "x" || k === "X") accion = (e) => operador(e, "×")
@@ -78,7 +101,7 @@ export function Calculadora({
   const pulsar = (op: Op) => setEstado((e) => operador(e, op))
 
   return (
-    <div className="space-y-3">
+    <div ref={raiz} className="space-y-3">
       <div className="rounded-lg bg-muted px-4 py-2">
         <div className="tabular flex min-h-5 items-baseline justify-between gap-2 text-sm text-muted-foreground">
           <span>{cuenta ? `${formatearEntrada(cuenta.izquierda)} ${cuenta.op}` : ""}</span>
@@ -94,7 +117,7 @@ export function Calculadora({
 
       <div className="grid grid-cols-4 gap-2">
         {[7, 8, 9].map((n) => (
-          <Tecla key={n} onClick={() => setEstado((e) => digito(e, String(n)))}>
+          <Tecla key={n} onClick={() => setEstado((e) => digito(e, String(n), dec))}>
             {n}
           </Tecla>
         ))}
@@ -108,7 +131,7 @@ export function Calculadora({
         </Tecla>
 
         {[4, 5, 6].map((n) => (
-          <Tecla key={n} onClick={() => setEstado((e) => digito(e, String(n)))}>
+          <Tecla key={n} onClick={() => setEstado((e) => digito(e, String(n), dec))}>
             {n}
           </Tecla>
         ))}
@@ -122,7 +145,7 @@ export function Calculadora({
         </Tecla>
 
         {[1, 2, 3].map((n) => (
-          <Tecla key={n} onClick={() => setEstado((e) => digito(e, String(n)))}>
+          <Tecla key={n} onClick={() => setEstado((e) => digito(e, String(n), dec))}>
             {n}
           </Tecla>
         ))}
@@ -135,8 +158,10 @@ export function Calculadora({
           −
         </Tecla>
 
-        <Tecla onClick={() => setEstado(coma)}>,</Tecla>
-        <Tecla onClick={() => setEstado((e) => digito(e, "0"))}>0</Tecla>
+        <Tecla onClick={() => setEstado((e) => coma(e, dec))} disabled={dec === 0}>
+          ,
+        </Tecla>
+        <Tecla onClick={() => setEstado((e) => digito(e, "0", dec))}>0</Tecla>
         <Tecla onClick={() => setEstado(borrarUltimo)} aria-label="Borrar">
           <Delete className="mx-auto h-5 w-5" />
         </Tecla>

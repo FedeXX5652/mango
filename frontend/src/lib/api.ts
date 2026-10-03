@@ -96,7 +96,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ id, name, base_currency, color }),
     }),
-  editarGrupo: (groupId: string, cambios: { name?: string; color?: string | null }) =>
+  editarGrupo: (
+    groupId: string,
+    cambios: {
+      name?: string
+      color?: string | null
+      // Reparto por defecto (0026): {user_id: partes}; null = partes iguales.
+      default_split?: Record<string, number> | null
+    },
+  ) =>
     pedir<{ id: string }>(`/groups/${groupId}`, {
       method: "PATCH",
       body: JSON.stringify(cambios),

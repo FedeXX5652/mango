@@ -271,7 +271,7 @@ export function Cotizaciones() {
                   {c.source === "auto" ? "automática" : c.source}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-0.5">
+              <div className="flex shrink-0 items-center gap-1">
                 <Button
                   variant="ghost"
                   size="icon"

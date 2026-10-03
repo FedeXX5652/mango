@@ -77,16 +77,16 @@ export function SelectorEtiquetas({
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="flex w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+        className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-left text-sm transition-colors hover:bg-muted lg:min-h-10"
       >
         {elegidas.length === 0 ? (
           <span className="text-muted-foreground">Ninguna</span>
         ) : (
-          <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="flex min-w-0 flex-wrap items-center gap-2">
             {elegidas.map((e) => (
               <span
                 key={e.id}
-                className="flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground"
+                className="flex items-center gap-1 rounded-full bg-accent px-2 py-1 text-xs text-accent-foreground"
               >
                 <span
                   className="h-1.5 w-1.5 shrink-0 rounded-full"

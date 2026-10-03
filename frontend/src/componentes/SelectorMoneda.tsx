@@ -31,6 +31,7 @@ export function SelectorMoneda({
   if (monedas.length === 2) {
     return (
       <Segmentado
+        etiqueta="Moneda"
         className={cn("w-fit", className)}
         opciones={monedas.map((m) => ({ valor: m, etiqueta: m }))}
         valor={valor}
@@ -49,7 +50,7 @@ export function SelectorMoneda({
       opciones={monedas.map((m) => ({ id: m, nombre: m }))}
       valor={valor}
       onCambio={onCambio}
-      className={cn("h-9 w-auto", className)}
+      className={cn("h-11 w-auto lg:h-9", className)}
     />
   )
 }

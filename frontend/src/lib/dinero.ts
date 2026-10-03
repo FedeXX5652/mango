@@ -195,6 +195,22 @@ export function formatearEntrada(entrada: string): string {
 
 // Convierte lo tipeado por el usuario ("2302,72" o "2302.72") a unidades
 // menores de la moneda.
+// Centavos -> el texto que va en un campo para editarlo ("2302,72"): sin
+// separador de miles, con coma decimal y con los decimales DE ESA MONEDA (0 en
+// JPY o CLP). Es la inversa de `aCentavos` con la misma moneda. Todo entero:
+// `(x / 100).toString()` daba en JPY un monto 100 veces mas chico, que al
+// guardarse con la moneda correcta lo corrompia.
+export function aTextoEditable(centavos: number, moneda: string = base): string {
+  const dec = decimalesDe(moneda)
+  const signo = centavos < 0 ? "-" : ""
+  const abs = Math.abs(Math.trunc(centavos))
+  if (dec === 0) return `${signo}${abs}`
+  const factor = 10 ** dec
+  const resto = abs % factor
+  const entero = (abs - resto) / factor
+  return `${signo}${entero},${String(resto).padStart(dec, "0")}`
+}
+
 export function aCentavos(texto: string, moneda: string = base): number | null {
   const s = texto.trim()
   if (s === "") return null

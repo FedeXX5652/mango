@@ -64,6 +64,11 @@ CREATE TABLE groups (
     base_currency   CHAR(3) NOT NULL DEFAULT 'ARS',
     -- Color del grupo, para el chip de origen en toda la app (3b.2c)
     color           TEXT,
+    -- Reparto por defecto de un gasto nuevo (0026): {user_id: partes}, como
+    -- Splitwise (60/40 = {ana: 60, beto: 40}). NULL = partes iguales. Solo es
+    -- el punto de partida del formulario; cada gasto guarda el suyo resuelto en
+    -- transaction_splits.
+    default_split   JSONB,
     created_by      UUID NOT NULL REFERENCES users(id),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),

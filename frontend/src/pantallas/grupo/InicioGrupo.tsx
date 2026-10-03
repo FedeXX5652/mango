@@ -7,6 +7,7 @@ import { CuentaConjunta } from "@/componentes/CuentaConjunta"
 import { Monto } from "@/componentes/Monto"
 import { Notificaciones } from "@/componentes/Notificaciones"
 import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
+import { AccesosGrupo } from "@/componentes/grupo/AccesosGrupo"
 import { BalanceGrupo } from "@/componentes/grupo/BalanceGrupo"
 import { FilaHistoria, HojaPago } from "@/componentes/grupo/Historia"
 import { ListaInset } from "@/componentes/ui/listaInset"
@@ -18,7 +19,7 @@ import { CargandoGrupo, GrupoNoEncontrado } from "@/pantallas/grupo/comun"
 
 const MAX_ULTIMOS = 5
 const ENLACE =
-  "-my-3 inline-flex items-center gap-0.5 rounded-md py-3 text-sm font-medium text-enlace hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  "-my-3 inline-flex items-center gap-1 rounded-md py-3 text-sm font-medium text-enlace hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
 // Inicio de un grupo (0026): como quede yo y como saldar, como viene el mes, la
 // cuenta conjunta y lo ultimo que paso. Lo que antes era una sola pagina larga
@@ -56,6 +57,7 @@ export function InicioGrupo() {
       </EncabezadoEspacio>
 
       <BalanceGrupo groupId={id} />
+      <AccesosGrupo groupId={id} />
       <MesGrupo groupId={id} moneda={grupo.base_currency} />
       <CuentaConjunta groupId={id} />
       <UltimosGrupo groupId={id} />
@@ -89,7 +91,7 @@ function MesGrupo({ groupId, moneda }: { groupId: string; moneda: string }) {
   const espacio = { tipo: "grupo" as const, id: groupId }
 
   return (
-    <section className="space-y-3 rounded-xl bg-card p-5">
+    <section className="space-y-3 rounded-xl bg-card p-4">
       <h2 className="text-sm font-medium text-muted-foreground">Gasto del grupo en {nombreMes}</h2>
       <p className="text-2xl font-semibold">
         <Monto centavos={gastado} moneda={moneda} />
@@ -115,9 +117,12 @@ function MesGrupo({ groupId, moneda }: { groupId: string; moneda: string }) {
 }
 
 function UltimosGrupo({ groupId }: { groupId: string }) {
-  const { gastos, pagos, miId, miembros, splitsDe, categoria, nombre } = useGrupo(groupId)
+  const { gastos, pagos, aportes, miId, miembros, splitsDe, categoria, nombre } = useGrupo(groupId)
   const [pago, setPago] = useState<PagoGrupo | null>(null)
-  const items = useMemo(() => armarHistoria(gastos, pagos).slice(0, MAX_ULTIMOS), [gastos, pagos])
+  const items = useMemo(
+    () => armarHistoria(gastos, pagos, aportes).slice(0, MAX_ULTIMOS),
+    [gastos, pagos, aportes],
+  )
 
   return (
     <section className="space-y-3">

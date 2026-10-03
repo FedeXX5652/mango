@@ -40,11 +40,15 @@ async def update_group(
     session: AsyncSession = Depends(get_session),
     user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> GroupRead:
-    # Cualquier miembro puede editar el grupo (nombre/color): es un hogar, no una
-    # empresa (misma logica que las categorias del grupo, ver 0014).
+    # Cualquier miembro puede editar el grupo (nombre, color, reparto por
+    # defecto): es un hogar, no una empresa (misma logica que las categorias del
+    # grupo, ver 0014).
     if await crud.membresia(session, group_id, user_id) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo no encontrado")
-    grupo = await crud.update_group(session, group_id, data)
+    try:
+        grupo = await crud.update_group(session, group_id, data)
+    except DomainError as exc:
+        raise _422(exc) from exc
     if grupo is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo no encontrado")
     return grupo

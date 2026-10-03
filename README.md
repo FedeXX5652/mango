@@ -20,8 +20,8 @@ decide compartir**, con reparto de gastos estilo Splitwise incluido.
 ![PowerSync](https://img.shields.io/badge/PowerSync-offline--first-1c1c1c)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalable-5A0FC8?logo=pwa&logoColor=white)
-![Versión](https://img.shields.io/badge/versión-1.1.0-FDBE02)
-![Tests](https://img.shields.io/badge/tests-481%20verdes-2EA043)
+![Versión](https://img.shields.io/badge/versión-1.2.0-FDBE02)
+![Tests](https://img.shields.io/badge/tests-516%20verdes-2EA043)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED?logo=docker&logoColor=white)
 
 </div>
@@ -69,19 +69,28 @@ de un hogar, con tres convicciones:
 - **Espacios**: Personal y cada grupo tienen **las mismas pantallas** (Inicio,
   Movimientos, Presupuesto, Estadísticas). Pasás de uno a otro con el selector de
   arriba, y la dirección dice dónde estás (`/grupos/<grupo>/movimientos`).
+- **El + carga donde estás**: dentro de un grupo, el gasto ya sale compartido,
+  con sus categorías, su cuenta conjunta y su reparto. El formulario dice
+  "Se carga en ● Casa" y se cambia ahí mismo.
 - **Grupos**: se comparte *solo* lo que marcás como compartido. Lo privado
   (cuenta, medio de pago, monto debitado) **no viaja** a los demás.
 - **Taxonomía del grupo**: categorías y tags propios del grupo, con color, para
   que todos clasifiquen igual.
-- **Reparto estilo Splitwise**: división por partes iguales, montos exactos o
-  porcentajes; **balance** de quién puso qué y **quién le debe a quién**.
-- **Historia del grupo**: gastos y pagos entre miembros intercalados, con tu
-  parte en cada gasto y filtros por quién pagó y categoría.
+- **Reparto estilo Splitwise**: partes iguales, montos exactos, porcentajes o
+  **partes** ("2 a 1"), y un **reparto por defecto** por grupo (Casa 60/40) con
+  el que arranca cada gasto; **balance** de quién puso qué y **quién le debe a
+  quién**.
+- **Historia del grupo**: gastos, pagos entre miembros y aportes a la conjunta
+  intercalados, con tu parte en cada gasto y filtros por quién pagó y categoría.
+- **Cada grupo, de un vistazo**: en tu Inicio, una tarjeta por grupo con cómo
+  quedaste ("Beto te debe $X"); en el del grupo, accesos a **Saldar**, **Poner
+  plata**, Miembros y Categorías.
 - **Saldar deudas**: marcar como saldado (por fuera) o registrar un **pago real**
   que sale de tu cuenta, en partes. El cobro le llega al otro para confirmar en
   qué cuenta entró.
 - **Cuenta conjunta**: plata que ya es de todos; lo que se paga con ella no genera
-  deuda.
+  deuda. **Poner** o **sacar plata** es una transferencia con la conjunta ya
+  elegida.
 - **Presupuesto del grupo** y **notificaciones** in-app de lo que pasa.
 
 ### 📲 App instalable
@@ -93,8 +102,9 @@ de un hogar, con tres convicciones:
   **Presupuesto**. iOS no muestra atajos, pero los enlaces directos
   (`/nuevo?tipo=gasto`, `/grupos/ultimo`…) funcionan igual.
 - **Dos interfaces, no una estirada**: en el teléfono, barra inferior con el
-  **+** al centro para cargar en dos toques; en la compu, barra lateral y paneles
-  para analizar.
+  **+** al centro para cargar en dos toques y filtros en una hoja; en la compu,
+  barra lateral, filtros a la vista y el detalle de un movimiento en un panel al
+  lado de la lista.
 - **Accesos a tu medida**: en Inicio, un panel con tus cuatro accesos (metas,
   deudas, recurrentes, estadísticas…), elegidos y ordenados por vos, y un "Más"
   con todo lo demás. Viajan con tu usuario a todos tus dispositivos.
@@ -168,7 +178,7 @@ por **una sola puerta** (nginx), así que se expone un único puerto.
   cliente una versión atrás.
 - **Decisiones de arquitectura documentadas** (20 ADRs en
   [`docs/decisiones/`](docs/decisiones)) — nada importante se decide dos veces.
-- **Incrementos chicos con pruebas**: **481** pruebas (backend + frontend) en
+- **Incrementos chicos con pruebas**: **516** pruebas (backend + frontend) en
   verde, más un banco de compatibilidad para detectar regresiones de esquema.
 - **Deploy por imágenes**: el servidor no tiene el código; baja imágenes
   publicadas, y la base migra sola al arrancar.

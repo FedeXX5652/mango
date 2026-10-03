@@ -8,7 +8,7 @@ import { Campo } from "@/componentes/ui/campo"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
-import { aCentavos, formatearMonto } from "@/lib/dinero"
+import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { iconoDe } from "@/lib/iconos"
 import { TX_GRUPO } from "@/lib/lente"
 import { uuidv4 } from "@/lib/uuid"
@@ -115,7 +115,7 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
             const Icono = iconoDe(c.icon)
             return (
               <FilaInset key={c.id}>
-                <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                <span className="flex min-w-0 flex-1 items-center gap-3">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
                     <Icono className="h-4 w-4 text-muted-foreground" aria-hidden />
                   </span>
@@ -124,7 +124,7 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
                       <span className="truncate">{c.name}</span>
                       {editando === c.id ? (
                         <ToqueMonto
-                          inicial={tope ? (tope / 100).toString().replace(".", ",") : ""}
+                          inicial={tope ? aTextoEditable(tope, moneda) : ""}
                           onGuardar={(v) => guardar(c.id, v)}
                           onCancelar={() => setEditando(null)}
                         />

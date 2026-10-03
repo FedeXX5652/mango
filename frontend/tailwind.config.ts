@@ -54,6 +54,28 @@ export default {
         seguro: "env(safe-area-inset-bottom)",
         barra: "calc(5rem + env(safe-area-inset-bottom))",
       },
+      // La escala tipografica de DESIGN.md 3. Los tamaños de Tailwind se llevan a
+      // esos valores (antes 12/14/30) para que todo el codigo la siga sin
+      // reescribir cada clase; los nombres por rol son los del codigo nuevo.
+      fontSize: {
+        xs: ["0.8125rem", { lineHeight: "1.125rem" }], // 13: etiqueta secundaria
+        sm: ["0.9375rem", { lineHeight: "1.375rem" }], // 15: cuerpo
+        base: ["1rem", { lineHeight: "1.5rem" }], // 16: monto en lista
+        lg: ["1.125rem", { lineHeight: "1.625rem" }], // 18: titulo de seccion
+        "2xl": ["1.5rem", { lineHeight: "2rem" }], // 24: titulo de pantalla
+        "3xl": ["2rem", { lineHeight: "2.5rem" }], // 32: monto destacado
+        secundaria: ["0.8125rem", { lineHeight: "1.125rem" }],
+        cuerpo: ["0.9375rem", { lineHeight: "1.375rem" }],
+        "monto-lista": ["1rem", { lineHeight: "1.5rem" }],
+        seccion: ["1.125rem", { lineHeight: "1.625rem" }],
+        titulo: ["1.5rem", { lineHeight: "2rem" }],
+        destacado: ["2rem", { lineHeight: "2.5rem" }],
+        // Excepciones deliberadas (DESIGN.md 3): las etiquetas de la barra
+        // inferior (con 13 px "Estadísticas" no entra en una columna de 360 px)
+        // y los montos por dia de las celdas del calendario.
+        barra: ["0.75rem", { lineHeight: "1rem" }], // 12
+        celda: ["0.625rem", { lineHeight: "0.875rem" }], // 10
+      },
       fontFamily: {
         // Los nombres con "Variable" son los que declaran los paquetes de
         // @fontsource-variable (ver main.tsx). El resto es red de contencion si

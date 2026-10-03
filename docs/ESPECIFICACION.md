@@ -1049,7 +1049,7 @@ sincronizados; sin endpoint ni tablas nuevas. No se mezclan monedas.
 
 **Fase 3b.3.2 (splits desiguales): HECHA.** Al compartir un gasto se puede
 **dividir** en el alta y en el detalle: partes **iguales** (eligiendo quienes
-participan), **montos exactos** por persona, o **porcentajes**. Se guarda el monto
+participan), **montos exactos** por persona, **porcentajes** o **partes** (0027). Se guarda el monto
 resuelto por miembro en `transaction_splits` (suma = total, garantizado por el
 cliente). Sin dividir explicitamente, sigue siendo igual entre todos (no guarda
 filas). El balance usa el split de cada gasto; si no tiene, cae a partes iguales.
@@ -1091,15 +1091,29 @@ avisos. Los crea el servidor en eventos (`pago_recibido`, `pago_deshecho`,
 `miembro_agregado`); bajan por `mio`; el cliente solo los marca leidos. Tocar un
 aviso lo marca leido y navega a su link.
 
-**Fase 3b.6 (espacios): ETAPA 1 HECHA.** Ver 0026. Personal y cada grupo son
-**espacios** con las mismas pantallas (Inicio, Movimientos, Presupuesto,
+**Fase 3b.6 (espacios): ETAPAS 1 Y 2 HECHAS.** Ver 0026. Personal y cada grupo
+son **espacios** con las mismas pantallas (Inicio, Movimientos, Presupuesto,
 Estadisticas) y un selector siempre a la vista. Un grupo vive en
 `/grupos/<grupo>/…`, con los mismos nombres de seccion que lo personal. En
-Movimientos del grupo los pagos entre miembros van intercalados con los gastos;
-un gasto ajeno se ve en solo lectura (solo lo edita quien lo cargo). Administrar
-el grupo (nombre, color, miembros, categorias) esta en **Ajustes del grupo**.
-Faltan la etapa 2 (el "+" toma el espacio, Poner plata, tarjeta de grupos en el
-Inicio personal, barra con Estadisticas) y la 3 (Reintegros de grupo).
+Movimientos del grupo los pagos entre miembros y los aportes a la conjunta van
+intercalados con los gastos; un gasto ajeno se ve en solo lectura (solo lo edita
+quien lo cargo). Administrar el grupo (nombre, color, miembros, reparto por
+defecto, categorias) esta en **Ajustes del grupo**.
+
+El "+" carga en el espacio actual (`/grupos/<grupo>/nuevo`: compartido, con las
+categorias, las cuentas y el reparto del grupo). **Poner plata** en la conjunta
+es una transferencia con la conjunta ya elegida (0017). El Inicio del grupo
+tiene accesos fijos (Saldar, Poner plata, Miembros, Categorias) y el personal,
+una tarjeta por grupo con como quede yo. La barra movil es **Inicio ·
+Movimientos · + · Presupuesto · Estadisticas**. Falta la etapa 3 (Reintegros de
+grupo).
+
+**Reparto como Splitwise (0027): HECHO.** Al reparto igual, exacto y por
+porcentaje se suma **por partes** ("2 a 1"), y cada grupo puede tener un
+**reparto por defecto** (`groups.default_split`, en partes) con el que arranca
+cada gasto nuevo. Porcentajes y partes se resuelven en enteros, con el metodo del
+mayor resto. Cargar un gasto que **pago otro miembro** queda para una decision
+propia.
 
 Falta:
 - **Push** (avisos fuera de la app): service worker + `PushManager` + VAPID +

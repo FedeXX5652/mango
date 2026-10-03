@@ -1,6 +1,9 @@
 # 0022 - Barra movil: cuatro destinos fijos y el "+" al centro
 
-Estado: aceptada
+Estado: aceptada, ajustada por 0026: con el selector de espacio, Grupos salió de
+la barra y su lugar volvió a ser de Estadísticas (**Inicio · Movimientos · + ·
+Presupuesto · Estadísticas**, las cuatro secciones del espacio). La regla de los
+cuatro destinos fijos y el "+" al centro sigue igual.
 Fecha: 2026-09-30
 
 ## Contexto

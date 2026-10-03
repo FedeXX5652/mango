@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils"
 // `aria-checked` le dan al lector de pantalla la misma semantica que tendria el
 // checkbox, y el boton ya es accesible por teclado.
 //
+// La pastilla mide 40×24, pero el boton que la contiene es de 44 de alto: el
+// area tocable recomendada (DESIGN.md 7), sin agrandar el dibujo.
+//
 // El deslizamiento es `motion-safe` (DESIGN.md 8): comunica el cambio de
 // estado, y con `prefers-reduced-motion` queda el cambio de color solo.
 export function Interruptor({
@@ -32,20 +35,25 @@ export function Interruptor({
       disabled={disabled}
       onClick={() => onCambio(!encendido)}
       className={cn(
-        "relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-        "disabled:opacity-50",
-        encendido ? "bg-primary" : "bg-muted",
+        "group inline-flex h-11 min-w-11 shrink-0 items-center justify-center focus-visible:outline-none disabled:opacity-50",
         className,
       )}
     >
       <span
         aria-hidden
         className={cn(
-          "block h-4 w-4 rounded-full bg-background shadow-sm motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-salida",
-          encendido ? "translate-x-5" : "translate-x-1",
+          "relative inline-flex h-6 w-10 items-center rounded-full transition-colors",
+          "group-focus-visible:ring-2 group-focus-visible:ring-ring group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-card",
+          encendido ? "bg-primary" : "bg-muted",
         )}
-      />
+      >
+        <span
+          className={cn(
+            "block h-4 w-4 rounded-full bg-background shadow-sm motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-salida",
+            encendido ? "translate-x-5" : "translate-x-1",
+          )}
+        />
+      </span>
     </button>
   )
 }

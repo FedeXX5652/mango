@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 
 import { Button } from "@/componentes/ui/button"
+import { Interruptor } from "@/componentes/ui/interruptor"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
@@ -142,37 +143,54 @@ export function Ajustes() {
       <Seccion titulo="Tema">
         <div className="grid grid-cols-3 gap-3">
           {TEMAS.map((t) => (
+            // En el movil, muestra arriba y nombre abajo: en un tercio de 360 px
+            // no entraban en fila y la muestra quedaba aplastada.
             <button
               key={t.id}
               onClick={() => setTema(t.id)}
+              aria-pressed={temaId === t.id}
               className={cn(
-                "flex items-center gap-2 rounded-lg border p-3 text-sm transition-colors",
+                "relative flex min-h-11 flex-col items-center justify-center gap-2 rounded-lg border p-3 text-sm transition-colors lg:flex-row lg:justify-start",
                 temaId === t.id ? "border-primary bg-accent" : "border-border hover:bg-muted",
               )}
             >
               <span
-                className="h-5 w-5 rounded-full border border-border"
+                className="h-5 w-5 shrink-0 rounded-full border border-border"
                 style={{ backgroundColor: t.muestra }}
               />
-              {t.nombre}
-              {temaId === t.id && <Check className="ml-auto h-4 w-4 text-enlace" aria-hidden />}
+              <span className="min-w-0 truncate">{t.nombre}</span>
+              {temaId === t.id && (
+                <Check
+                  className="absolute right-2 top-2 h-4 w-4 text-enlace lg:static lg:ml-auto"
+                  aria-hidden
+                />
+              )}
             </button>
           ))}
         </div>
       </Seccion>
 
       <Seccion titulo="Apariencia">
-        <Segmentado opciones={MODOS} valor={colorScheme} onCambio={setColorScheme} />
+        <Segmentado
+          opciones={MODOS}
+          valor={colorScheme}
+          onCambio={setColorScheme}
+          etiqueta="Modo de color"
+        />
       </Seccion>
 
       <Seccion titulo="Seguridad">
         {bioDisponible ? (
-          <Button variant="outline" className="w-full justify-between" onClick={toggleBiometria}>
-            Desbloqueo biométrico
-            <span className={cn("text-sm", bioActiva ? "text-income" : "text-muted-foreground")}>
-              {bioActiva ? "Activado" : "Desactivado"}
-            </span>
-          </Button>
+          // Prendido/apagado: Interruptor, no un boton con el estado en texto
+          // (DESIGN.md 7).
+          <div className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-border bg-card px-4">
+            <span className="text-sm font-medium">Desbloqueo biométrico</span>
+            <Interruptor
+              encendido={bioActiva}
+              etiqueta="Desbloqueo biométrico"
+              onCambio={() => void toggleBiometria()}
+            />
+          </div>
         ) : (
           <p className="text-sm text-muted-foreground">
             Este dispositivo no ofrece desbloqueo biométrico.

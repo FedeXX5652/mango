@@ -9,26 +9,32 @@ import {
   List,
   type LucideIcon,
   Receipt,
+  SlidersHorizontal,
+  X,
 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
 
 import { Calendario } from "@/componentes/Calendario"
+import { ConPanel } from "@/componentes/ConPanel"
 import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { Vacio } from "@/componentes/Vacio"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Monto } from "@/componentes/Monto"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { Button } from "@/componentes/ui/button"
+import { Campo } from "@/componentes/ui/campo"
+import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
 import { useConexion } from "@/hooks/conexion"
 import { useMonedaBase } from "@/hooks/monedaBase"
+import { useLayout } from "@/hooks/useLayout"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { iconoDe } from "@/lib/iconos"
 import { type Direccion } from "@/lib/dinero"
-import { mesAnio } from "@/lib/fecha"
+import { claveDia, etiquetaDia, mesAnio } from "@/lib/fecha"
 import { monedaPorDefecto, ordenarMonedas } from "@/lib/monedas"
 import { cn } from "@/lib/utils"
 
@@ -71,26 +77,9 @@ const ICONO_MOV: Record<Fila["kind"], LucideIcon> = {
   transfer: ArrowLeftRight,
 }
 
-// La lista se agrupa por dia (DESIGN.md 7): clave local, encabezado legible y
-// hora corta a la derecha de cada fila.
-function claveDia(iso: string): string {
-  const d = new Date(iso)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
-
-function etiquetaDia(iso: string): string {
-  const d = new Date(iso)
-  const hoy = new Date()
-  const ayer = new Date(hoy)
-  ayer.setDate(hoy.getDate() - 1)
-  const mismoDia = (a: Date, b: Date) => a.toDateString() === b.toDateString()
-  if (mismoDia(d, hoy)) return "Hoy"
-  if (mismoDia(d, ayer)) return "Ayer"
-  const opciones: Intl.DateTimeFormatOptions = { day: "numeric", month: "long" }
-  if (d.getFullYear() !== hoy.getFullYear()) opciones.year = "numeric"
-  return d.toLocaleDateString("es-AR", opciones)
-}
-
+// La lista se agrupa por dia (DESIGN.md 7) con `claveDia` y `etiquetaDia`
+// (lib/fecha), y cada fila lleva la hora corta a la derecha.
+//
 // 24 horas, que es como se lee la hora en Argentina; el formato de 12 con
 // "a. m." tambien queda largo al lado del monto.
 function horaCorta(iso: string): string {
@@ -139,27 +128,49 @@ function EstadoSync() {
   )
 }
 
+const TIPOS_FILTRO: Record<string, string> = {
+  expense: "Gastos",
+  income: "Ingresos",
+  transfer: "Transferencias",
+}
+
 export function Movimientos() {
   const navigate = useNavigate()
   const hoy = new Date()
-  // El mes vive en la URL (?mes=2026-09): al abrir un movimiento y volver, la
-  // lista queda en el mismo mes. Antes se reiniciaba al mes actual.
+  const movil = useLayout() === "movil"
+  const location = useLocation()
+  // El movimiento abierto en el panel de escritorio (la ruta hija), para
+  // marcarlo en la lista.
+  const abierto = location.pathname.match(/^\/movimientos\/([^/]+)/)?.[1] ?? null
+  // Todo lo que define la lista vive en la URL (DESIGN.md 7): el mes, la vista
+  // y los filtros (?mes=2026-09&cuenta=...&q=...). Al abrir un movimiento y
+  // volver, la lista queda igual; y una tarjeta de cuenta del Inicio llega ya
+  // filtrada.
   const [urlParams, setUrlParams] = useSearchParams()
   const [anioParam, mesParam] = (urlParams.get("mes") ?? "").split("-").map(Number)
   const anio = anioParam || hoy.getFullYear()
   const mes = mesParam ? mesParam - 1 : hoy.getMonth()
-  const [vista, setVista] = useState<"lista" | "calendario">("lista")
-  const [tipo, setTipo] = useState("")
-  const [cuentaId, setCuentaId] = useState("")
-  const [categoriaId, setCategoriaId] = useState("")
-  const [texto, setTexto] = useState("")
-  const [etiquetaId, setEtiquetaId] = useState("")
-  const [monedaFiltro, setMonedaFiltro] = useState("")
+  const param = (k: string) => urlParams.get(k) ?? ""
+  const vista: "lista" | "calendario" = param("vista") === "calendario" ? "calendario" : "lista"
+  const tipo = param("tipo")
+  const texto = param("q")
+  const monedaFiltro = param("moneda")
   // "Faltan datos de conversion": movimientos en otra moneda que la cuenta y
   // sin el monto debitado. Es un FILTRO, no un estado: el movimiento esta
   // completo, lo que falta es un dato del banco (regla 4, ver 0005).
-  const [soloSinConversion, setSoloSinConversion] = useState(false)
-  const [diaSel, setDiaSel] = useState<number | null>(null)
+  const soloSinConversion = param("sinconv") === "1"
+  const diaSel = Number(param("dia")) || null
+  // `replace`: cambiar un filtro no es una pantalla nueva; "volver" sale de la
+  // lista, no deshace filtros de a uno.
+  function cambiar(cambios: Record<string, string | null>) {
+    const nuevos = new URLSearchParams(urlParams)
+    for (const [k, v] of Object.entries(cambios)) {
+      if (v) nuevos.set(k, v)
+      else nuevos.delete(k)
+    }
+    setUrlParams(nuevos, { replace: true })
+  }
+  const [verFiltros, setVerFiltros] = useState(false)
 
   const { data: cuentas, isLoading: cargaCuentas } = useQuery<Opcion>(
     "SELECT id, name FROM accounts WHERE deleted_at IS NULL ORDER BY name",
@@ -175,6 +186,14 @@ export function Movimientos() {
   const { data: etiquetas } = useQuery<Opcion>(
     "SELECT id, name FROM tags WHERE deleted_at IS NULL AND archived = 0",
   )
+  // Un id de la direccion que ya no existe (una cuenta borrada, un enlace viejo)
+  // no filtra: si no, la lista quedaba vacia con el selector en "Toda cuenta".
+  // Mientras la lista todavia no llego, se respeta.
+  const vigente = (id: string, lista: { id: string }[]) =>
+    !id || lista.length === 0 || lista.some((x) => x.id === id) ? id : ""
+  const cuentaId = vigente(param("cuenta"), cuentas)
+  const categoriaId = vigente(param("categoria"), categorias)
+  const etiquetaId = vigente(param("etiqueta"), etiquetas)
   const base = useMonedaBase()
   // Cuantos movimientos del mes esperan el monto debitado del banco.
   const { data: sinConversion } = useQuery<{ n: number }>(
@@ -270,13 +289,145 @@ export function Movimientos() {
 
   function cambiarMes(delta: number) {
     const d = new Date(anio, mes + delta, 1)
-    const nuevos = new URLSearchParams(urlParams)
-    nuevos.set("mes", `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`)
-    setUrlParams(nuevos, { replace: true })
-    setDiaSel(null)
+    cambiar({
+      mes: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      dia: null,
+    })
   }
 
   const etiquetaMes = mesAnio(anio, mes)
+
+  // Los filtros, una sola vez: van en la barra (escritorio) o en la hoja
+  // (movil). Cada uno con nombre: la opcion "Toda cuenta" no le dice al lector
+  // de pantalla que se esta filtrando (WCAG 4.1.2; axe lo marcaba critico).
+  const selectores: { clave: string; etiqueta: string; control: React.ReactNode }[] = [
+    {
+      clave: "tipo",
+      etiqueta: "Tipo",
+      control: (
+        <Select
+          aria-label="Tipo de movimiento"
+          value={tipo}
+          onChange={(e) => cambiar({ tipo: e.target.value })}
+        >
+          <option value="">Todos</option>
+          {Object.entries(TIPOS_FILTRO).map(([v, t]) => (
+            <option key={v} value={v}>
+              {t}
+            </option>
+          ))}
+        </Select>
+      ),
+    },
+    {
+      clave: "cuenta",
+      etiqueta: "Cuenta",
+      control: (
+        <Select
+          aria-label="Cuenta"
+          value={cuentaId}
+          onChange={(e) => cambiar({ cuenta: e.target.value })}
+        >
+          <option value="">Toda cuenta</option>
+          {cuentas.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+      ),
+    },
+    {
+      clave: "categoria",
+      etiqueta: "Categoría",
+      control: (
+        <Select
+          aria-label="Categoría"
+          value={categoriaId}
+          onChange={(e) => cambiar({ categoria: e.target.value })}
+        >
+          <option value="">Toda categoría</option>
+          {ordenarJerarquico(categorias).map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.parent_id ? `${nombreCat.get(c.parent_id) ?? "—"} › ${c.name}` : c.name}
+              {c.grupo ? ` · ${c.grupo}` : ""}
+            </option>
+          ))}
+        </Select>
+      ),
+    },
+    ...(monedas.length > 1
+      ? [
+          {
+            clave: "moneda",
+            etiqueta: "Moneda",
+            control: (
+              <Select
+                aria-label="Moneda"
+                value={monedaFiltro}
+                onChange={(e) => cambiar({ moneda: e.target.value })}
+              >
+                <option value="">Toda moneda</option>
+                {monedas.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </Select>
+            ),
+          },
+        ]
+      : []),
+    ...(etiquetasOrden.length > 0
+      ? [
+          {
+            clave: "etiqueta",
+            etiqueta: "Etiqueta",
+            control: (
+              <Select
+                aria-label="Etiqueta"
+                value={etiquetaId}
+                onChange={(e) => cambiar({ etiqueta: e.target.value })}
+              >
+                <option value="">Toda etiqueta</option>
+                {etiquetasOrden.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
+              </Select>
+            ),
+          },
+        ]
+      : []),
+  ]
+  const buscador = (
+    <Input
+      type="search"
+      aria-label="Buscar comercio"
+      placeholder="Buscar comercio…"
+      value={texto}
+      onChange={(e) => cambiar({ q: e.target.value })}
+      className={movil ? "flex-1" : undefined}
+    />
+  )
+  // Lo que esta filtrando ahora, para los chips del movil.
+  const activos = [
+    tipo && { clave: "tipo", texto: TIPOS_FILTRO[tipo] ?? tipo },
+    cuentaId && {
+      clave: "cuenta",
+      texto: cuentas.find((c) => c.id === cuentaId)?.name ?? "Cuenta",
+    },
+    categoriaId && {
+      clave: "categoria",
+      texto: categorias.find((c) => c.id === categoriaId)?.name ?? "Categoría",
+    },
+    monedaFiltro && { clave: "moneda", texto: monedaFiltro },
+    etiquetaId && {
+      clave: "etiqueta",
+      texto: etiquetas.find((e) => e.id === etiquetaId)?.name ?? "Etiqueta",
+    },
+  ].filter((a): a is { clave: string; texto: string } => Boolean(a))
 
   // Sin esto la lista dice "Sin movimientos" antes de tener la respuesta.
   const cargando = cargaMovs || cargaCuentas
@@ -304,239 +455,242 @@ export function Movimientos() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-3 p-4">
-      <EncabezadoEspacio />
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Movimientos</h1>
-        <EstadoSync />
-      </header>
+    <ConPanel etiqueta="Detalle del movimiento">
+      <div className="mx-auto max-w-2xl space-y-3 p-4">
+        <EncabezadoEspacio />
+        <header className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Movimientos</h1>
+          <EstadoSync />
+        </header>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => cambiarMes(-1)}
-            aria-label="Mes anterior"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <span className="min-w-40 text-center text-sm font-medium">{etiquetaMes}</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => cambiarMes(1)}
-            aria-label="Mes siguiente"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </Button>
-        </div>
-        <div className="flex gap-1">
-          <Button
-            variant={vista === "lista" ? "default" : "outline"}
-            size="icon"
-            onClick={() => setVista("lista")}
-            aria-label="Lista"
-            aria-pressed={vista === "lista"}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={vista === "calendario" ? "default" : "outline"}
-            size="icon"
-            onClick={() => setVista("calendario")}
-            aria-label="Calendario"
-            aria-pressed={vista === "calendario"}
-          >
-            <CalendarDays className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {/* Cada filtro con nombre: la opcion "Toda cuenta" no le dice al lector
-            de pantalla que se esta filtrando (WCAG 4.1.2; axe lo marcaba critico). */}
-        <Select
-          aria-label="Tipo de movimiento"
-          value={tipo}
-          onChange={(e) => setTipo(e.target.value)}
-        >
-          <option value="">Todos</option>
-          <option value="expense">Gastos</option>
-          <option value="income">Ingresos</option>
-          <option value="transfer">Transferencias</option>
-        </Select>
-        <Select aria-label="Cuenta" value={cuentaId} onChange={(e) => setCuentaId(e.target.value)}>
-          <option value="">Toda cuenta</option>
-          {cuentas.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
-        <Select
-          aria-label="Categoría"
-          value={categoriaId}
-          onChange={(e) => setCategoriaId(e.target.value)}
-        >
-          <option value="">Toda categoría</option>
-          {ordenarJerarquico(categorias).map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.parent_id ? `${nombreCat.get(c.parent_id) ?? "—"} › ${c.name}` : c.name}
-              {c.grupo ? ` · ${c.grupo}` : ""}
-            </option>
-          ))}
-        </Select>
-        {monedas.length > 1 && (
-          <Select
-            aria-label="Moneda"
-            value={monedaFiltro}
-            onChange={(e) => setMonedaFiltro(e.target.value)}
-          >
-            <option value="">Toda moneda</option>
-            {monedas.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </Select>
-        )}
-        {etiquetasOrden.length > 0 && (
-          <Select
-            aria-label="Etiqueta"
-            value={etiquetaId}
-            onChange={(e) => setEtiquetaId(e.target.value)}
-          >
-            <option value="">Toda etiqueta</option>
-            {etiquetasOrden.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </Select>
-        )}
-        <Input
-          type="search"
-          aria-label="Buscar comercio"
-          placeholder="Buscar comercio…"
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-        />
-      </div>
-
-      {/* Solo aparece si hay algo que completar: un filtro que nunca encuentra
-          nada es ruido. */}
-      {(sinConversion[0]?.n ?? 0) > 0 && (
-        <button
-          type="button"
-          onClick={() => setSoloSinConversion((v) => !v)}
-          className={cn(
-            "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-            soloSinConversion
-              ? "border-primary bg-primary/10"
-              : "border-border bg-card hover:bg-muted",
-          )}
-        >
-          <span>
-            {sinConversion[0].n} movimiento{sinConversion[0].n === 1 ? "" : "s"} sin el monto
-            debitado
-          </span>
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {soloSinConversion ? "ver todos" : "ver solo esos"}
-          </span>
-        </button>
-      )}
-
-      {vista === "calendario" ? (
-        <Calendario
-          anio={anio}
-          mes={mes}
-          moneda={monedaFiltro || monedaPorDefecto(monedas, base)}
-          movimientos={mesMovs}
-          onDia={(d) => {
-            setDiaSel(d)
-            setVista("lista")
-          }}
-        />
-      ) : (
-        <>
-          {diaSel && (
-            <button
-              className="min-h-6 text-sm font-medium text-enlace underline underline-offset-2"
-              onClick={() => setDiaSel(null)}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => cambiarMes(-1)}
+              aria-label="Mes anterior"
             >
-              Día {diaSel} — quitar filtro
-            </button>
-          )}
-          {lista.length === 0 ? (
-            <Vacio
-              icono={Receipt}
-              titulo="Sin movimientos"
-              detalle="No hay movimientos con estos filtros."
-              accion={{ to: "/nuevo", etiqueta: "Nuevo movimiento" }}
-            />
-          ) : (
-            <div className="space-y-4">
-              {grupos.map(([clave, filas]) => (
-                <section key={clave}>
-                  <h3 className="mb-2 px-1 text-xs font-medium text-muted-foreground">
-                    {etiquetaDia(filas[0].occurred_at)}
-                  </h3>
-                  <ListaInset>
-                    {filas.map((f) => {
-                      // El icono de la categoria dice mas que el del tipo, que
-                      // ya lo comunican el signo y el color del monto. Sin
-                      // categoria (una transferencia, por ejemplo) se cae al
-                      // del tipo.
-                      const Icono = f.categoria_icon ? iconoDe(f.categoria_icon) : ICONO_MOV[f.kind]
-                      const titulo =
-                        f.payee || f.categoria || (f.kind === "transfer" ? "Transferencia" : "—")
-                      const sub = [f.payee ? f.categoria : null, f.cuenta].filter(Boolean)
-                      if (f.status === "pending") sub.push("pendiente")
-                      return (
-                        <FilaInset key={f.id} onClick={() => navigate(`/movimientos/${f.id}`)}>
-                          <div className="flex min-w-0 items-center gap-3">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
-                              <Icono className={cn("h-4 w-4", COLOR[f.kind])} />
-                            </span>
-                            <div className="min-w-0">
-                              <p className="truncate font-medium">{titulo}</p>
-                              {sub.length > 0 && (
-                                <p className="truncate text-xs text-muted-foreground">
-                                  {sub.join(" · ")}
-                                </p>
-                              )}
-                              {f.grupo_nombre && (
-                                <EtiquetaGrupo
-                                  nombre={f.grupo_nombre}
-                                  color={f.grupo_color}
-                                  className="mt-1"
-                                />
-                              )}
-                            </div>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <Monto
-                              centavos={f.amount}
-                              moneda={f.currency}
-                              direccion={DIRECCION[f.kind]}
-                              variante="lista"
-                              className={cn("font-medium", COLOR[f.kind])}
-                            />
-                            <p className="font-mono text-xs text-muted-foreground">
-                              {horaCorta(f.occurred_at)}
-                            </p>
-                          </div>
-                        </FilaInset>
-                      )
-                    })}
-                  </ListaInset>
-                </section>
-              ))}
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <span className="min-w-40 text-center text-sm font-medium">{etiquetaMes}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => cambiarMes(1)}
+              aria-label="Mes siguiente"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
+          <div className="flex gap-1">
+            <Button
+              variant={vista === "lista" ? "default" : "outline"}
+              size="icon"
+              onClick={() => cambiar({ vista: null })}
+              aria-label="Lista"
+              aria-pressed={vista === "lista"}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={vista === "calendario" ? "default" : "outline"}
+              size="icon"
+              onClick={() => cambiar({ vista: "calendario" })}
+              aria-label="Calendario"
+              aria-pressed={vista === "calendario"}
+            >
+              <CalendarDays className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {movil ? (
+          // Movil (DESIGN.md 2): la busqueda a la vista y el resto en una hoja.
+          // Seis controles en tres filas empujaban la lista fuera de la pantalla.
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              {buscador}
+              <Button
+                variant="outline"
+                onClick={() => setVerFiltros(true)}
+                aria-label={activos.length > 0 ? `Filtros, ${activos.length} activos` : "Filtros"}
+              >
+                <SlidersHorizontal className="h-4 w-4" aria-hidden />
+                Filtros{activos.length > 0 ? ` (${activos.length})` : ""}
+              </Button>
             </div>
-          )}
-        </>
-      )}
-    </div>
+            {activos.length > 0 && (
+              <ul className="flex flex-wrap gap-2" aria-label="Filtros activos">
+                {activos.map((a) => (
+                  <li key={a.clave}>
+                    <button
+                      type="button"
+                      onClick={() => cambiar({ [a.clave]: null })}
+                      aria-label={`Quitar filtro: ${a.texto}`}
+                      className="inline-flex min-h-11 max-w-full items-center gap-2 rounded-full border border-border bg-card px-3 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="truncate">{a.texto}</span>
+                      <X className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Hoja abierta={verFiltros} onOpenChange={setVerFiltros} titulo="Filtros">
+              <div className="space-y-3">
+                {selectores.map((sel) => (
+                  <Campo key={sel.clave} etiqueta={sel.etiqueta}>
+                    {sel.control}
+                  </Campo>
+                ))}
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    disabled={activos.length === 0}
+                    onClick={() => cambiar(Object.fromEntries(activos.map((a) => [a.clave, null])))}
+                  >
+                    Limpiar
+                  </Button>
+                  <Button onClick={() => setVerFiltros(false)}>Ver resultados</Button>
+                </div>
+              </div>
+            </Hoja>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {selectores.map((sel) => (
+              <div key={sel.clave}>{sel.control}</div>
+            ))}
+            {buscador}
+          </div>
+        )}
+
+        {/* Solo aparece si hay algo que completar: un filtro que nunca encuentra
+          nada es ruido. */}
+        {(sinConversion[0]?.n ?? 0) > 0 && (
+          <button
+            type="button"
+            onClick={() => cambiar({ sinconv: soloSinConversion ? null : "1" })}
+            className={cn(
+              "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+              soloSinConversion
+                ? "border-primary bg-primary/10"
+                : "border-border bg-card hover:bg-muted",
+            )}
+          >
+            <span>
+              {sinConversion[0].n} movimiento{sinConversion[0].n === 1 ? "" : "s"} sin el monto
+              debitado
+            </span>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {soloSinConversion ? "ver todos" : "ver solo esos"}
+            </span>
+          </button>
+        )}
+
+        {vista === "calendario" ? (
+          <Calendario
+            anio={anio}
+            mes={mes}
+            moneda={monedaFiltro || monedaPorDefecto(monedas, base)}
+            movimientos={mesMovs}
+            onDia={(d) => cambiar({ dia: String(d), vista: null })}
+          />
+        ) : (
+          <>
+            {diaSel && (
+              <button
+                className="min-h-6 text-sm font-medium text-enlace underline underline-offset-2"
+                onClick={() => cambiar({ dia: null })}
+              >
+                Día {diaSel} — quitar filtro
+              </button>
+            )}
+            {lista.length === 0 ? (
+              <Vacio
+                icono={Receipt}
+                titulo="Sin movimientos"
+                detalle="No hay movimientos con estos filtros."
+                accion={{ to: "/nuevo", etiqueta: "Nuevo movimiento" }}
+              />
+            ) : (
+              <div className="space-y-4">
+                {grupos.map(([clave, filas]) => (
+                  <section key={clave}>
+                    <h3 className="mb-2 px-1 text-xs font-medium text-muted-foreground">
+                      {etiquetaDia(filas[0].occurred_at)}
+                    </h3>
+                    <ListaInset>
+                      {filas.map((f) => {
+                        // El icono de la categoria dice mas que el del tipo, que
+                        // ya lo comunican el signo y el color del monto. Sin
+                        // categoria (una transferencia, por ejemplo) se cae al
+                        // del tipo.
+                        const Icono = f.categoria_icon
+                          ? iconoDe(f.categoria_icon)
+                          : ICONO_MOV[f.kind]
+                        const titulo =
+                          f.payee || f.categoria || (f.kind === "transfer" ? "Transferencia" : "—")
+                        const sub = [f.payee ? f.categoria : null, f.cuenta].filter(Boolean)
+                        if (f.status === "pending") sub.push("pendiente")
+                        return (
+                          <FilaInset
+                            key={f.id}
+                            // Con el mes y los filtros: en escritorio la lista
+                            // sigue a la vista, al lado del detalle (ConPanel).
+                            onClick={() =>
+                              navigate(
+                                { pathname: `/movimientos/${f.id}`, search: location.search },
+                                { replace: abierto !== null },
+                              )
+                            }
+                            className={cn(abierto === f.id && "bg-muted")}
+                            actual={abierto === f.id}
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
+                                <Icono className={cn("h-4 w-4", COLOR[f.kind])} />
+                              </span>
+                              <div className="min-w-0">
+                                <p className="truncate font-medium">{titulo}</p>
+                                {sub.length > 0 && (
+                                  <p className="truncate text-xs text-muted-foreground">
+                                    {sub.join(" · ")}
+                                  </p>
+                                )}
+                                {f.grupo_nombre && (
+                                  <EtiquetaGrupo
+                                    nombre={f.grupo_nombre}
+                                    color={f.grupo_color}
+                                    className="mt-1"
+                                  />
+                                )}
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <Monto
+                                centavos={f.amount}
+                                moneda={f.currency}
+                                direccion={DIRECCION[f.kind]}
+                                variante="lista"
+                                className={cn("font-medium", COLOR[f.kind])}
+                              />
+                              <p className="font-mono text-xs text-muted-foreground">
+                                {horaCorta(f.occurred_at)}
+                              </p>
+                            </div>
+                          </FilaInset>
+                        )
+                      })}
+                    </ListaInset>
+                  </section>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </ConPanel>
   )
 }

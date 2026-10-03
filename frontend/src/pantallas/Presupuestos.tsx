@@ -24,7 +24,7 @@ import { Interruptor } from "@/componentes/ui/interruptor"
 import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { ordenarJerarquico } from "@/lib/categorias"
-import { aCentavos, formatearCentavos, formatearMonto } from "@/lib/dinero"
+import { aCentavos, aTextoEditable, formatearCentavos, formatearMonto } from "@/lib/dinero"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { mesAnio } from "@/lib/fecha"
 import { monedaPorDefecto, ordenarMonedas } from "@/lib/monedas"
@@ -314,8 +314,8 @@ export function Presupuestos() {
           <SelectorMoneda monedas={monedas} valor={moneda} onCambio={setMonedaElegida} />
         </div>
       )}
-      <div className="rounded-xl bg-card p-5">
-        <div className="flex items-center gap-5">
+      <div className="rounded-xl bg-card p-4">
+        <div className="flex items-center gap-4">
           {/* Tamano fijo: los radios son fijos y el ciclo de medicion del
               ResponsiveContainer dejaba el anillo vacio al entrar (ver 0008). */}
           <div className="relative h-28 w-28 shrink-0">
@@ -351,7 +351,7 @@ export function Presupuestos() {
                 resultado.porAsignar < 0 && "text-expense",
               )}
             />
-            <dl className="mt-2 space-y-0.5 text-xs">
+            <dl className="mt-2 space-y-1 text-xs">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Asignado</dt>
                 <dd>
@@ -410,6 +410,7 @@ export function Presupuestos() {
       </Button>
       <Hoja abierta={agregando} onOpenChange={setAgregando} titulo="Agregar sobre">
         <FormAgregar
+          moneda={moneda}
           candidatas={noSobres}
           onCerrar={() => setAgregando(false)}
           onAgregar={async (catId, ahorro, centavos) => {
@@ -497,9 +498,10 @@ export function Presupuestos() {
 
 // El input de asignado muestra el monto formateado (miles) cuando no se edita,
 // y crudo al enfocar; aCentavos hace el round-trip ("10.000,00" -> centavos).
-const fmtAsignado = (cent: number) => (cent > 0 ? formatearCentavos(cent) : "0")
-const editableAsignado = (cent: number) =>
-  cent > 0 ? (cent / 100).toString().replace(".", ",") : ""
+const fmtAsignado = (cent: number, moneda: string) =>
+  cent > 0 ? formatearCentavos(cent, moneda) : "0"
+const editableAsignado = (cent: number, moneda: string) =>
+  cent > 0 ? aTextoEditable(cent, moneda) : ""
 
 function FilaSobre({
   cat,
@@ -526,7 +528,7 @@ function FilaSobre({
   onAhorro: (catId: string, rollover: boolean) => void
   onToggleAuto: (catId: string, on: boolean) => void
 }) {
-  const [texto, setTexto] = useState(fmtAsignado(asignadoSel))
+  const [texto, setTexto] = useState(fmtAsignado(asignadoSel, moneda))
   const [abierto, setAbierto] = useState(false)
   const [confirmarQuitar, setConfirmarQuitar] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -534,9 +536,9 @@ function FilaSobre({
   // pestaña) y no lo estoy editando ahora mismo.
   useEffect(() => {
     if (document.activeElement !== inputRef.current) {
-      setTexto(fmtAsignado(asignadoSel))
+      setTexto(fmtAsignado(asignadoSel, moneda))
     }
-  }, [asignadoSel])
+  }, [asignadoSel, moneda])
   const balance = saldo?.balance ?? 0
   const gastado = saldo?.spent ?? 0
   const pct = asignadoSel > 0 ? Math.min((gastado / asignadoSel) * 100, 100) : 0
@@ -545,7 +547,8 @@ function FilaSobre({
   return (
     <div className={cn("rounded-lg border border-border bg-card p-3", sangria && "ml-4")}>
       <button
-        className="flex w-full items-center gap-1 text-left"
+        // Toda la cabecera abre el sobre: 44 px de alto en el movil.
+        className="flex min-h-11 w-full items-center gap-1 text-left lg:min-h-6"
         onClick={() => setAbierto((a) => !a)}
         aria-expanded={abierto}
       >
@@ -576,32 +579,33 @@ function FilaSobre({
 
       <div className="mt-2 grid grid-cols-3 items-end gap-2">
         <div>
-          <p className="mb-0.5 text-xs text-muted-foreground">Asignado</p>
+          <p className="mb-1 text-xs text-muted-foreground">Asignado</p>
           <Input
             ref={inputRef}
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            onFocus={() => setTexto(editableAsignado(asignadoSel))}
+            onFocus={() => setTexto(editableAsignado(asignadoSel, moneda))}
             onBlur={() => {
-              const c = Math.max(0, aCentavos(texto) ?? 0)
+              const c = Math.max(0, aCentavos(texto, moneda) ?? 0)
               onAsignar(cat.id, c)
-              setTexto(fmtAsignado(c))
+              setTexto(fmtAsignado(c, moneda))
             }}
             onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
             inputMode="decimal"
-            className="h-8 tabular text-right"
+            // `px-2`: en 360 px, con `px-3` "10.000,00" no entraba en el campo.
+            className="tabular h-11 px-2 text-right lg:h-8"
             aria-label="Asignado"
           />
         </div>
         <div className="text-right">
-          <p className="mb-0.5 text-xs text-muted-foreground">Gastado</p>
-          <p className="h-8 leading-8">
+          <p className="mb-1 text-xs text-muted-foreground">Gastado</p>
+          <p className="flex h-11 items-center justify-end lg:h-8">
             <Monto centavos={gastado} moneda={moneda} />
           </p>
         </div>
         <div className="text-right">
-          <p className="mb-0.5 text-xs text-muted-foreground">Disponible</p>
-          <p className="h-8 leading-8">
+          <p className="mb-1 text-xs text-muted-foreground">Disponible</p>
+          <p className="flex h-11 items-center justify-end lg:h-8">
             <Monto
               centavos={balance}
               moneda={moneda}
@@ -676,10 +680,13 @@ function FilaSobre({
 }
 
 function FormAgregar({
+  moneda,
   candidatas,
   onCerrar,
   onAgregar,
 }: {
+  // La moneda del presupuesto que se esta viendo: el monto se lee en ella.
+  moneda: string
   candidatas: Cat[]
   onCerrar: () => void
   onAgregar: (catId: string, ahorro: boolean, centavos: number) => void
@@ -725,7 +732,7 @@ function FormAgregar({
           className="flex-1"
           onClick={() => {
             if (!catId) return setError("Elegí una categoría")
-            onAgregar(catId, ahorro, Math.max(0, aCentavos(monto) ?? 0))
+            onAgregar(catId, ahorro, Math.max(0, aCentavos(monto, moneda) ?? 0))
           }}
         >
           Agregar

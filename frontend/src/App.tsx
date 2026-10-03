@@ -43,14 +43,26 @@ import { Recurrentes } from "@/pantallas/Recurrentes"
 function Rutas() {
   const layout = useLayout()
   const Layout = layout === "movil" ? LayoutMovil : LayoutEscritorio
+  const escritorio = layout !== "movil"
   return (
     <Routes>
       {/* Alta: pantalla focal (sin barra ni FAB), se llega por el + o el boton. */}
       <Route path="nuevo" element={<Alta />} />
+      <Route path="grupos/:grupo/nuevo" element={<Alta />} />
       <Route element={<Layout />}>
         <Route index element={<Inicio />} />
-        <Route path="movimientos" element={<Movimientos />} />
-        <Route path="movimientos/:id" element={<DetalleMovimiento />} />
+        {/* El detalle de un movimiento: en escritorio, panel al lado de la lista
+            (ruta hija, ver ConPanel); en el movil, una pantalla (DESIGN.md 2). */}
+        {escritorio ? (
+          <Route path="movimientos" element={<Movimientos />}>
+            <Route path=":id" element={<DetalleMovimiento />} />
+          </Route>
+        ) : (
+          <>
+            <Route path="movimientos" element={<Movimientos />} />
+            <Route path="movimientos/:id" element={<DetalleMovimiento />} />
+          </>
+        )}
         <Route path="estadisticas" element={<Estadisticas />} />
         <Route path="ajustes" element={<Ajustes />} />
         {/* "Más" del panel de Inicio (0024): todos los accesos y su edicion. */}
@@ -63,8 +75,16 @@ function Rutas() {
             sobre `grupos/:grupo`. */}
         <Route path="grupos/ultimo" element={<UltimoGrupo />} />
         <Route path="grupos/:grupo" element={<InicioGrupo />} />
-        <Route path="grupos/:grupo/movimientos" element={<MovimientosGrupo />} />
-        <Route path="grupos/:grupo/movimientos/:id" element={<DetalleGastoGrupo />} />
+        {escritorio ? (
+          <Route path="grupos/:grupo/movimientos" element={<MovimientosGrupo />}>
+            <Route path=":id" element={<DetalleGastoGrupo />} />
+          </Route>
+        ) : (
+          <>
+            <Route path="grupos/:grupo/movimientos" element={<MovimientosGrupo />} />
+            <Route path="grupos/:grupo/movimientos/:id" element={<DetalleGastoGrupo />} />
+          </>
+        )}
         <Route path="grupos/:grupo/presupuesto" element={<PresupuestoDelGrupo />} />
         <Route path="grupos/:grupo/estadisticas" element={<EstadisticasGrupo />} />
         <Route path="grupos/:grupo/ajustes" element={<AjustesGrupo />} />

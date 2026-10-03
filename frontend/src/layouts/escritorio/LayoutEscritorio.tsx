@@ -7,7 +7,7 @@ import { DESTINOS, type Destino as DestinoNav } from "@/componentes/navegacion"
 import { Notificaciones } from "@/componentes/Notificaciones"
 import { SelectorEspacio } from "@/componentes/SelectorEspacio"
 import { useEspacio } from "@/hooks/useEspacio"
-import { rutaEspacio } from "@/lib/espacios"
+import { PERSONAL, rutaEspacio } from "@/lib/espacios"
 import { botonVariants } from "@/componentes/ui/button"
 import { Hoja } from "@/componentes/ui/hoja"
 import { FormularioMovimiento } from "@/pantallas/Alta"
@@ -45,8 +45,11 @@ export function LayoutEscritorio() {
   const [nuevoAbierto, setNuevoAbierto] = useState(false)
 
   return (
-    <div className="grid h-full grid-cols-[240px_1fr]">
-      <aside className="flex flex-col gap-1 border-r border-border bg-card p-4">
+    // Alto fijo de la ventana: scrollea `main`, no el documento. Sin
+    // `grid-rows-1` y `min-h-0`, la fila implicita crecia con el contenido y el
+    // panel de detalle (ConPanel) se iba de la vista al bajar por la lista.
+    <div className="grid h-full grid-cols-[240px_1fr] grid-rows-1">
+      <aside className="flex min-h-0 flex-col gap-1 overflow-y-auto border-r border-border bg-card p-4">
         <div className="mb-3 flex items-center gap-2 px-2">
           <img src="/icons/svg/mango.svg" alt="" className="h-8 w-8" />
           <span className="text-lg font-semibold">Mango</span>
@@ -87,9 +90,10 @@ export function LayoutEscritorio() {
         </nav>
       </aside>
 
-      <div className="flex min-w-0 flex-col">
-        <header className="flex h-14 items-center justify-between border-b border-border px-6">
-          <span className="text-sm text-muted-foreground">Finanzas</span>
+      <div className="flex min-h-0 min-w-0 flex-col">
+        {/* Sin texto de relleno a la izquierda: el titulo de cada pantalla ya es
+            su h1, y el espacio esta arriba de la barra lateral. */}
+        <header className="flex h-14 items-center justify-end border-b border-border px-6">
           <div className="flex items-center gap-2">
             <Notificaciones />
             <button
@@ -102,16 +106,22 @@ export function LayoutEscritorio() {
             </button>
           </div>
         </header>
-        <main className="flex-1 overflow-auto">
+        {/* `relative`: los `sr-only` (absolutos) se miden contra main y no
+            estiran el documento por debajo de la ventana. */}
+        <main className="relative min-h-0 flex-1 overflow-auto">
           <Outlet />
         </main>
       </div>
 
       <Hoja abierta={nuevoAbierto} onOpenChange={setNuevoAbierto} titulo="Nuevo movimiento">
+        {/* Carga en el espacio actual (0026) y lleva a Movimientos del espacio
+            donde quedo. */}
         <FormularioMovimiento
-          onGuardado={() => {
+          key={espacio.tipo === "grupo" ? espacio.id : ""}
+          grupoInicial={espacio.tipo === "grupo" ? espacio.id : ""}
+          onGuardado={(g) => {
             setNuevoAbierto(false)
-            navigate("/movimientos")
+            navigate(rutaEspacio(g ? { tipo: "grupo", id: g } : PERSONAL, "movimientos"))
           }}
         />
       </Hoja>

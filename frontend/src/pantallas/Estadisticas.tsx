@@ -164,7 +164,7 @@ const MAX_ETIQUETAS = 6
 function FilaEtiqueta({ e, tope, moneda }: { e: GastoEtiqueta; tope: number; moneda: string }) {
   const pct = Math.min((e.total / tope) * 100, 100)
   return (
-    <li className="space-y-1.5">
+    <li className="space-y-2">
       <div className="flex items-baseline justify-between gap-3 text-sm">
         <span className="flex min-w-0 items-center gap-2">
           <span
@@ -209,7 +209,7 @@ function Variacion({ pct }: { pct: number | null }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1 text-xs font-medium",
         sube ? "text-expense" : "text-income",
       )}
     >
@@ -451,7 +451,7 @@ export function Estadisticas() {
           <div className="flex items-center justify-between gap-3">{cuerpo}</div>
         )}
         {expandible && abierta && (
-          <ul className="ml-1 mt-2 space-y-1.5 border-l border-border pl-4 motion-safe:animate-fundir">
+          <ul className="ml-1 mt-2 space-y-2 border-l border-border pl-4 motion-safe:animate-fundir">
             {t.desglose.map((d) => (
               <li key={d.id} className="flex items-baseline justify-between gap-3 text-xs">
                 <span className="truncate text-muted-foreground">{d.name}</span>
@@ -595,6 +595,7 @@ export function Estadisticas() {
         {/* Con una sola moneda no hay nada que unificar. */}
         {!unaSola && (
           <Segmentado
+            etiqueta="Cómo ver las monedas"
             opciones={[
               { valor: "global", etiqueta: "Global" },
               { valor: "moneda", etiqueta: "Por moneda" },
@@ -608,6 +609,7 @@ export function Estadisticas() {
           explicarlo abajo (DESIGN.md 7). Solo se avisa lo que quedo afuera. */}
       <div className="-mt-6 space-y-2">
         <Segmentado
+          etiqueta="Período"
           opciones={[
             { valor: "dia", etiqueta: "Día" },
             { valor: "semana", etiqueta: "Semana" },
@@ -716,6 +718,7 @@ export function Estadisticas() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-muted-foreground">Gasto por etiqueta</h2>
             <Segmentado
+              etiqueta="Alcance"
               opciones={[
                 { valor: "todo", etiqueta: "Acumulado" },
                 { valor: "mes", etiqueta: etiquetaMes },
@@ -799,10 +802,10 @@ export function Estadisticas() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground">Evolución (6 meses)</h2>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-income" /> Ingresos
             </span>
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-expense" /> Gastos
             </span>
           </div>

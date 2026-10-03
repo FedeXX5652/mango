@@ -25,7 +25,7 @@
   --accent: #fef0c3;
   --accent-foreground: #4a3a00;
   --border: #d8cfba;
-  --input: #cfc5ad;
+  --input: #a49163;
   /* Anillo de foco: 3,7:1 contra el fondo (WCAG 1.4.11 pide 3:1). El #d9a300
      de antes daba 2,2:1 y el foco con teclado casi no se veia. */
   --ring: #a87c00;
@@ -54,7 +54,7 @@
   --accent: #3a2f10;
   --accent-foreground: #fdd34d;
   --border: #474030;
-  --input: #474030;
+  --input: #766b50;
   --ring: #fdbe02;
   --destructive: #ff8a80;
   --destructive-foreground: #14120c;
@@ -83,7 +83,7 @@
   --accent: #ccfbf1;
   --accent-foreground: #134e4a;
   --border: #d2dedb;
-  --input: #c4d3cf;
+  --input: #75988f;
   --ring: #0f766e;
   --destructive: #c62828;
   --destructive-foreground: #ffffff;
@@ -110,7 +110,7 @@
   --accent: #134e4a;
   --accent-foreground: #99f6e4;
   --border: #2e3e3b;
-  --input: #2e3e3b;
+  --input: #526e69;
   --ring: #2dd4bf;
   --destructive: #ff8a80;
   --destructive-foreground: #0c1211;
@@ -139,7 +139,7 @@
   --accent: #e0e7ff;
   --accent-foreground: #3730a3;
   --border: #d8d8e1;
-  --input: #cbcbd8;
+  --input: #8f8fab;
   --ring: #4f46e5;
   --destructive: #c62828;
   --destructive-foreground: #ffffff;
@@ -166,7 +166,7 @@
   --accent: #3730a3;
   --accent-foreground: #c7d2fe;
   --border: #34343f;
-  --input: #34343f;
+  --input: #64647a;
   --ring: #818cf8;
   --destructive: #ff8a80;
   --destructive-foreground: #0e0e14;

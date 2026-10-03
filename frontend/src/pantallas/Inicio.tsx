@@ -10,6 +10,7 @@ import { PanelAccesos } from "@/componentes/PanelAccesos"
 import { Monto } from "@/componentes/Monto"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { TarjetaResumen } from "@/componentes/TarjetaResumen"
+import { TarjetaGrupos } from "@/componentes/grupo/TarjetaGrupos"
 import { Vacio } from "@/componentes/Vacio"
 import { SelectorEspacio } from "@/componentes/SelectorEspacio"
 import { useMonedaBase } from "@/hooks/monedaBase"
@@ -50,7 +51,7 @@ const DIR: Record<MovReciente["kind"], Direccion> = {
 // amarillo como texto no llega al contraste minimo. El margen negativo agranda
 // el area tocable a 44 px sin mover el titulo de la seccion.
 const ENLACE_SECCION =
-  "-my-3 inline-flex items-center gap-0.5 rounded-md py-3 text-sm font-medium text-enlace hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  "-my-3 inline-flex items-center gap-1 rounded-md py-3 text-sm font-medium text-enlace hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
 // Topes del resumen: el detalle completo esta a un toque ("Ver todos/todas").
 const MAX_RECIENTES = 5
@@ -179,8 +180,14 @@ export function Inicio() {
             <div className="grid grid-cols-2 gap-3">
               {activas.slice(0, MAX_CUENTAS).map((c) => {
                 const Icono = iconoCuenta(c.type)
+                // A sus movimientos (BACKLOG, auditoria): "¿que paso en esta
+                // cuenta?" es la pregunta de quien toca una cuenta.
                 return (
-                  <div key={c.id} className="rounded-xl border border-border bg-card p-3">
+                  <Link
+                    key={c.id}
+                    to={`/movimientos?cuenta=${c.id}`}
+                    className="rounded-xl border border-border bg-card p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
                     <div className="mb-2 flex items-center gap-2">
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                         <Icono className="h-4 w-4" aria-hidden />
@@ -198,11 +205,14 @@ export function Inicio() {
                         c.balance < 0 && "text-expense",
                       )}
                     />
-                  </div>
+                  </Link>
                 )
               })}
             </div>
           </section>
+
+          {/* Cada grupo con como quede yo (0026). */}
+          <TarjetaGrupos />
 
           {/* Ultimos movimientos */}
           <section className="space-y-3">

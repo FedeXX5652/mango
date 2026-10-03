@@ -89,7 +89,7 @@ export function Etiquetas() {
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="flex shrink-0 items-center gap-1">
           <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => setEditando(e)}>
             <Pencil className="h-4 w-4" />
           </Button>

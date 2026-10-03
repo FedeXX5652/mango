@@ -7,7 +7,7 @@ import { Campo } from "@/componentes/ui/campo"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Segmentado } from "@/componentes/ui/segmentado"
-import { aCentavos, formatearMonto } from "@/lib/dinero"
+import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
 
 // Saldar una deuda del grupo (fase 3b.3, ver 0017). Dos formas:
@@ -60,7 +60,7 @@ export function SaldarPago({
   if (key !== ultimaKey) {
     setUltimaKey(key)
     setModo("marcar")
-    setMonto(liquidacion ? (liquidacion.monto / 100).toString().replace(".", ",") : "")
+    setMonto(liquidacion ? aTextoEditable(liquidacion.monto, liquidacion.currency) : "")
     setCuentaId("")
     setMedioId("")
     setError("")
@@ -110,7 +110,9 @@ export function SaldarPago({
           {formatearMonto(sugerido, { moneda: currency })}.
         </p>
 
-        {soyDeudor && <Segmentado opciones={MODOS} valor={modo} onCambio={setModo} />}
+        {soyDeudor && (
+          <Segmentado opciones={MODOS} valor={modo} onCambio={setModo} etiqueta="Cómo saldar" />
+        )}
 
         <Campo etiqueta="Monto a saldar">
           <Input

@@ -65,16 +65,40 @@ def _sembrar_categorias_de_grupo(session: AsyncSession, group_id: uuid.UUID) -> 
 async def update_group(
     session: AsyncSession, group_id: uuid.UUID, data: GroupUpdate
 ) -> Group | None:
-    """Edita nombre/color. Devuelve None si el grupo no existe (o esta borrado)."""
+    """Edita nombre, color o reparto por defecto. Devuelve None si el grupo no
+    existe (o esta borrado). Un reparto invalido es DomainError."""
     grupo = await session.get(Group, group_id)
     if grupo is None or grupo.deleted_at is not None:
         return None
     campos = data.model_dump(exclude_unset=True)
+    if campos.get("default_split") is not None:
+        campos["default_split"] = await _validar_reparto(session, group_id, campos["default_split"])
     for k, v in campos.items():
         setattr(grupo, k, v)
     await session.commit()
     await session.refresh(grupo)
     return grupo
+
+
+async def _validar_reparto(
+    session: AsyncSession, group_id: uuid.UUID, reparto: dict[uuid.UUID, int]
+) -> dict[str, int]:
+    """El reparto por defecto (0026) es de los miembros de HOY y alguien tiene
+    que poner algo. Se guarda con ids en texto: son las claves de un JSON."""
+    miembros = set(
+        (
+            await session.execute(
+                select(GroupMember.user_id).where(
+                    GroupMember.group_id == group_id, GroupMember.deleted_at.is_(None)
+                )
+            )
+        ).scalars()
+    )
+    if not set(reparto) <= miembros:
+        raise DomainError("El reparto solo puede incluir a miembros del grupo")
+    if sum(reparto.values()) <= 0:
+        raise DomainError("El reparto necesita al menos una parte")
+    return {str(k): v for k, v in reparto.items()}
 
 
 async def membresia(

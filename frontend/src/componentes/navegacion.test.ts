@@ -15,13 +15,23 @@ describe("navegacion", () => {
     for (const d of DESTINOS_MOVIL) expect(rutas).toContain(d.to)
   })
 
-  it("Ajustes y Estadisticas quedan fuera de la barra movil, no de escritorio", () => {
+  it("la barra movil son las cuatro secciones de un espacio (0026)", () => {
+    // Siguen al espacio actual: en Casa, Movimientos es el de Casa.
+    expect(DESTINOS_MOVIL.map((d) => d.seccion)).toEqual([
+      "",
+      "movimientos",
+      "presupuesto",
+      "estadisticas",
+    ])
+  })
+
+  it("Ajustes y Grupos quedan fuera de la barra movil, no de escritorio", () => {
     const movil = DESTINOS_MOVIL.map((d) => d.to)
     expect(movil).not.toContain("/ajustes")
-    expect(movil).not.toContain("/estadisticas")
+    expect(movil).not.toContain("/grupos")
     const escritorio = DESTINOS.map((d) => d.to)
     expect(escritorio).toContain("/ajustes")
-    expect(escritorio).toContain("/estadisticas")
+    expect(escritorio).toContain("/grupos")
   })
 
   it("Inicio es el primero y solo activa en su ruta exacta", () => {

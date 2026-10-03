@@ -1,5 +1,7 @@
 import { usePowerSync, useQuery } from "@powersync/react"
+import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react"
 import { useState } from "react"
+import { Link } from "react-router-dom"
 
 import { Monto } from "@/componentes/Monto"
 import { Button } from "@/componentes/ui/button"
@@ -8,6 +10,7 @@ import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
+import { rutaMoverPlata } from "@/lib/espacios"
 import { TX_GRUPO } from "@/lib/lente"
 import { saldoCuenta } from "@/lib/saldos"
 import { uuidv4 } from "@/lib/uuid"
@@ -31,13 +34,6 @@ const TIPOS = [
 ]
 
 export function CuentaConjunta({ groupId }: { groupId: string }) {
-  const db = usePowerSync()
-  const { data: grupoRows } = useQuery<{ base_currency: string }>(
-    "SELECT base_currency FROM groups WHERE id = ?",
-    [groupId],
-  )
-  const monedaGrupo = grupoRows[0]?.base_currency ?? "ARS"
-
   // Saldo por cuenta conjunta: la formula unica (lib/saldos) sobre el LENTE del
   // grupo, no sobre `transactions`. La cuenta es de todos: su saldo lleva lo
   // que puso y pago cada miembro, y eso solo esta junto en el lente (0021).
@@ -50,24 +46,9 @@ export function CuentaConjunta({ groupId }: { groupId: string }) {
   )
 
   const [abierto, setAbierto] = useState(false)
-  const [nombre, setNombre] = useState("")
-  const [tipo, setTipo] = useState("bank")
-  const [error, setError] = useState("")
-
-  async function crear() {
-    if (!nombre.trim()) return setError("Poné un nombre")
-    try {
-      await db.execute(
-        `INSERT INTO accounts (id, group_id, name, type, currency, opening_balance, off_budget, visibility, archived, sort_order)
-         VALUES (?, ?, ?, ?, ?, 0, 0, 'shared', 0, 0)`,
-        [uuidv4(), groupId, nombre.trim(), tipo, monedaGrupo],
-      )
-      setNombre("")
-      setAbierto(false)
-    } catch {
-      setError("No se pudo crear")
-    }
-  }
+  // Con una sola conjunta, poner o sacar ya la trae elegida; con varias, se
+  // elige en el formulario.
+  const unica = cuentas.length === 1 ? cuentas[0].id : undefined
 
   return (
     <section className="space-y-2">
@@ -99,32 +80,99 @@ export function CuentaConjunta({ groupId }: { groupId: string }) {
         </ListaInset>
       )}
 
-      <Hoja abierta={abierto} onOpenChange={setAbierto} titulo="Nueva cuenta conjunta">
-        <div className="space-y-3">
-          <Campo etiqueta="Nombre">
-            <Input
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              placeholder="Ej: Caja común"
-              autoFocus
-            />
-          </Campo>
-          <Campo etiqueta="Tipo">
-            <Select value={tipo} onChange={(e) => setTipo(e.target.value)}>
-              {TIPOS.map((t) => (
-                <option key={t.valor} value={t.valor}>
-                  {t.etiqueta}
-                </option>
-              ))}
-            </Select>
-          </Campo>
-          <p className="text-xs text-muted-foreground">Moneda: {monedaGrupo} (la del grupo).</p>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button className="w-full" onClick={crear} disabled={!nombre.trim()}>
-            Crear cuenta conjunta
-          </Button>
+      {/* Poner o sacar plata (0017, 0026): una transferencia entre una cuenta
+          propia y la conjunta, con la conjunta ya elegida. */}
+      {cuentas.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          <Link to={rutaMoverPlata(groupId, "poner", unica)} className={ACCION}>
+            <ArrowDownToLine className="h-4 w-4" aria-hidden />
+            Poner plata
+          </Link>
+          <Link to={rutaMoverPlata(groupId, "sacar", unica)} className={ACCION}>
+            <ArrowUpFromLine className="h-4 w-4" aria-hidden />
+            Sacar plata
+          </Link>
         </div>
-      </Hoja>
+      )}
+
+      <HojaNuevaConjunta groupId={groupId} abierta={abierto} onOpenChange={setAbierto} />
     </section>
+  )
+}
+
+const ACCION =
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+
+// Crear una cuenta conjunta. La usa la seccion de arriba y el acceso "Poner
+// plata" de un grupo que todavia no tiene ninguna (`onCreada` sigue al
+// formulario con la cuenta nueva).
+export function HojaNuevaConjunta({
+  groupId,
+  abierta,
+  onOpenChange,
+  onCreada,
+  detalle,
+}: {
+  groupId: string
+  abierta: boolean
+  onOpenChange: (v: boolean) => void
+  onCreada?: (id: string) => void
+  detalle?: string
+}) {
+  const db = usePowerSync()
+  const { data: grupoRows } = useQuery<{ base_currency: string }>(
+    "SELECT base_currency FROM groups WHERE id = ?",
+    [groupId],
+  )
+  const monedaGrupo = grupoRows[0]?.base_currency ?? "ARS"
+  const [nombre, setNombre] = useState("")
+  const [tipo, setTipo] = useState("bank")
+  const [error, setError] = useState("")
+
+  async function crear() {
+    if (!nombre.trim()) return setError("Poné un nombre")
+    const id = uuidv4()
+    try {
+      await db.execute(
+        `INSERT INTO accounts (id, group_id, name, type, currency, opening_balance, off_budget, visibility, archived, sort_order)
+         VALUES (?, ?, ?, ?, ?, 0, 0, 'shared', 0, 0)`,
+        [id, groupId, nombre.trim(), tipo, monedaGrupo],
+      )
+      setNombre("")
+      onOpenChange(false)
+      onCreada?.(id)
+    } catch {
+      setError("No se pudo crear")
+    }
+  }
+
+  return (
+    <Hoja abierta={abierta} onOpenChange={onOpenChange} titulo="Nueva cuenta conjunta">
+      <div className="space-y-3">
+        {detalle && <p className="text-sm text-muted-foreground">{detalle}</p>}
+        <Campo etiqueta="Nombre">
+          <Input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Ej: Caja común"
+            autoFocus
+          />
+        </Campo>
+        <Campo etiqueta="Tipo">
+          <Select value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            {TIPOS.map((t) => (
+              <option key={t.valor} value={t.valor}>
+                {t.etiqueta}
+              </option>
+            ))}
+          </Select>
+        </Campo>
+        <p className="text-xs text-muted-foreground">Moneda: {monedaGrupo} (la del grupo).</p>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <Button className="w-full" onClick={crear} disabled={!nombre.trim()}>
+          Crear cuenta conjunta
+        </Button>
+      </div>
+    </Hoja>
   )
 }

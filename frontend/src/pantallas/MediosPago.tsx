@@ -111,7 +111,7 @@ export function MediosPago() {
             {m.kind === "credit_card" && m.due_day ? ` · vence ${m.due_day}` : ""}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="flex shrink-0 items-center gap-1">
           {ordenando && i !== undefined ? (
             <>
               <Button

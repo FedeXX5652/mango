@@ -1,6 +1,6 @@
 # 0026 - Espacios: personal y cada grupo, con las mismas pantallas
 
-Estado: aceptada. Etapa 1 implementada (1.1.0); las etapas 2 y 3, pendientes.
+Estado: aceptada. Etapas 1 (1.1.0) y 2 (1.2.0) implementadas; la 3, pendiente.
 Ver "Etapas".
 Fecha: 2026-10-01
 
@@ -80,25 +80,44 @@ muestran lo de ese espacio.
   ingreso pendiente que entra a una cuenta mía (0018), así que es plata
   personal aunque venga de un grupo.
 - Metas, Deudas, Recurrentes y Plantillas siguen siendo personales. En un grupo,
-  los accesos de Inicio serán Saldar, Poner plata, Miembros y Categorías del
-  grupo (etapa 2).
+  los accesos de Inicio son **fijos**: Saldar, Poner plata, Miembros y
+  Categorías. No se eligen como los personales (0024): un grupo tiene pocas
+  acciones y todas son de uso frecuente. **Saldar** abre directo el pago si hay
+  una sola deuda que me toca; si no, la lista de "cómo saldar".
 - **Administrar un grupo** (nombre, color, miembros y categorías) sale de la
   pantalla de uso y va a **Ajustes del grupo**: el engranaje del Inicio del grupo
   en el móvil y una sección más de la barra lateral en escritorio.
 
 ### Cargar
 
-El "+" toma el espacio actual. En un grupo, el gasto ya viene "compartido con
-Casa", con las categorías del grupo y el reparto. El formulario dice **"Nuevo
-gasto en ● Casa"** y deja cambiarlo. Como cuenta ofrece las propias y las
-cuentas conjuntas del grupo.
+El "+" toma el espacio actual: el alta del grupo vive en `/grupos/<grupo>/nuevo`
+(la sección `nuevo` existe en los dos espacios; la de Personal es `/nuevo`). En
+un grupo, el gasto ya viene compartido, con las categorías del grupo y el
+reparto (el del grupo, si tiene uno: 0027).
+
+- El formulario dice **"Se carga en ● Casa ▾"** arriba de todo y deja cambiarlo
+  ahí mismo. Las transferencias no lo muestran: son entre cuentas propias.
+- **Cuentas**: las propias y la conjunta **de ese grupo**. En Personal, solo las
+  propias (pagar algo personal con la conjunta de un grupo no tiene sentido).
+  En una transferencia, todas.
+- Al guardar se va a Movimientos **del espacio donde quedó** el movimiento, no
+  del que se partió. Una transferencia que toca la conjunta de un grupo vuelve a
+  ese grupo.
+- El movimiento se guarda local con su `owner_id` (el servidor lo ignora y pone
+  el de la sesión): sin él, un gasto cargado sin conexión no era "mío" y el
+  balance del grupo se rompía.
 
 ### Plata entre espacios
 
 No se inventa nada: **el grupo no tiene plata suelta** (0014).
 
 - **Poner o sacar plata de Casa** es una transferencia entre una cuenta propia y
-  la cuenta conjunta del grupo (0016).
+  la cuenta conjunta del grupo (0016, 0017): el alta de una transferencia con la
+  conjunta ya elegida (`?hacia=` o `?desde=`). Si el grupo no tiene conjunta,
+  primero se ofrece crearla.
+- Esos **aportes y retiros aparecen en la historia del grupo** ("Vos → Caja
+  común"), intercalados con gastos y pagos. La sync ya se los mostraba al grupo
+  sin decir de qué cuenta personal salieron (lente b/c, 0021).
 - **Entre dos personas** es Saldar (0017).
 
 ### Lo personal muestra lo pagado
@@ -112,8 +131,11 @@ reintegro no es un ingreso de verdad: los cobros van a una categoría de sistema
 ### Barra móvil
 
 Con el selector, la pestaña Grupos sobra: la barra pasa a ser **Inicio ·
-Movimientos · + · Presupuesto · Estadísticas** (ajusta 0022). La lista de grupos
-pasa a "Administrar grupos".
+Movimientos · + · Presupuesto · Estadísticas**, las cuatro secciones del espacio
+(ajusta 0022). La lista de grupos queda en "Administrar" del selector. Lo que la
+pestaña dejaba a un toque —saber si se debe algo— está en la **tarjeta de
+grupos** del Inicio personal ("Casa: Beto te debe $X ›") y en la fila de cada
+grupo del selector.
 
 ### Espacios personales aislados: más adelante
 
@@ -142,17 +164,18 @@ que dice dónde va a quedar el gasto y la app que abre en Personal.
    grupo (pagos intercalados, filtros, detalle de solo lectura). Inicio,
    Presupuesto y Estadisticas del grupo reparten lo que estaba apilado en una
    sola pagina. Sin migraciones ni cambios en la sync.
-2. **Cargar y mover plata**: el "+" toma el espacio, **Poner plata**, los
-   accesos del Inicio del grupo, la tarjeta de grupos en el Inicio personal (y
-   su resumen en el selector) y la **barra con Estadisticas en lugar de Grupos**
-   (ahi se marca 0022 como ajustada).
+2. **Cargar y mover plata** (hecha, 1.2.0): el "+" toma el espacio, **Poner
+   plata**, los accesos del Inicio del grupo, la tarjeta de grupos en el Inicio
+   personal (y su resumen en el selector) y la **barra con Estadisticas en lugar
+   de Grupos**. Con ella entro el reparto por partes y el reparto por defecto del
+   grupo (0027).
 3. **Reintegros de grupo** como categoria de sistema y su separacion en
    Estadisticas.
 
 ## Consecuencias
 
 - Ajusta 0014 (cómo se presenta el grupo; el modelo de plata no cambia), 0022
-  (la barra, en la etapa 2) y 0023 (el atajo de Presupuesto pasa a
+  (la barra, en la etapa 2: hecho) y 0023 (el atajo de Presupuesto pasa a
   `/presupuesto`; "Último grupo" abre el Inicio del grupo).
 - Una sección nueva se agrega a `Seccion` en `lib/espacios.ts` y existe en los
   dos espacios con el mismo nombre; no se inventan rutas sueltas por espacio.

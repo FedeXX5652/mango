@@ -22,8 +22,9 @@ import { Interruptor } from "@/componentes/ui/interruptor"
 import { useVolver } from "@/hooks/useVolver"
 import { iconoCuenta } from "@/lib/cuentas"
 import { moverEnOrden } from "@/lib/orden"
-import { aCentavos, formatearSaldo } from "@/lib/dinero"
+import { aCentavos, aTextoEditable, formatearSaldo } from "@/lib/dinero"
 import { planCuenta } from "@/lib/reasignar"
+import { usuarioActualId } from "@/lib/sesion"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 
@@ -140,7 +141,7 @@ export function Cuentas() {
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="flex shrink-0 items-center gap-1">
           {ordenando && i !== undefined ? (
             <>
               <Button
@@ -294,7 +295,7 @@ function FormularioCuenta({ inicial, onCerrar }: { inicial: Cuenta | null; onCer
   const [type, setType] = useState(inicial?.type ?? "cash")
   const [currency, setCurrency] = useState(inicial?.currency ?? "ARS")
   const [apertura, setApertura] = useState(
-    inicial ? (inicial.opening_balance / 100).toString().replace(".", ",") : "",
+    inicial ? aTextoEditable(inicial.opening_balance, inicial.currency) : "",
   )
   const [offBudget, setOffBudget] = useState(inicial?.off_budget === 1)
   const [error, setError] = useState("")
@@ -302,8 +303,10 @@ function FormularioCuenta({ inicial, onCerrar }: { inicial: Cuenta | null; onCer
   async function guardar() {
     if (!name.trim()) return setError("Poné un nombre")
     if (!/^[A-Za-z]{3}$/.test(currency)) return setError("Moneda: 3 letras (ej. ARS)")
-    const opening = apertura.trim() ? (aCentavos(apertura) ?? 0) : 0
     const cur = currency.toUpperCase()
+    // En la moneda de la cuenta: con la base, una cuenta en JPY guardaba 100
+    // veces lo tipeado.
+    const opening = apertura.trim() ? (aCentavos(apertura, cur) ?? 0) : 0
 
     try {
       if (inicial) {
@@ -313,9 +316,12 @@ function FormularioCuenta({ inicial, onCerrar }: { inicial: Cuenta | null; onCer
         )
       } else {
         await db.execute(
-          `INSERT INTO accounts (id, name, type, currency, opening_balance, off_budget, visibility, archived, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, 'private', 0, 0)`,
-          [uuidv4(), name.trim(), type, cur, opening, offBudget ? 1 : 0],
+          // Con su dueño: Cuentas, Inicio y Presupuesto filtran por
+          // `owner_id IS NOT NULL`, y sin el una cuenta creada sin conexion no
+          // aparecia hasta sincronizar. El servidor lo ignora y pone el suyo.
+          `INSERT INTO accounts (id, owner_id, name, type, currency, opening_balance, off_budget, visibility, archived, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'private', 0, 0)`,
+          [uuidv4(), usuarioActualId(), name.trim(), type, cur, opening, offBudget ? 1 : 0],
         )
       }
       onCerrar()
