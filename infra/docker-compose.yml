@@ -99,6 +99,11 @@ services:
       POWERSYNC_URL: /powersync
       # Orígenes permitidos para CORS (desarrollo con la PWA en otro puerto). JSON.
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:8081","http://localhost:5173"]}
+      # Notificaciones push (1.4.0). Sin claves, el push queda apagado y los
+      # avisos siguen en la bandeja. Se generan con backend/scripts/generar_vapid.py.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
     ports:
       - "8000:8000"
     volumes:

@@ -150,6 +150,21 @@ export const api = {
   // Trae la cotizacion de cada moneda del usuario contra su moneda base. Es
   // idempotente por fecha (la fuente publica una por dia), asi que es seguro
   // llamarlo al abrir la app.
+  // Avisos push (1.4.0): la suscripcion de este dispositivo vive en el servidor.
+  configPush: () => pedir<{ disponible: boolean; clave_publica: string | null }>("/push/config"),
+  suscribirPush: (sub: {
+    id: string
+    endpoint: string
+    keys: { p256dh: string; auth: string }
+    dispositivo: string
+  }) => pedir<{ id: string }>("/push/subscriptions", { method: "POST", body: JSON.stringify(sub) }),
+  bajaPush: (endpoint: string) =>
+    pedir<void>("/push/subscriptions", { method: "DELETE", body: JSON.stringify({ endpoint }) }),
+  probarPush: (endpoint: string) =>
+    pedir<{ enviados: number }>("/push/test", {
+      method: "POST",
+      body: JSON.stringify({ endpoint }),
+    }),
   refrescarCotizaciones: (forzar = false) =>
     pedir<ResultadoCotizaciones>(`/exchange-rates/refresh${forzar ? "?forzar=true" : ""}`, {
       method: "POST",

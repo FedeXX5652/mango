@@ -3,6 +3,7 @@ import { AlertTriangle, Check, Download } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 
+import { AvisosDispositivo } from "@/componentes/AvisosDispositivo"
 import { Button } from "@/componentes/ui/button"
 import { Interruptor } from "@/componentes/ui/interruptor"
 import { Campo } from "@/componentes/ui/campo"
@@ -13,6 +14,7 @@ import { Segmentado } from "@/componentes/ui/segmentado"
 import { Select } from "@/componentes/ui/select"
 import { TEMAS } from "@/config/temas"
 import { api } from "@/lib/api"
+import { desactivarPush } from "@/lib/push"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { descargarTexto } from "@/lib/descargar"
 import { type RangoExport, nombreExport, parametrosExport, tieneFilas } from "@/lib/exportar"
@@ -179,6 +181,10 @@ export function Ajustes() {
         />
       </Seccion>
 
+      <Seccion titulo="Notificaciones">
+        <AvisosDispositivo />
+      </Seccion>
+
       <Seccion titulo="Seguridad">
         {bioDisponible ? (
           // Prendido/apagado: Interruptor, no un boton con el estado en texto
@@ -220,6 +226,8 @@ export function Ajustes() {
         etiqueta="Cerrar sesión"
         destructivo
         onConfirmar={async () => {
+          // Este dispositivo deja de recibir avisos de esta cuenta (1.4.0).
+          await desactivarPush().catch(() => {})
           await db.disconnectAndClear()
           salir()
         }}

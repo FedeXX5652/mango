@@ -1,8 +1,9 @@
 import { usePowerSync } from "@powersync/react"
 import { useEffect } from "react"
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom"
 
 import { api } from "@/lib/api"
+import { esRutaDeLaApp, refrescarSuscripcion } from "@/lib/push"
 import { generarVencidas } from "@/lib/generar"
 import { ProveedorBloqueo } from "@/hooks/bloqueo"
 import { ProveedorSesion } from "@/hooks/sesion"
@@ -129,7 +130,28 @@ function DisparadorInicio() {
       console.error("No se pudieron generar las recurrentes vencidas", e)
     })
     api.refrescarCotizaciones().catch(() => {})
+    // Si este dispositivo ya tenia avisos, se le recuerda al servidor (1.4.0).
+    refrescarSuscripcion().catch(() => {})
   }, [db])
+  return null
+}
+
+// Tocar un aviso push con la app abierta: el service worker la trae al frente y
+// pide ir a la pantalla del aviso. La navegacion la hace la app, sin recargar
+// (public/sw-push.js).
+function AbrirDesdeAviso() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return
+    const alMensaje = (e: MessageEvent) => {
+      const d = e.data as { tipo?: string; link?: string } | null
+      if (d?.tipo === "abrir" && esRutaDeLaApp(d.link)) {
+        navigate(d.link)
+      }
+    }
+    navigator.serviceWorker.addEventListener("message", alMensaje)
+    return () => navigator.serviceWorker.removeEventListener("message", alMensaje)
+  }, [navigate])
   return null
 }
 
@@ -145,6 +167,7 @@ export function App() {
               <ProveedorBloqueo>
                 <ProveedorPowerSync>
                   <DisparadorInicio />
+                  <AbrirDesdeAviso />
                   <Rutas />
                 </ProveedorPowerSync>
               </ProveedorBloqueo>

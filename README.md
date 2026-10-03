@@ -20,8 +20,8 @@ decide compartir**, con reparto de gastos estilo Splitwise incluido.
 ![PowerSync](https://img.shields.io/badge/PowerSync-offline--first-1c1c1c)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalable-5A0FC8?logo=pwa&logoColor=white)
-![Versión](https://img.shields.io/badge/versión-1.3.0-FDBE02)
-![Tests](https://img.shields.io/badge/tests-521%20verdes-2EA043)
+![Versión](https://img.shields.io/badge/versión-1.4.0-FDBE02)
+![Tests](https://img.shields.io/badge/tests-556%20verdes-2EA043)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED?logo=docker&logoColor=white)
 
 </div>
@@ -92,7 +92,9 @@ de un hogar, con tres convicciones:
 - **Cuenta conjunta**: plata que ya es de todos; lo que se paga con ella no genera
   deuda. **Poner** o **sacar plata** es una transferencia con la conjunta ya
   elegida.
-- **Presupuesto del grupo** y **notificaciones** in-app de lo que pasa.
+- **Presupuesto del grupo** y **avisos** de lo que pasa: en la campanita de la
+  app y, si lo activás, en el teléfono aunque la app esté cerrada (push). Cada
+  aviso dice de qué grupo es y al tocarlo abre su pantalla.
 
 ### 📲 App instalable
 - **PWA**: se instala desde el navegador en Android, iOS y escritorio, y anda sin
@@ -177,9 +179,9 @@ por **una sola puerta** (nginx), así que se expone un único puerto.
   que la sincronización offline no rompa nada.
 - **Migraciones expandir/contraer**: los cambios de esquema no rompen a un
   cliente una versión atrás.
-- **Decisiones de arquitectura documentadas** (20 ADRs en
+- **Decisiones de arquitectura documentadas** (29 ADRs en
   [`docs/decisiones/`](docs/decisiones)) — nada importante se decide dos veces.
-- **Incrementos chicos con pruebas**: **521** pruebas (backend + frontend) en
+- **Incrementos chicos con pruebas**: **556** pruebas (backend + frontend) en
   verde, más un banco de compatibilidad para detectar regresiones de esquema.
 - **Deploy por imágenes**: el servidor no tiene el código; baja imágenes
   publicadas, y la base migra sola al arrancar.
@@ -263,7 +265,7 @@ Seis contenedores, **un solo puerto** publicado:
 | Contenedor | Qué hace |
 |---|---|
 | `mango-frontend` | La PWA y la **puerta de entrada**: nginx sirve la app y hace de proxy a `/api` y `/powersync`. Único puerto expuesto (`MANGO_PORT`, 8081) |
-| `mango-backend` | API FastAPI. Valida el dominio y **migra la base al arrancar** |
+| `mango-backend` | API FastAPI. Valida el dominio, **migra la base al arrancar** y corre el **planificador** (avisos push, cotización del día) |
 | `mango-powersync` | Sincronización, con la configuración de Mango incluida en la imagen |
 | `mango-postgres` | La base de la app (PostgreSQL 16, WAL lógico) |
 | `mango-powersync-storage` | Buckets de sincronización (cache derivada, se reconstruye sola) |
@@ -343,9 +345,10 @@ Uso personal y compartido: **funcionando**. Resumen del roadmap (detalle en
 | Grupos y compartido (taxonomía, colores, notificaciones) | ✅ |
 | Reparto estilo Splitwise (splits, saldos, pagos, cuenta conjunta) | ✅ |
 | Extras (metas, deudas, adjuntos, fechas de tarjeta) | ✅ |
-| Ingesta automática desde correo + sugerencias de IA | 🚧 en camino |
+| Notificaciones push + planificador en el servidor | ✅ |
+| Calendario de pagos (recordatorios con aviso) | 🚧 en camino |
 | Multimoneda: histórico de cotización + reportes en moneda base | 🚧 en camino |
-| Notificaciones push + TLS (Caddy) | 🗓️ backlog |
+| Ingesta automática desde correo + sugerencias de IA | 🗓️ después |
 
 ---
 

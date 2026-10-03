@@ -146,3 +146,6 @@ class Notification(Base, IdMixin, TimestampMixin):
     # Ruta a abrir al tocar el aviso (ej: '/', '/grupos/<id>'). Opcional.
     link: Mapped[str | None] = mapped_column(Text)
     read_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+    # Cuando salio por push (1.4.0). NULL = todavia no: lo despacha el
+    # planificador. Tambien se marca si no habia a donde mandarlo.
+    pushed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))

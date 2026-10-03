@@ -7,7 +7,7 @@ aviso y el hecho que lo genera se guardan juntos (o ninguno).
 
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import Notification
@@ -18,11 +18,14 @@ def formatear_monto(centavos: int, moneda: str) -> str:
     miles con punto y dos decimales con coma. Las monedas sin centavos (JPY) no
     se dividen; el resto, si."""
     sin_decimales = moneda in {"JPY", "KRW", "CLP", "COP"}
+    signo = "-" if centavos < 0 else ""
     if sin_decimales:
-        entero = centavos
-        cuerpo = f"{entero:,.0f}".replace(",", ".")
+        cuerpo = f"{abs(centavos):,}".replace(",", ".")
     else:
-        cuerpo = f"{centavos / 100:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        # Con enteros (regla 1): `centavos / 100` era punto flotante.
+        entero, resto = divmod(abs(centavos), 100)
+        cuerpo = f"{entero:,}".replace(",", ".") + f",{resto:02d}"
+    cuerpo = signo + cuerpo
     simbolo = {"ARS": "$", "USD": "US$"}.get(moneda, f"{moneda} ")
     return f"{simbolo}{cuerpo}"
 
@@ -40,7 +43,23 @@ async def crear(
         id=uuid.uuid4(), user_id=user_id, type=tipo, title=title, body=body, link=link
     )
     session.add(aviso)
+    # Cuando el aviso quede guardado, el planificador lo manda por push al toque
+    # (1.4.0), sin esperar al proximo minuto.
+    _despertar_al_confirmar(session)
     return aviso
+
+
+def de_grupo(nombre_grupo: str | None, titulo: str) -> str:
+    """Titulo que dice a que grupo pertenece el aviso: "Casa · Te pagaron"."""
+    return f"{nombre_grupo} · {titulo}" if nombre_grupo else titulo
+
+
+def _despertar_al_confirmar(session: AsyncSession) -> None:
+    from app.services import planificador
+
+    event.listen(
+        session.sync_session, "after_commit", lambda _s: planificador.despertar(), once=True
+    )
 
 
 async def get_notification(

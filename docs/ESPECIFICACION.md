@@ -460,9 +460,10 @@ cambia un movimiento ya cargado, que conserva la que se le aplico.
 Una cotizacion se puede corregir (un dedazo) o dar de baja; se corrige el valor
 y la fuente, no el par ni la fecha, porque eso ya es otra cotizacion.
 
-**Las cotizaciones se traen solas** de una API publica al abrir la app, una vez
-por dia, y hay un boton para forzarlo. No hay cron: el servidor no siempre esta
-prendido y el refresco es idempotente por fecha (ver 0005).
+**Las cotizaciones se traen solas** de una API publica, una vez por dia. Las pide
+el planificador del servidor cada hora aunque nadie abra la app (0029), y tambien
+la app al abrirse; hay un boton para forzarlo.
+El refresco es idempotente por fecha (ver 0005): pedirla de mas no duplica nada.
 
 **La fuente automatica es la oficial, y es el estandar.** No se van a agregar
 fuentes alternativas (MEP, tarjeta): quien quiera otra, la carga a mano.
@@ -588,6 +589,10 @@ servidor. Si no, no se podria crear nada sin conexion.
 - **Traer cotizaciones** (`POST /exchange-rates/refresh`): sale a una API
   publica, asi que la conexion es inherente. Sin ella se usa la ultima
   cotizacion conocida, que para eso esta cacheada (ver 0005).
+- **Prender o apagar los avisos push** (`/push`, ver 0029): la suscripcion es de
+  ese navegador y vive solo en el servidor (no se sincroniza), y el aviso de
+  prueba lo manda el servidor. `GET /push/config` es configuracion del servidor
+  (la clave publica), no datos del usuario.
 
 Todo lo demas —cargar, editar, borrar, presupuestar, ver informes— funciona sin
 conexion contra la base local.
@@ -1116,10 +1121,18 @@ cada gasto nuevo. Porcentajes y partes se resuelven en enteros, con el metodo de
 mayor resto. Cargar un gasto que **pago otro miembro** queda para una decision
 propia.
 
+**Avisos push y planificador (1.4.0): HECHO.** Ver 0029. Los avisos de la bandeja
+tambien llegan **con la app cerrada**, por Web Push con VAPID, a los dispositivos
+que lo activaron en **Ajustes › Notificaciones** (con un boton para mandar un aviso
+de prueba). Cada aviso dice a que grupo pertenece, usa el logo con fondo
+transparente y al tocarlo abre su pantalla. Los despacha un **planificador
+dentro del backend**: corre cada minuto, y al instante cuando se confirma un aviso
+nuevo. Con heimdall apagado no hay push: los avisos quedan en la bandeja, y lo de
+mas de 48 h no sale al volver. El mismo planificador pide la **cotizacion del dia**
+de cada usuario aunque nadie abra la app.
+
 Falta:
-- **Push** (avisos fuera de la app): service worker + `PushManager` + VAPID +
-  suscripciones + backend enviando. Requiere HTTPS (Caddy). Reusa los mismos
-  eventos que ya escriben en `notifications`.
+
 - Al **eliminar una categoria del grupo en uso** todavia no hay reasignacion
   (como si la hay en las personales): por ahora se archiva. Se completa en 3b.3.
 

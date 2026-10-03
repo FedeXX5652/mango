@@ -132,7 +132,7 @@ async def add_member(session: AsyncSession, group_id: uuid.UUID, username: str) 
             session,
             user_id=user.id,
             tipo="miembro_agregado",
-            title="Te sumaron a un grupo",
+            title=notif.de_grupo(grupo.name if grupo else None, "Te sumaron al grupo"),
             body=f"Ahora sos parte de {grupo.name if grupo else 'un grupo'}.",
             link=f"/grupos/{group_id}",
         )

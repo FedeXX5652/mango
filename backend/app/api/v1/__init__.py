@@ -12,6 +12,7 @@ from app.api.v1.goals import router as goals_router
 from app.api.v1.groups import router as groups_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.payment_methods import router as payment_methods_router
+from app.api.v1.push import router as push_router
 from app.api.v1.recurring import router as recurring_router
 from app.api.v1.settlements import router as settlements_router
 from app.api.v1.sync import router as sync_router
@@ -45,3 +46,4 @@ api_router.include_router(debts_router)
 api_router.include_router(attachments_router)
 api_router.include_router(users_router)
 api_router.include_router(sync_router)
+api_router.include_router(push_router)

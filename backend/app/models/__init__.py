@@ -6,6 +6,7 @@ from app.models.budget import Budget, BudgetRule, Goal
 from app.models.category import Category, CategoryRule
 from app.models.debt import Debt
 from app.models.fx import ExchangeRate
+from app.models.push import PushSubscription
 from app.models.recurring import RecurringRule, Template
 from app.models.tag import Tag, TransactionTag
 from app.models.transaction import Attachment, Transaction, TransactionSplit
@@ -25,6 +26,7 @@ __all__ = [
     "GroupMember",
     "PaymentMethod",
     "PaymentMethodAccount",
+    "PushSubscription",
     "RecurringRule",
     "Tag",
     "Template",

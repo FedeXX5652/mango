@@ -47,6 +47,8 @@ export default defineConfig({
         // activa solo y toma el control; cuando recargar lo decide la app (0028).
         skipWaiting: true,
         clientsClaim: true,
+        // Los avisos push (1.4.0): `push` y `notificationclick` (public/sw-push.js).
+        importScripts: ["sw-push.js"],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         // El patron por defecto deja afuera las fuentes: sin esto la tipografia
         // no esta disponible sin conexion y la app cae a la del sistema.

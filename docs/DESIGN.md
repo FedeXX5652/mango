@@ -841,6 +841,24 @@ primeros) y en la lista de saltos de escritorio (hasta 10). iOS no los muestra.
   el color solo no dice nada.
 - PNG de 96 y 192 px, fuentes SVG en `public/icons/atajos/`.
 
+### Avisos del sistema (push)
+
+Lo que aparece en la barra del telefono con la app cerrada (0029):
+
+- **Dice a que pertenece**: el titulo empieza con el grupo, "Casa · Te
+  registraron un pago". Un aviso que no es de un grupo va sin prefijo.
+- **Logo con fondo transparente**: `icon` es `mango-512.png`; `badge`, el
+  monocromo `mango-mono-96.png`, que Android pinta en la barra de estado (un
+  logo con fondo ahi seria un cuadrado).
+- **Uno por origen**: el `tag` es tipo + link, asi que uno nuevo del mismo origen
+  reemplaza al anterior en vez de apilarse.
+- **Tocarlo lleva a su pantalla**, sin recargar si la app ya estaba abierta.
+
+En **Ajustes › Notificaciones** se prende por dispositivo, con un `Interruptor` y
+un texto que dice el estado. Mientras se activa o se manda la prueba, el texto o
+el boton dicen que esta pasando ("Activando los avisos…", "Enviando…"): puede
+tardar varios segundos.
+
 ## 8. Animacion
 
 Se usa para comunicar cambios de estado, no para decorar.

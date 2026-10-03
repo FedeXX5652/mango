@@ -82,6 +82,11 @@ services:
       SEED_USER_USERNAME: ${SEED_USER_USERNAME:-yo}
       SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-mango}
       TZ: ${TZ:-America/Argentina/Buenos_Aires}
+      # Avisos push (opcional, 0029; necesita HTTPS). Sin claves, los avisos
+      # quedan solo en la app. Como generarlas: .env.example.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
     volumes:
       # Fotos de tickets. En un volumen: si quedaran dentro del contenedor, se
       # perderian en cada actualizacion.

@@ -12,12 +12,14 @@ Cosas decididas-para-despues y cabos sueltos. El roadmap por fases vive en
 - **No publicar `MANGO_PORT` fuera del tailnet.** La API ya tiene auth (3a), pero
   exponerla a internet es innecesario.
 
-## Notificaciones push (ver 0019)
+## Notificaciones push (ver 0019 y 0029)
 
-Va en la 1.4.0 (ver "Plan acordado"). La bandeja in-app ya esta; el push es otro
-canal del mismo aviso: service worker + `PushManager` + suscripciones (tabla
-nueva), claves VAPID en el `.env` de heimdall y el backend enviando. Ya hay
-HTTPS (Caddy), asi que no hay nada que lo bloquee.
+Hecho en la 1.4.0. Queda:
+
+- **Elegir que avisos recibe cada dispositivo.** `push_subscriptions.tipos` ya
+  filtra por familia (`grupos`, `recordatorios`), pero no hay pantalla para
+  elegirlas: hoy cada dispositivo recibe todo. Cobra sentido con los
+  recordatorios de la 1.5.0, cuando haya dos familias.
 
 ## Auditoria de frontend (2026-09-30, ver 0022)
 
@@ -35,8 +37,8 @@ chico deliberado quedo documentado como excepcion (DESIGN.md 3). Queda:
 
 En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
 
-- **1.4.0 - Planificador y push.** Un proceso en el backend que corre cada minuto
-  (con candado en la base para no duplicar): avisos push a la hora justa
+- **1.4.0 - Planificador y push: HECHA** (0029). Un proceso en el backend que
+  corre cada minuto (con candado en la base para no duplicar): avisos push
   (Web Push con VAPID; `pywebpush`) y la cotizacion de cada dia. Sin heimdall,
   los avisos se ven dentro de la app al abrirla (nada de alarmas en segundo
   plano). Cada aviso dice a que pertenece y usa el logo con fondo transparente

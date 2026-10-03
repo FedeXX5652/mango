@@ -1,3 +1,7 @@
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
+
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -5,8 +9,22 @@ from sqlalchemy.exc import IntegrityError
 
 from app.api.v1 import api_router
 from app.core.config import settings
+from app.services import planificador
 
-app = FastAPI(title="Mango API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """El planificador (1.4.0) vive lo que vive la app: push y cotizacion
+    diaria sin que nadie abra nada."""
+    tarea = asyncio.create_task(planificador.correr()) if settings.planificador_activo else None
+    yield
+    if tarea is not None:
+        tarea.cancel()
+        with suppress(asyncio.CancelledError):
+            await tarea
+
+
+app = FastAPI(title="Mango API", version="0.1.0", lifespan=lifespan)
 
 
 @app.exception_handler(IntegrityError)

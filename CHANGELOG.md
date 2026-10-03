@@ -4,6 +4,28 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.4.0] - 2026-10-03
+
+### Agregado
+
+- **Avisos push** (0029): los avisos de la campanita también llegan con la app
+  cerrada. Se prenden por dispositivo en **Ajustes › Notificaciones**, que tiene
+  un botón para mandar un aviso de prueba. Cada aviso dice a qué grupo pertenece
+  ("Casa · Te registraron un pago"), usa el logo de Mango y al tocarlo abre su
+  pantalla. En iPhone, con la app instalada en la pantalla de inicio.
+- **Planificador en el servidor** (0029): manda los avisos apenas se crean y pide
+  la cotización del día de cada usuario aunque nadie abra la app. Con el servidor
+  apagado no hay push: los avisos esperan en la campanita, y lo de más de 48
+  horas no sale al volver.
+- Para el push, el servidor necesita claves VAPID (`.env.example`). Se generan
+  con la imagen del backend, sin mostrarlas. Sin claves, todo sigue como antes.
+
+### Cambiado
+
+- Los títulos de los avisos de grupo empiezan con el nombre del grupo.
+- Los montos de los avisos se arman con enteros, sin pasar por punto flotante
+  (regla 1).
+
 ## [1.3.0] - 2026-10-03
 
 ### Agregado

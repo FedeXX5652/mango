@@ -15,7 +15,7 @@ from app.crud import notification as notif
 from app.crud.group import membresia
 from app.models.account import Account, PaymentMethod
 from app.models.transaction import Transaction
-from app.models.user import Settlement, User
+from app.models.user import Group, Settlement, User
 from app.schemas.settlement import SettlementCreate
 
 
@@ -94,11 +94,12 @@ async def create_settlement(
         )
         # Aviso al acreedor: te llego un pago, confirma la cuenta (0019).
         monto = notif.formatear_monto(data.amount, data.currency)
+        grupo = await session.get(Group, data.group_id)
         await notif.crear(
             session,
             user_id=data.to_user_id,
             tipo="pago_recibido",
-            title="Te registraron un pago",
+            title=notif.de_grupo(grupo.name if grupo else None, "Te registraron un pago"),
             body=f"{nombre} registró un pago de {monto}. Confirmá a qué cuenta entró.",
             link="/",
         )
@@ -145,11 +146,12 @@ async def soft_delete_settlement(session: AsyncSession, pago: Settlement) -> Non
         quien = await session.get(User, pago.from_user_id)
         nombre = quien.display_name if quien else "otro miembro"
         monto = notif.formatear_monto(pago.amount, pago.currency)
+        grupo = await session.get(Group, pago.group_id)
         await notif.crear(
             session,
             user_id=pago.to_user_id,
             tipo="pago_deshecho",
-            title="Se deshizo un pago",
+            title=notif.de_grupo(grupo.name if grupo else None, "Se deshizo un pago"),
             body=f"{nombre} deshizo un pago de {monto} que ya habías confirmado. "
             "El cobro quedó en tu cuenta; revisalo si corresponde.",
             link="/",

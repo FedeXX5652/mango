@@ -21,6 +21,9 @@ COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./
 COPY docker-entrypoint.sh ./
+# Para generar las claves del push con la imagen, sin Python en el servidor
+# (0029). Los otros scripts son de desarrollo y no entran.
+COPY scripts/generar_vapid.py ./scripts/
 
 # Sin las dev-deps: la imagen de produccion no corre pruebas.
 RUN pip install --no-cache-dir . \

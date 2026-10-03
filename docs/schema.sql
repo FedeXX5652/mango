@@ -122,10 +122,33 @@ CREATE TABLE notifications (
     body            TEXT NOT NULL,
     link            TEXT,
     read_at         TIMESTAMPTZ,
+    -- Cuando el planificador lo despacho por push (0029). NULL = pendiente. Lo
+    -- que tiene mas de 48 h se marca sin mandar: queda solo en la bandeja.
+    pushed_at       TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at      TIMESTAMPTZ
 );
+
+-- Dispositivos que reciben avisos push (1.4.0, ver 0029). Estado del servidor:
+-- NO se sincroniza. Un endpoint es un navegador en un dispositivo; si ahi entra
+-- otra persona, la fila pasa a ser suya (solo con las mismas claves: mismo
+-- navegador). Se da de baja (deleted_at) cuando el servicio de push responde
+-- 404/410 o 401/403, salvo en sus primeros 5 minutos.
+CREATE TABLE push_subscriptions (
+    id              UUID PRIMARY KEY,
+    user_id         UUID NOT NULL REFERENCES users(id),
+    endpoint        TEXT NOT NULL,              -- https, lo da el navegador
+    p256dh          TEXT NOT NULL,              -- clave del navegador para cifrar
+    auth            TEXT NOT NULL,
+    dispositivo     TEXT,                       -- "Chrome en Android"
+    tipos           JSONB,                      -- familias que acepta; NULL = todas
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX push_subscriptions_endpoint_uniq ON push_subscriptions (endpoint)
+    WHERE deleted_at IS NULL;
 
 -- ------------------------------------------------------------
 -- Cuentas: donde esta la plata

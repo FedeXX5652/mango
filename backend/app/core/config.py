@@ -56,6 +56,21 @@ class Settings(BaseSettings):
 
     # PowerSync: la API emite JWT HS256 que el servicio valida. El secreto es la
     # misma clave (base64url) que va en el JWK 'oct' de service.yaml.
+    # Notificaciones push (1.4.0, Web Push con VAPID). Sin las claves, el push
+    # queda apagado y los avisos siguen en la bandeja de la app. Se generan con
+    # `python scripts/generar_vapid.py <.env>` (escribe sin mostrarlas).
+    # VAPID_SUBJECT: un https:// o mailto: de quien administra (Apple lo exige).
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_subject: str = ""
+
+    # Planificador (1.4.0): tareas del servidor cada minuto (push, cotizacion
+    # diaria). Se apaga para correr scripts o pruebas sin que salga nada.
+    planificador_activo: bool = True
+    # Un aviso que no salio en este tiempo (heimdall apagado) ya no se manda por
+    # push: queda en la bandeja. Evita la catarata al volver.
+    push_max_antiguedad_h: int = 48
+
     powersync_url: str = "http://localhost:8080"
     powersync_jwt_secret: str = ""
     powersync_jwt_audience: str = "powersync"
