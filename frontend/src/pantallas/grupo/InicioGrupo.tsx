@@ -10,6 +10,7 @@ import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
 import { AccesosGrupo } from "@/componentes/grupo/AccesosGrupo"
 import { BalanceGrupo } from "@/componentes/grupo/BalanceGrupo"
 import { FilaHistoria, HojaPago } from "@/componentes/grupo/Historia"
+import { TarjetaProximosPagos } from "@/componentes/recordatorios/TarjetaProximosPagos"
 import { ListaInset } from "@/componentes/ui/listaInset"
 import { type PagoGrupo, armarHistoria, useGrupo } from "@/hooks/useGrupo"
 import { LS_ULTIMO_GRUPO } from "@/lib/atajos"
@@ -58,6 +59,7 @@ export function InicioGrupo() {
 
       <BalanceGrupo groupId={id} />
       <AccesosGrupo groupId={id} />
+      <TarjetaProximosPagos grupo={id} />
       <MesGrupo groupId={id} moneda={grupo.base_currency} />
       <CuentaConjunta groupId={id} />
       <UltimosGrupo groupId={id} />

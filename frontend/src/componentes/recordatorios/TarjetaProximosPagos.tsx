@@ -13,19 +13,25 @@ import {
   type RecordatorioLocal,
   SQL_CICLOS,
   SQL_RECORDATORIOS,
+  SQL_RECORDATORIOS_GRUPO,
   type Vencimiento,
   armarCalendario,
 } from "@/lib/recordatorios"
 
 // "Próximos pagos" del Inicio (1.5.0, 0030): lo vencido sin marcar y lo que vence
 // en la semana, para marcarlo sin salir del Inicio. Si no hay nada, no se dibuja.
+// En el Inicio de un grupo, los del grupo (1.6.0, G1).
 
 const DIAS = 7
 const MAX_FILAS = 3
 
-export function TarjetaProximosPagos() {
+export function TarjetaProximosPagos({ grupo }: { grupo?: string }) {
   const navigate = useNavigate()
-  const { data: recordatorios } = useQuery<RecordatorioLocal>(SQL_RECORDATORIOS)
+  const { data: recordatorios } = useQuery<RecordatorioLocal>(
+    grupo ? SQL_RECORDATORIOS_GRUPO : SQL_RECORDATORIOS,
+    grupo ? [grupo] : [],
+  )
+  const calendario = grupo ? `/grupos/${grupo}/calendario` : "/calendario"
   const { data: ciclos } = useQuery<CicloLocal>(SQL_CICLOS)
   const hoy = fechaISO(new Date())
   const cal = useMemo(
@@ -45,7 +51,7 @@ export function TarjetaProximosPagos() {
     <section className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-muted-foreground">Próximos pagos</h2>
-        <Link to="/calendario" className={ENLACE_SECCION}>
+        <Link to={calendario} className={ENLACE_SECCION}>
           Ver el calendario
           <ChevronRight className="h-4 w-4" aria-hidden />
         </Link>
@@ -74,7 +80,7 @@ export function TarjetaProximosPagos() {
             v={abierto}
             hoy={hoy}
             onListo={() => setAbierto(null)}
-            onEditar={() => navigate("/calendario")}
+            onEditar={() => navigate(calendario)}
           />
         )}
       </Hoja>

@@ -79,9 +79,11 @@ muestran lo de ese espacio.
 - **Los cobros por confirmar quedan en el Inicio personal**: un cobro es un
   ingreso pendiente que entra a una cuenta mía (0018), así que es plata
   personal aunque venga de un grupo.
-- Metas, Deudas, Recurrentes y Plantillas siguen siendo personales. En un grupo,
+- Metas, Deudas, Recurrentes y Plantillas siguen siendo personales (desde la
+  1.6.0 tambien hay plantillas del grupo, en Ajustes del grupo: ver 0030). En un grupo,
   los accesos de Inicio son **fijos**: Saldar, Poner plata, Miembros y
-  Categorías. No se eligen como los personales (0024): un grupo tiene pocas
+  Categorías (desde la 1.6.0, **Calendario** en lugar de Categorías, que sigue en
+  Ajustes del grupo: ver 0030). No se eligen como los personales (0024): un grupo tiene pocas
   acciones y todas son de uso frecuente. **Saldar** abre directo el pago si hay
   una sola deuda que me toca; si no, la lista de "cómo saldar".
 - **Administrar un grupo** (nombre, color, miembros y categorías) sale de la

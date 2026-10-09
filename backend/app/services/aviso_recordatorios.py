@@ -24,10 +24,10 @@ from app.crud import notification as notif
 from app.crud import reminder as crud_recordatorio
 from app.models.recurring import Template
 from app.models.reminder import Reminder, ReminderActionToken, ReminderCycle
-from app.models.user import Notification, User
+from app.models.user import Group, GroupMember, Notification, User
 from app.schemas.reminder import ReminderCycleCreate
-from app.services.recordatorios import EstadoCiclo, avisos_debidos, texto
-from app.services.repeticion import Regla, id_ciclo
+from app.services.recordatorios import Aviso, EstadoCiclo, avisos_debidos, texto
+from app.services.repeticion import Regla, correr, id_ciclo
 
 TIPO = "recordatorio"
 # El permiso de los botones dura una semana: despues, el boton abre la app.
@@ -36,6 +36,8 @@ ACCIONES = [
     {"accion": "pagado", "titulo": "Ya lo pagué"},
     {"accion": "mas-tarde", "titulo": "Más tarde"},
 ]
+# Una deuda se salda en la app (cuanto se pago): su aviso no trae "Ya lo pagué".
+ACCIONES_DEUDA = [a for a in ACCIONES if a["accion"] != "pagado"]
 
 
 def regla_de(r: Reminder) -> Regla:
@@ -54,9 +56,11 @@ def regla_de(r: Reminder) -> Regla:
     )
 
 
-def link_de(reminder_id: uuid.UUID, nominal: date) -> str:
-    """Tocar el aviso abre el calendario con ese vencimiento."""
-    return f"/calendario?r={reminder_id}&n={nominal.isoformat()}"
+def link_de(reminder_id: uuid.UUID, nominal: date, group_id: uuid.UUID | None = None) -> str:
+    """Tocar el aviso abre el calendario con ese vencimiento: el del grupo, si es
+    de un grupo (G1)."""
+    base = f"/grupos/{group_id}/calendario" if group_id else "/calendario"
+    return f"{base}?r={reminder_id}&n={nominal.isoformat()}"
 
 
 async def _ciclo(session: AsyncSession, r: Reminder, nominal: date) -> ReminderCycle:
@@ -68,6 +72,7 @@ async def _ciclo(session: AsyncSession, r: Reminder, nominal: date) -> ReminderC
         .values(
             id=cid,
             owner_id=r.owner_id,
+            group_id=r.group_id,
             reminder_id=r.id,
             nominal_date=nominal,
             status="pending",
@@ -105,6 +110,25 @@ async def avisar(session: AsyncSession, ahora: datetime | None = None) -> int:
     )
     for c in filas:
         por_recordatorio[c.reminder_id][c.nominal_date] = c
+    # Los de grupo avisan a cada miembro (C3), con el nombre del grupo (P2).
+    grupos = {r.group_id for r in recordatorios if r.group_id is not None}
+    miembros: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
+    nombres: dict[uuid.UUID, str] = {}
+    if grupos:
+        for gid, uid in (
+            await session.execute(
+                select(GroupMember.group_id, GroupMember.user_id).where(
+                    GroupMember.group_id.in_(grupos), GroupMember.deleted_at.is_(None)
+                )
+            )
+        ).all():
+            miembros[gid].append(uid)
+        nombres = {
+            gid: nombre
+            for gid, nombre in (
+                await session.execute(select(Group.id, Group.name).where(Group.id.in_(grupos)))
+            ).all()
+        }
     con_plantilla = [r.template_id for r in recordatorios if r.template_id]
     plantillas = {
         t.id: t
@@ -120,10 +144,12 @@ async def avisar(session: AsyncSession, ahora: datetime | None = None) -> int:
     n = 0
     for r in recordatorios:
         ciclos = por_recordatorio[r.id]
+        grupo = r.group_id is not None
         estados = {
             nominal: EstadoCiclo(
                 status=c.status,
-                snoozed_until=c.snoozed_until,
+                # En uno de grupo el "Mas tarde" es de cada uno: va abajo.
+                snoozed_until=None if grupo else c.snoozed_until,
                 alerts_sent=set(c.alerts_sent or []),
                 followup_sent_on=c.followup_sent_on,
             )
@@ -135,6 +161,28 @@ async def avisar(session: AsyncSession, ahora: datetime | None = None) -> int:
             if plantilla is not None and plantilla.amount
             else None
         )
+        titulo = notif.de_grupo(nombres.get(r.group_id), r.title) if grupo else r.title
+        # De grupo: a quien se le cumplio el "Mas tarde", un aviso solo para el.
+        despiertos: dict[date, set[uuid.UUID]] = defaultdict(set)
+        if grupo:
+            for nominal, c in list(ciclos.items()):
+                if c.status != "pending":
+                    continue
+                for uid in await _despertar(session, c, ahora):
+                    despiertos[nominal].add(uid)
+                    if uid not in miembros[r.group_id]:
+                        continue
+                    a = Aviso(nominal, correr(nominal, r.weekend_shift), "pospuesto", "pospuesto")
+                    await notif.crear(
+                        session,
+                        user_id=uid,
+                        tipo=TIPO,
+                        title=titulo,
+                        body=texto(a, hoy, monto),
+                        link=link_de(r.id, nominal, r.group_id),
+                        meta={"reminder_id": str(r.id), "nominal": nominal.isoformat()},
+                    )
+                    n += 1
         debidos = avisos_debidos(
             regla_de(r), r.alerts or [], r.followup_days, r.track_from, estados, ahora
         )
@@ -157,18 +205,54 @@ async def avisar(session: AsyncSession, ahora: datetime | None = None) -> int:
                     .values(snoozed_until=None, updated_at=func.now())
                     .execution_options(synchronize_session=False)
                 )
-            await notif.crear(
-                session,
-                user_id=r.owner_id,
-                tipo=TIPO,
-                title=r.title,
-                body=texto(a, hoy, monto),
-                link=link_de(r.id, a.nominal),
-                meta={"reminder_id": str(r.id), "nominal": a.nominal.isoformat()},
-            )
-            n += 1
+            if grupo:
+                # A cada miembro, salvo a quien lo pospuso (G3) o acaba de
+                # recibir su "Te lo recuerdo".
+                callados = _callados(fila, ahora) | despiertos[a.nominal]
+                destinatarios = [u for u in miembros[r.group_id] if u not in callados]
+            else:
+                destinatarios = [r.owner_id]
+            for uid in destinatarios:
+                await notif.crear(
+                    session,
+                    user_id=uid,
+                    tipo=TIPO,
+                    title=titulo,
+                    body=texto(a, hoy, monto),
+                    link=link_de(r.id, a.nominal, r.group_id),
+                    meta={"reminder_id": str(r.id), "nominal": a.nominal.isoformat()},
+                )
+                n += 1
     await session.commit()
     return n
+
+
+def _callados(c: ReminderCycle, ahora: datetime) -> set[uuid.UUID]:
+    """Los miembros que pospusieron este vencimiento y todavia no se les cumplio."""
+    return {
+        uuid.UUID(uid)
+        for uid, hasta in (c.snoozes or {}).items()
+        if datetime.fromisoformat(hasta) > ahora
+    }
+
+
+async def _despertar(session: AsyncSession, c: ReminderCycle, ahora: datetime) -> list[uuid.UUID]:
+    """Los miembros a los que se les cumplio el "Mas tarde" de este vencimiento.
+    Se sacan del mapa de a uno y solo si sigue siendo el que se leyo: un "Mas
+    tarde" nuevo que llego mientras tanto no se pisa ni se avisa dos veces."""
+    listos = []
+    for uid, hasta in (c.snoozes or {}).items():
+        if datetime.fromisoformat(hasta) > ahora:
+            continue
+        hecho = await session.execute(
+            update(ReminderCycle)
+            .where(ReminderCycle.id == c.id, ReminderCycle.snoozes[uid].astext == hasta)
+            .values(snoozes=ReminderCycle.snoozes.op("-")(uid), updated_at=func.now())
+            .execution_options(synchronize_session=False)
+        )
+        if hecho.rowcount:
+            listos.append(uuid.UUID(uid))
+    return listos
 
 
 # --- Los botones del push -------------------------------------------------------
@@ -184,6 +268,7 @@ async def acciones_de(session: AsyncSession, aviso: Notification) -> dict:
     meta = aviso.meta or {}
     if aviso.type != TIPO or "reminder_id" not in meta or "nominal" not in meta:
         return {}
+    r = await session.get(Reminder, uuid.UUID(meta["reminder_id"]))
     token = secrets.token_urlsafe(32)
     session.add(
         ReminderActionToken(
@@ -195,7 +280,7 @@ async def acciones_de(session: AsyncSession, aviso: Notification) -> dict:
             expires_at=datetime.now(UTC) + DURACION_PERMISO,
         )
     )
-    return {"acciones": ACCIONES, "token": token}
+    return {"acciones": ACCIONES_DEUDA if r and r.debt_id else ACCIONES, "token": token}
 
 
 def hasta_por_defecto(preferencia: str | None, ahora: datetime) -> datetime:
@@ -223,6 +308,12 @@ async def usar_permiso(session: AsyncSession, token: str, accion: str) -> bool:
     ahora = datetime.now(UTC)
     if fila is None or fila.used_at is not None or fila.expires_at < ahora:
         return False
+    if accion == "pagado":
+        r = await session.get(Reminder, fila.reminder_id)
+        if r is not None and r.debt_id is not None:
+            # Un permiso de antes de que fuera de una deuda: se salda en la app,
+            # y el service worker la abre en ese vencimiento.
+            return False
     fila.used_at = ahora
     cid = id_ciclo(fila.reminder_id, fila.nominal_date)
     actual = (

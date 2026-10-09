@@ -18,6 +18,7 @@ import {
   siguiente,
 } from "@/lib/repeticion"
 import { textoHasta } from "@/lib/posponer"
+import type { FechasDeRegla } from "@/lib/recurrentes"
 import { usuarioActualId } from "@/lib/sesion"
 import { uuidv4 } from "@/lib/uuid"
 
@@ -28,6 +29,8 @@ export type Aviso = { days_before: number; time: string }
 // Una fila de `reminders` con lo que hace falta de su plantilla.
 export type RecordatorioLocal = Regla & {
   id: string
+  // De un grupo (1.6.0, C3), o null si es personal.
+  group_id: string | null
   title: string
   notes: string | null
   template_id: string | null
@@ -38,6 +41,11 @@ export type RecordatorioLocal = Regla & {
   plantilla: string | null
   monto: number | null
   moneda: string | null
+  // "Avisarme" (1.6.0): la tarjeta o la deuda que sigue, y como se llama.
+  payment_method_id: string | null
+  debt_id: string | null
+  tarjeta: string | null
+  deuda_con: string | null
 }
 
 export type CicloLocal = {
@@ -46,8 +54,12 @@ export type CicloLocal = {
   nominal_date: string
   status: EstadoCiclo
   transaction_id: string | null
+  // Quien lo respondio: en uno de grupo, se dice (1.6.0).
+  answered_by: string | null
   // "Más tarde" (etapa 2): instante ISO hasta el que calla el aviso.
   snoozed_until: string | null
+  // En uno de grupo, el de cada uno (G3): el JSON de {user_id: instante}.
+  snoozes: string | null
 }
 
 export type Vencimiento = {
@@ -57,6 +69,7 @@ export type Vencimiento = {
   estado: EstadoCiclo
   transactionId: string | null
   pospuesto: string | null
+  respondidoPor: string | null
 }
 
 export type Calendario = {
@@ -69,16 +82,57 @@ export type Calendario = {
   masAdelante: Vencimiento[]
 }
 
-export const SQL_RECORDATORIOS = `
-  SELECT r.*, t.name AS plantilla, t.amount AS monto, t.currency AS moneda
+const SELECT_RECORDATORIOS = `
+  SELECT r.*, t.name AS plantilla, t.amount AS monto, t.currency AS moneda,
+         pm.name AS tarjeta, d.counterparty AS deuda_con
   FROM reminders r
   LEFT JOIN templates t ON t.id = r.template_id AND t.deleted_at IS NULL
-  WHERE r.deleted_at IS NULL
-  ORDER BY r.title`
+  LEFT JOIN payment_methods pm ON pm.id = r.payment_method_id AND pm.deleted_at IS NULL
+  LEFT JOIN debts d ON d.id = r.debt_id AND d.deleted_at IS NULL
+  WHERE r.deleted_at IS NULL`
+
+// Los personales. Los de un grupo se ven en el espacio del grupo (1.6.0, G1).
+export const SQL_RECORDATORIOS = `${SELECT_RECORDATORIOS} AND r.group_id IS NULL ORDER BY r.title`
+
+// Los de un grupo (el parametro).
+export const SQL_RECORDATORIOS_GRUPO = `${SELECT_RECORDATORIOS} AND r.group_id = ? ORDER BY r.title`
+
+// Las recurrentes que se ven en el calendario como informacion (1.6.0): solo
+// las activas; las fechas salen de `recurrentesQueVienen` (lib/recurrentes.ts).
+export const SQL_RECURRENTES = `
+  SELECT id, name, kind, amount, currency, frequency, interval_count, start_date,
+         next_run_date, end_date, active
+  FROM recurring_rules WHERE deleted_at IS NULL AND active = 1`
+
+export type RecurrenteEnCalendario = FechasDeRegla & {
+  id: string
+  name: string
+  kind: "expense" | "income" | "transfer"
+  amount: number
+  currency: string
+}
 
 export const SQL_CICLOS = `
-  SELECT id, reminder_id, nominal_date, status, transaction_id, snoozed_until
+  SELECT id, reminder_id, nominal_date, status, transaction_id, answered_by, snoozed_until,
+         snoozes
   FROM reminder_cycles WHERE deleted_at IS NULL`
+
+// El "Más tarde" de este dispositivo: el del ciclo (personal) o, en uno de grupo,
+// el mio del mapa (G3).
+export function pospuestoDe(c: Pick<CicloLocal, "snoozed_until" | "snoozes">): string | null {
+  if (c.snoozed_until) return c.snoozed_until
+  return mapaDe(c.snoozes)[usuarioActualId() ?? ""] ?? null
+}
+
+function mapaDe(texto: string | null): Record<string, string> {
+  if (!texto) return {}
+  try {
+    const mapa: unknown = JSON.parse(texto)
+    return mapa && typeof mapa === "object" ? (mapa as Record<string, string>) : {}
+  } catch {
+    return {}
+  }
+}
 
 export function avisosDe(r: Pick<RecordatorioLocal, "alerts">): Aviso[] {
   try {
@@ -108,7 +162,8 @@ export function armarCalendario(
       vence,
       estado: c?.status ?? "pending",
       transactionId: c?.transaction_id ?? null,
-      pospuesto: c?.snoozed_until ?? null,
+      pospuesto: c ? pospuestoDe(c) : null,
+      respondidoPor: c?.answered_by ?? null,
     }
   }
   const hasta = deDia(aDia(hoy) + dias)
@@ -151,7 +206,8 @@ export function vencimientoDe(
     vence: deDia(correr(aDia(nominal), r.weekend_shift)),
     estado: c?.status ?? "pending",
     transactionId: c?.transaction_id ?? null,
-    pospuesto: c?.snoozed_until ?? null,
+    pospuesto: c ? pospuestoDe(c) : null,
+    respondidoPor: c?.answered_by ?? null,
   }
 }
 
@@ -298,6 +354,78 @@ export function cambioLaRegla(a: Regla, b: Regla): boolean {
   return CAMPOS_REGLA.some((k) => (a[k] ?? null) !== (b[k] ?? null))
 }
 
+// --- "Avisarme" en una tarjeta o una deuda (1.6.0) -------------------------------
+
+// Con que arranca el formulario. El servidor mantiene al dia lo que se guarda:
+// si cambia el dia de vencimiento o la fecha, lo corre (0030).
+export type Semilla = {
+  title: string
+  start_date: string
+  rep: Repeticion
+  payment_method_id?: string
+  debt_id?: string
+  vinculo: string
+}
+
+// El proximo dia `dia` del mes desde `hoy` (inclusive). Saltea los meses que no
+// lo tienen: la fecha arma la regla ("el dia 30"), y un 28 de febrero la
+// dejaria en el 28.
+export function proximoDiaDelMes(dia: number, hoy: string): string {
+  const [a0, m0] = hoy.split("-").map(Number)
+  for (let i = 0; i < 13; i++) {
+    const total = m0 - 1 + i
+    const anio = a0 + Math.floor(total / 12)
+    const mes = (total % 12) + 1
+    const ultimo = new Date(Date.UTC(anio, mes, 0)).getUTCDate()
+    // "El ultimo dia" (31) vale el ultimo de cada mes.
+    const d = dia >= 31 ? ultimo : dia
+    if (d > ultimo) continue
+    const fecha = `${anio}-${String(mes).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+    if (fecha >= hoy) return fecha
+  }
+  return hoy
+}
+
+export function textoVinculo(r: {
+  tarjeta: string | null
+  deuda_con: string | null
+}): string | null {
+  if (r.tarjeta)
+    return `Sigue a la tarjeta ${r.tarjeta}: si cambia su día de vencimiento, se corre solo.`
+  if (r.deuda_con) return `Sigue a la deuda con ${r.deuda_con}: saldarla lo marca pagado.`
+  return null
+}
+
+// Una tarjeta de credito: todos los meses, el dia de vencimiento.
+export function semillaDeTarjeta(
+  t: { id: string; name: string; due_day: number },
+  hoy: string,
+): Semilla {
+  return {
+    title: t.name,
+    start_date: proximoDiaDelMes(t.due_day, hoy),
+    rep: { ...NO_SE_REPITE, freq: "monthly", mensual: t.due_day >= 31 ? "ultimo-dia" : "dia" },
+    payment_method_id: t.id,
+    vinculo: textoVinculo({ tarjeta: t.name, deuda_con: null }) ?? "",
+  }
+}
+
+// Una deuda: una sola vez, en su fecha.
+export function semillaDeDeuda(d: {
+  id: string
+  counterparty: string
+  direction: "payable" | "receivable"
+  due_date: string
+}): Semilla {
+  return {
+    title: `${d.direction === "payable" ? "Pagarle" : "Cobrarle"} a ${d.counterparty}`,
+    start_date: d.due_date,
+    rep: NO_SE_REPITE,
+    debt_id: d.id,
+    vinculo: textoVinculo({ tarjeta: null, deuda_con: d.counterparty }) ?? "",
+  }
+}
+
 // --- Escrituras locales ------------------------------------------------------------
 
 export type DatosRecordatorio = CamposRegla & {
@@ -307,6 +435,11 @@ export type DatosRecordatorio = CamposRegla & {
   weekend_shift: CorrimientoFinde
   alerts: Aviso[]
   followup_days: number | null
+  // Solo al crearlo ("Avisarme"): despues el vinculo no cambia.
+  payment_method_id?: string | null
+  debt_id?: string | null
+  // De un grupo (1.6.0): se elige al crearlo.
+  group_id?: string | null
 }
 
 export async function guardarRecordatorio(
@@ -354,9 +487,17 @@ export async function guardarRecordatorio(
   await db.execute(
     `INSERT INTO reminders (title, notes, template_id, freq, interval_count, weekdays, month_mode,
        month_day, month_week, month_weekday, start_date, until_date, count, weekend_shift,
-       alerts, followup_days, track_from, id, owner_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [...valores, desde, id, usuarioActualId()],
+       alerts, followup_days, track_from, id, owner_id, payment_method_id, debt_id, group_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      ...valores,
+      desde,
+      id,
+      usuarioActualId(),
+      datos.payment_method_id ?? null,
+      datos.debt_id ?? null,
+      datos.group_id ?? null,
+    ],
   )
   return id
 }
@@ -381,21 +522,22 @@ export async function responderCiclo(
       [id],
     )
     if (fila) {
-      // Responder (o deshacer) deja sin efecto el "Más tarde".
+      // Responder (o deshacer) deja sin efecto el "Más tarde" (en uno de grupo,
+      // el de todos: lo hace el servidor).
       if (estado !== "paid") {
         await tx.execute(
-          "UPDATE reminder_cycles SET status = ?, transaction_id = NULL, snoozed_until = NULL WHERE id = ?",
+          "UPDATE reminder_cycles SET status = ?, transaction_id = NULL, snoozed_until = NULL, snoozes = NULL WHERE id = ?",
           [estado, id],
         )
       } else if (transactionId) {
         await tx.execute(
-          "UPDATE reminder_cycles SET status = ?, transaction_id = ?, snoozed_until = NULL WHERE id = ?",
+          "UPDATE reminder_cycles SET status = ?, transaction_id = ?, snoozed_until = NULL, snoozes = NULL WHERE id = ?",
           [estado, transactionId, id],
         )
       } else {
         // "Ya lo pague" sin movimiento no borra el que cargo otro.
         await tx.execute(
-          "UPDATE reminder_cycles SET status = ?, snoozed_until = NULL WHERE id = ?",
+          "UPDATE reminder_cycles SET status = ?, snoozed_until = NULL, snoozes = NULL WHERE id = ?",
           [estado, id],
         )
       }
@@ -433,18 +575,27 @@ export function etiquetaVence(vence: string, hoy: string): string {
 
 // La linea de abajo de un vencimiento en una lista: la fecha (dd/mm/aaaa) y que
 // pasa con el ("vence hoy", "lunes, en 8 días", "pagado"...).
+// `quien`: en uno de grupo, quien lo respondio ("pagado por Beto").
 export function detalleVencimiento(
   v: Vencimiento,
   hoy: string,
   cuantos = 1,
   ahora: Date = new Date(),
+  quien?: string,
 ): string {
-  return `${ddmmaaaa(v.vence)} · ${estadoVencimiento(v, hoy, cuantos, ahora)}`
+  return `${ddmmaaaa(v.vence)} · ${estadoVencimiento(v, hoy, cuantos, ahora, quien)}`
 }
 
-function estadoVencimiento(v: Vencimiento, hoy: string, cuantos: number, ahora: Date): string {
-  if (v.estado === "paid") return "pagado"
-  if (v.estado === "skipped") return "omitido"
+function estadoVencimiento(
+  v: Vencimiento,
+  hoy: string,
+  cuantos: number,
+  ahora: Date,
+  quien?: string,
+): string {
+  const por = quien ? ` por ${quien}` : ""
+  if (v.estado === "paid") return `pagado${por}`
+  if (v.estado === "skipped") return `omitido${por}`
   if (v.pospuesto && new Date(v.pospuesto) > ahora) {
     return `pospuesto hasta ${textoHasta(new Date(v.pospuesto), ahora)}`
   }
@@ -460,27 +611,41 @@ function estadoVencimiento(v: Vencimiento, hoy: string, cuantos: number, ahora: 
 
 // "Más tarde" (etapa 2): calla el aviso de este vencimiento hasta `hasta`
 // (null = quitarlo). Solo para uno pendiente.
+//
+// En uno de grupo es de cada uno (1.6.0, G3): se cambia la clave propia del mapa
+// `snoozes` y el servidor toma solo esa (las demas son de otros). Asi "quitarlo"
+// sube algo aunque `snoozed_until` ya estuviera vacio.
 export async function posponerCiclo(
   db: AbstractPowerSyncDatabase,
   reminderId: string,
   nominal: string,
   hasta: Date | null,
+  grupo = false,
 ): Promise<void> {
   const id = idCiclo(reminderId, nominal)
   const valor = hasta ? hasta.toISOString() : null
   await db.writeTransaction(async (tx) => {
-    const fila = await tx.getOptional<{ id: string }>(
-      "SELECT id FROM reminder_cycles WHERE id = ?",
+    const fila = await tx.getOptional<{ id: string; snoozes: string | null }>(
+      "SELECT id, snoozes FROM reminder_cycles WHERE id = ?",
       [id],
     )
+    const columna = grupo ? "snoozes" : "snoozed_until"
+    let dato = valor
+    if (grupo) {
+      const mapa = mapaDe(fila?.snoozes ?? null)
+      const yo = usuarioActualId() ?? ""
+      if (valor) mapa[yo] = valor
+      else delete mapa[yo]
+      dato = Object.keys(mapa).length > 0 ? JSON.stringify(mapa) : null
+    }
     if (fila) {
-      await tx.execute("UPDATE reminder_cycles SET snoozed_until = ? WHERE id = ?", [valor, id])
+      await tx.execute(`UPDATE reminder_cycles SET ${columna} = ? WHERE id = ?`, [dato, id])
       return
     }
     await tx.execute(
-      `INSERT INTO reminder_cycles (id, owner_id, reminder_id, nominal_date, status, snoozed_until)
+      `INSERT INTO reminder_cycles (id, owner_id, reminder_id, nominal_date, status, ${columna})
        VALUES (?, ?, ?, ?, 'pending', ?)`,
-      [id, usuarioActualId(), reminderId, nominal, valor],
+      [id, usuarioActualId(), reminderId, nominal, dato],
     )
   })
 }

@@ -10,7 +10,8 @@
 
 export type Espacio = { tipo: "personal" } | { tipo: "grupo"; id: string }
 
-export type Seccion = "" | "movimientos" | "presupuesto" | "estadisticas" | "ajustes" | "nuevo"
+export type Seccion =
+  "" | "movimientos" | "presupuesto" | "estadisticas" | "ajustes" | "nuevo" | "calendario"
 
 export const PERSONAL: Espacio = { tipo: "personal" }
 
@@ -32,8 +33,9 @@ export function espacioDeRuta(pathname: string): Espacio {
 }
 
 // Las secciones que existen en TODOS los espacios. Ajustes no: el de la app y el
-// de un grupo son cosas distintas.
-const COMUNES: Seccion[] = ["movimientos", "presupuesto", "estadisticas"]
+// de un grupo son cosas distintas. El calendario de pagos si, desde la 1.6.0
+// (cada grupo tiene el suyo, 0030).
+const COMUNES: Seccion[] = ["movimientos", "presupuesto", "estadisticas", "calendario"]
 
 // En que seccion comun se esta, para que cambiar de espacio deje en la misma
 // pantalla (Movimientos de Personal -> Movimientos de Casa). Fuera de ellas, "".

@@ -3,9 +3,12 @@ import { describe, expect, it } from "vitest"
 import {
   type ReglaRecurrente,
   type ReglaSobre,
+  fechasDeRegla,
   idDeterminista,
   inicioDeMes,
   ocurrenciasPendientes,
+  recurrentesQueVienen,
+  siguienteDeRegla,
   siguienteFecha,
   sobresPendientes,
 } from "@/lib/recurrentes"
@@ -24,6 +27,7 @@ function regla(p: Partial<ReglaRecurrente> = {}): ReglaRecurrente {
     notes: null,
     frequency: "monthly",
     interval_count: 1,
+    start_date: "2026-08-01",
     next_run_date: "2026-08-01",
     end_date: null,
     active: 1,
@@ -52,13 +56,54 @@ describe("siguienteFecha", () => {
     expect(siguienteFecha("2028-02-29", "yearly", 1)).toBe("2029-02-28")
   })
 
-  it("recortar no se acumula: el dia sale de la fecha guardada", () => {
-    // Si la regla es "el 31" y en febrero se guardara el 28, marzo caeria el 28
-    // para siempre. Por eso `next_run_date` avanza desde la fecha anterior, y
-    // esta prueba deja escrito que despues de febrero vuelve a ser 31.
-    const feb = siguienteFecha("2026-01-31", "monthly", 1)
-    expect(feb).toBe("2026-02-28")
-    expect(siguienteFecha(feb, "monthly", 1)).toBe("2026-03-28")
+  it("con ancla, el mes siguiente vuelve al dia de la regla", () => {
+    expect(siguienteFecha("2026-02-28", "monthly", 1, 31)).toBe("2026-03-31")
+    expect(siguienteFecha("2026-03-31", "monthly", 1, 31)).toBe("2026-04-30")
+    expect(siguienteFecha("2029-02-28", "yearly", 3, 29)).toBe("2032-02-29")
+  })
+})
+
+describe("el dia de la regla no se pierde en un mes corto (1.6.0)", () => {
+  // Antes el dia salia de la fecha anterior: una regla del 31 pasaba al 28 de
+  // febrero y se quedaba en el 28 para siempre. Ahora sale de `start_date`.
+  it("una regla del 31 vuelve al 31 despues de febrero", () => {
+    const r = ocurrenciasPendientes(
+      regla({ start_date: "2026-01-31", next_run_date: "2026-01-31" }),
+      "2026-05-31",
+    )
+    expect(r.ocurrencias.map((o) => o.fecha)).toEqual([
+      "2026-01-31",
+      "2026-02-28",
+      "2026-03-31",
+      "2026-04-30",
+      "2026-05-31",
+    ])
+    expect(r.proxima).toBe("2026-06-30")
+  })
+
+  it("una que ya habia quedado en el 28 se arregla en la siguiente", () => {
+    // La fecha guardada se respeta (puede venir de otro dispositivo); la que
+    // sigue ya vuelve al dia de la regla.
+    const r = ocurrenciasPendientes(
+      regla({ start_date: "2026-01-31", next_run_date: "2026-03-28" }),
+      "2026-04-30",
+    )
+    expect(r.ocurrencias.map((o) => o.fecha)).toEqual(["2026-03-28", "2026-04-30"])
+    expect(r.proxima).toBe("2026-05-31")
+  })
+
+  it("una anual del 29 de febrero vuelve al 29 en los bisiestos", () => {
+    const r = ocurrenciasPendientes(
+      regla({ frequency: "yearly", start_date: "2028-02-29", next_run_date: "2028-02-29" }),
+      "2032-12-31",
+    )
+    expect(r.ocurrencias.map((o) => o.fecha)).toEqual([
+      "2028-02-29",
+      "2029-02-28",
+      "2030-02-28",
+      "2031-02-28",
+      "2032-02-29",
+    ])
   })
 })
 
@@ -127,6 +172,51 @@ describe("ocurrenciasPendientes", () => {
     const a = ocurrenciasPendientes(regla({ next_run_date: "2026-06-01" }), "2026-08-15")
     const b = ocurrenciasPendientes(regla({ next_run_date: "2026-06-01" }), "2026-08-15")
     expect(a.ocurrencias.map((o) => o.id)).toEqual(b.ocurrencias.map((o) => o.id))
+  })
+})
+
+describe("lo que viene (calendario de pagos)", () => {
+  it("las fechas entre dos dias, desde la proxima y sin pasar del fin", () => {
+    const r = regla({ frequency: "weekly", start_date: "2026-10-05", next_run_date: "2026-10-12" })
+    expect(fechasDeRegla(r, "2026-10-08", "2026-11-01")).toEqual([
+      "2026-10-12",
+      "2026-10-19",
+      "2026-10-26",
+    ])
+    expect(fechasDeRegla({ ...r, end_date: "2026-10-20" }, "2026-10-08", "2026-11-01")).toEqual([
+      "2026-10-12",
+      "2026-10-19",
+    ])
+    // Pausada: nada.
+    expect(fechasDeRegla({ ...r, active: 0 }, "2026-10-08", "2026-11-01")).toEqual([])
+  })
+
+  it("la siguiente fecha desde un dia, o null si termino", () => {
+    const r = regla({ frequency: "yearly", start_date: "2026-03-10", next_run_date: "2027-03-10" })
+    expect(siguienteDeRegla(r, "2026-11-08")).toBe("2027-03-10")
+    expect(siguienteDeRegla(r, "2027-03-11")).toBe("2028-03-10")
+    expect(siguienteDeRegla({ ...r, end_date: "2027-12-31" }, "2027-03-11")).toBeNull()
+    expect(siguienteDeRegla({ ...r, active: 0 }, "2026-11-08")).toBeNull()
+  })
+
+  it("se reparte como el calendario: hoy, los proximos 30 dias y mas adelante", () => {
+    const hoy = "2026-10-08"
+    const reglas = [
+      regla({ id: "luz", start_date: "2026-01-08", next_run_date: "2026-10-08" }),
+      regla({ id: "alquiler", start_date: "2026-01-31", next_run_date: "2026-10-31" }),
+      regla({
+        id: "seguro",
+        frequency: "yearly",
+        start_date: "2026-03-10",
+        next_run_date: "2027-03-10",
+      }),
+      regla({ id: "pausada", active: 0, next_run_date: "2026-10-20" }),
+    ]
+    const v = recurrentesQueVienen(reglas, hoy, 30)
+    expect(v.hoy.map((x) => `${x.regla.id} ${x.fecha}`)).toEqual(["luz 2026-10-08"])
+    // La luz vuelve el 08/11, a 31 dias: queda fuera de los 30.
+    expect(v.proximos.map((x) => `${x.regla.id} ${x.fecha}`)).toEqual(["alquiler 2026-10-31"])
+    expect(v.masAdelante.map((x) => `${x.regla.id} ${x.fecha}`)).toEqual(["seguro 2027-03-10"])
   })
 })
 

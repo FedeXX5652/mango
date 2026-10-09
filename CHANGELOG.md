@@ -4,6 +4,48 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.6.0] - 2026-10-09
+
+### Agregado
+
+- **Recordatorios de grupo** (0030): "Casa: vencen las expensas".
+  - Avisan a todos los miembros, y cualquiera lo marca pagado o carga el pago,
+    que queda como gasto del grupo. Se frena para todos, y el calendario dice
+    quién lo pagó.
+  - "Más tarde" calla solo a quien lo pidió: a los demás les sigue avisando.
+  - Los edita o borra cualquier miembro.
+  - El grupo tiene su calendario, en el acceso **"Calendario"** del Inicio del
+    grupo (en lugar de "Categorías", que sigue en Ajustes del grupo), y su
+    tarjeta "Próximos pagos".
+- **Plantillas de grupo**: gastos que se repiten en el grupo, con su categoría y
+  sin cuenta (cada uno paga con la suya). Se administran en **Ajustes del
+  grupo**, y el alta del grupo las ofrece.
+- **"Avisarme" en tarjetas y deudas**: la campana de una tarjeta de crédito
+  (Medios de pago) o de una deuda con fecha arma el recordatorio, y lo mantiene
+  al día.
+  - Si cambiás el día de vencimiento de la tarjeta o la fecha de la deuda, se
+    corre solo. Saldar la deuda lo marca pagado, y borrar la tarjeta o la deuda
+    lo borra.
+  - El vencimiento de una deuda se responde con **"Saldar la deuda"**.
+- **Las recurrentes en el calendario**, como información: lo que viene de cada
+  regla, con "se carga solo".
+- **Editar un medio de pago** (antes solo se creaba) y **editar una
+  plantilla**.
+- `docs/recordatorios.md`: el formato de los recordatorios, para la ingesta.
+
+### Corregido
+
+- **Una recurrente del 31 se quedaba en el 28** después de febrero. Ahora vuelve
+  al día de la regla (31/1 → 28/2 → 31/3).
+- **Una plantilla con una categoría o una cuenta que no correspondía se perdía
+  sin aviso** al subirla. Ahora se valida, y si no corresponde queda en
+  "Rechazados" con el motivo.
+- En Medios de pago, el nombre y el detalle de una tarjeta ya no se cortan en el
+  teléfono.
+- **Un "Más tarde" hecho sin conexión ya no deshace un pago** que se marcó
+  mientras tanto desde otro dispositivo (venía de la 1.5.0) o, ahora, desde otro
+  miembro del grupo.
+
 ## [1.5.1] - 2026-10-08
 
 ### Cambiado

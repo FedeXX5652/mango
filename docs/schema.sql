@@ -162,6 +162,8 @@ CREATE UNIQUE INDEX push_subscriptions_endpoint_uniq ON push_subscriptions (endp
 CREATE TABLE reminders (
     id              UUID PRIMARY KEY,
     owner_id        UUID NOT NULL REFERENCES users(id),
+    -- De un grupo (1.6.0): avisa a todos; lo responde y lo edita cualquiera.
+    group_id        UUID REFERENCES groups(id),
     title           TEXT NOT NULL,
     notes           TEXT,
     -- Monto, cuenta y categoria del pago. Si se borra la plantilla, NULL.
@@ -182,10 +184,15 @@ CREATE TABLE reminders (
     -- [{"days_before": 0, "time": "09:00"}], a cualquier hora (1.5.1).
     alerts          JSONB NOT NULL DEFAULT '[{"days_before": 0, "time": "09:00"}]',
     followup_days   SMALLINT,                   -- NULL = hasta que responda
+    -- "Avisarme" (1.6.0): la tarjeta o la deuda que sigue; el servidor lo
+    -- mantiene al dia cuando ellas cambian.
+    payment_method_id UUID REFERENCES payment_methods(id),
+    debt_id         UUID REFERENCES debts(id),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at      TIMESTAMPTZ,
     CONSTRAINT reminders_freq_chk CHECK (freq IN ('once','daily','weekly','monthly','yearly')),
+    CONSTRAINT reminders_un_vinculo_chk CHECK (payment_method_id IS NULL OR debt_id IS NULL),
     CONSTRAINT reminders_un_solo_fin_chk CHECK (count IS NULL OR until_date IS NULL),
     CONSTRAINT reminders_weekend_shift_chk CHECK (weekend_shift IN ('none','next','previous'))
     -- (mas los rangos de cada columna; la coherencia de la regla la valida el CRUD)
@@ -197,6 +204,7 @@ CREATE TABLE reminders (
 CREATE TABLE reminder_cycles (
     id              UUID PRIMARY KEY,
     owner_id        UUID NOT NULL REFERENCES users(id),  -- el del recordatorio (sync sin JOIN)
+    group_id        UUID REFERENCES groups(id),          -- idem
     reminder_id     UUID NOT NULL REFERENCES reminders(id),
     -- La fecha de la regla, no la corrida por el fin de semana.
     nominal_date    DATE NOT NULL,
@@ -207,6 +215,8 @@ CREATE TABLE reminder_cycles (
     -- Avisos (etapa 2): "Mas tarde" (a cualquier hora; responder lo limpia) y
     -- lo que el servidor ya aviso, para no repetirlo (solo el servidor).
     snoozed_until   TIMESTAMPTZ,
+    -- En uno de grupo, el "Mas tarde" de cada uno: {user_id: instante}.
+    snoozes         JSONB,
     alerts_sent     JSONB,                      -- ["3@09:00", "0@09:00"]
     followup_sent_on DATE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -652,8 +662,6 @@ CREATE TABLE recurring_rules (
     start_date          DATE NOT NULL,
     end_date            DATE,
     next_run_date       DATE NOT NULL,
-    -- Si genera la transaccion sola o solo avisa
-    auto_create         BOOLEAN NOT NULL DEFAULT true,
     active              BOOLEAN NOT NULL DEFAULT true,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -666,6 +674,8 @@ CREATE TABLE recurring_rules (
 CREATE TABLE templates (
     id                  UUID PRIMARY KEY,
     owner_id            UUID NOT NULL REFERENCES users(id),
+    -- De un grupo (1.6.0, T1): de gasto, categoria del grupo, sin cuenta.
+    group_id            UUID REFERENCES groups(id),
     name                TEXT NOT NULL,
     kind                TEXT NOT NULL,
     account_id          UUID REFERENCES accounts(id),

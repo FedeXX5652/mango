@@ -105,7 +105,7 @@ export function FormularioMovimiento({
   )
   const comercios = comerciosRows.map((r) => r.payee)
   const { data: plantillas } = useQuery<PlantillaLocal>(
-    "SELECT id, name, kind, account_id, category_id, payment_method_id, amount, currency, payee, notes FROM templates WHERE deleted_at IS NULL ORDER BY sort_order, name",
+    "SELECT id, group_id, name, kind, account_id, category_id, payment_method_id, amount, currency, payee, notes FROM templates WHERE deleted_at IS NULL ORDER BY sort_order, name",
   )
 
   const [tipo, setTipo] = useState<TipoMovimiento>(tipoInicial)
@@ -249,6 +249,9 @@ export function FormularioMovimiento({
   }, [])
 
   const [verPlantillas, setVerPlantillas] = useState(false)
+  // Las del espacio donde se carga (1.6.0): en un grupo, las del grupo; si no,
+  // las personales.
+  const plantillasDelEspacio = plantillas.filter((t) => (t.group_id ?? "") === grupoId)
   const nombreCategoria = useMemo(
     () => new Map(categorias.map((c) => [c.id, c.name])),
     [categorias],
@@ -415,17 +418,18 @@ export function FormularioMovimiento({
         )}
         <Button variant="outline" onClick={() => setVerPlantillas(true)}>
           <Files className="h-4 w-4" aria-hidden />
-          Plantillas{plantillas.length > 0 ? ` (${plantillas.length})` : ""}
+          Plantillas{plantillasDelEspacio.length > 0 ? ` (${plantillasDelEspacio.length})` : ""}
         </Button>
       </div>
 
       <HojaPlantillas
         abierta={verPlantillas}
         onOpenChange={setVerPlantillas}
-        plantillas={plantillas}
+        plantillas={plantillasDelEspacio}
         detalle={detallePlantilla}
         onAplicar={aplicarPlantilla}
         actual={{
+          group_id: grupoId || null,
           kind: tipo,
           account_id: cuentaId || null,
           category_id: categoriaId || null,

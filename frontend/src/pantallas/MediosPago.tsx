@@ -1,8 +1,19 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronUp, Trash2 } from "lucide-react"
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowLeft,
+  BellPlus,
+  BellRing,
+  ChevronDown,
+  ChevronUp,
+  Pencil,
+  Trash2,
+} from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { HojaReasignar } from "@/componentes/HojaReasignar"
+import { HojaAvisarme } from "@/componentes/recordatorios/HojaAvisarme"
 import { Button } from "@/componentes/ui/button"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Campo } from "@/componentes/ui/campo"
@@ -10,9 +21,12 @@ import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
+import { useVinculados } from "@/hooks/useVinculados"
 import { useVolver } from "@/hooks/useVolver"
+import { fechaISO } from "@/lib/fecha"
 import { moverEnOrden } from "@/lib/orden"
 import { planMedio } from "@/lib/reasignar"
+import { semillaDeTarjeta } from "@/lib/recordatorios"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 
@@ -55,7 +69,10 @@ export function MediosPago() {
   )
   const movs = useMemo(() => new Map(movsRows.map((r) => [r.id, r.n])), [movsRows])
 
+  const { porTarjeta } = useVinculados()
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [editando, setEditando] = useState<Medio | null>(null)
+  const [avisando, setAvisando] = useState<Medio | null>(null)
   const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; m: Medio } | null>(null)
   const [reasignando, setReasignando] = useState<Medio | null>(null)
   const [ordenando, setOrdenando] = useState(false)
@@ -97,14 +114,18 @@ export function MediosPago() {
   }
 
   function filaMedio(m: Medio, i?: number) {
+    // "Avisarme" (1.6.0): una tarjeta de credito en uso, con dia de vencimiento.
+    const avisable = m.kind === "credit_card" && m.due_day !== null && !m.archived
+    const aviso = porTarjeta.get(m.id)
     return (
       <FilaInset key={m.id}>
         <div className="min-w-0">
-          <p className={cn("truncate font-medium", m.archived && "text-muted-foreground")}>
+          <p className={cn("break-words font-medium", m.archived && "text-muted-foreground")}>
             {m.name}
             {m.last4 ? ` ····${m.last4}` : ""}
           </p>
-          <p className="truncate text-xs text-muted-foreground">
+          {/* Sin cortar: el dia de vencimiento importa (lo sigue "Avisarme"). */}
+          <p className="break-words text-xs text-muted-foreground">
             {KINDS[m.kind] ?? m.kind}
             {m.brand ? ` · ${m.brand}` : ""}
             {m.kind === "credit_card" && m.closing_day ? ` · cierra ${m.closing_day}` : ""}
@@ -135,6 +156,28 @@ export function MediosPago() {
             </>
           ) : (
             <>
+              {avisable && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={
+                    aviso
+                      ? `Recordatorio del vencimiento de ${m.name}`
+                      : `Avisarme del vencimiento de ${m.name}`
+                  }
+                  onClick={() => setAvisando(m)}
+                >
+                  {aviso ? <BellRing className="h-4 w-4" /> : <BellPlus className="h-4 w-4" />}
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Editar"
+                onClick={() => setEditando(m)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -187,6 +230,29 @@ export function MediosPago() {
       <Hoja abierta={mostrarForm} onOpenChange={setMostrarForm} titulo="Nuevo medio">
         <FormularioMedio onCerrar={() => setMostrarForm(false)} />
       </Hoja>
+      <Hoja
+        abierta={editando !== null}
+        onOpenChange={(v) => !v && setEditando(null)}
+        titulo="Editar medio"
+      >
+        {editando && (
+          <FormularioMedio
+            key={editando.id}
+            inicial={editando}
+            onCerrar={() => setEditando(null)}
+          />
+        )}
+      </Hoja>
+      {avisando?.due_day && (
+        <HojaAvisarme
+          existente={porTarjeta.get(avisando.id)}
+          semilla={semillaDeTarjeta(
+            { ...avisando, due_day: avisando.due_day },
+            fechaISO(new Date()),
+          )}
+          onCerrar={() => setAvisando(null)}
+        />
+      )}
 
       {activos.length > 0 && <ListaInset>{activos.map((m, i) => filaMedio(m, i))}</ListaInset>}
 
@@ -240,14 +306,16 @@ export function MediosPago() {
   )
 }
 
-function FormularioMedio({ onCerrar }: { onCerrar: () => void }) {
+// Alta o edicion (`inicial`) de un medio. El tipo se elige al crearlo: el
+// servidor no lo deja cambiar.
+function FormularioMedio({ inicial, onCerrar }: { inicial?: Medio; onCerrar: () => void }) {
   const db = usePowerSync()
-  const [name, setName] = useState("")
-  const [kind, setKind] = useState("debit_card")
-  const [last4, setLast4] = useState("")
-  const [brand, setBrand] = useState("")
-  const [cierre, setCierre] = useState("")
-  const [vence, setVence] = useState("")
+  const [name, setName] = useState(inicial?.name ?? "")
+  const [kind, setKind] = useState(inicial?.kind ?? "debit_card")
+  const [last4, setLast4] = useState(inicial?.last4 ?? "")
+  const [brand, setBrand] = useState(inicial?.brand ?? "")
+  const [cierre, setCierre] = useState(inicial?.closing_day ? String(inicial.closing_day) : "")
+  const [vence, setVence] = useState(inicial?.due_day ? String(inicial.due_day) : "")
   const [error, setError] = useState("")
 
   // Dia del mes 1..31, o null. Vacio o fuera de rango => null.
@@ -258,7 +326,24 @@ function FormularioMedio({ onCerrar }: { onCerrar: () => void }) {
 
   async function guardar() {
     if (!name.trim()) return setError("Poné un nombre")
+    const credito = kind === "credit_card"
     try {
+      if (inicial) {
+        // Si cambia el dia de vencimiento, el servidor corre su recordatorio.
+        await db.execute(
+          "UPDATE payment_methods SET name = ?, last4 = ?, brand = ?, closing_day = ?, due_day = ? WHERE id = ?",
+          [
+            name.trim(),
+            last4.trim() || null,
+            brand.trim() || null,
+            credito ? dia(cierre) : null,
+            credito ? dia(vence) : null,
+            inicial.id,
+          ],
+        )
+        onCerrar()
+        return
+      }
       await db.execute(
         "INSERT INTO payment_methods (id, name, kind, last4, brand, closing_day, due_day, archived) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
         [
@@ -267,8 +352,8 @@ function FormularioMedio({ onCerrar }: { onCerrar: () => void }) {
           kind,
           last4.trim() || null,
           brand.trim() || null,
-          kind === "credit_card" ? dia(cierre) : null,
-          kind === "credit_card" ? dia(vence) : null,
+          credito ? dia(cierre) : null,
+          credito ? dia(vence) : null,
         ],
       )
       onCerrar()
@@ -283,15 +368,22 @@ function FormularioMedio({ onCerrar }: { onCerrar: () => void }) {
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Débito 8027" />
       </Campo>
       <div className="grid grid-cols-2 gap-3">
-        <Campo etiqueta="Tipo">
-          <SelectorEntidad
-            titulo="Tipo de medio"
-            placeholder="Elegí un tipo"
-            opciones={Object.entries(KINDS).map(([v, l]) => ({ id: v, nombre: l }))}
-            valor={kind}
-            onCambio={setKind}
-          />
-        </Campo>
+        {inicial ? (
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">Tipo</p>
+            <p className="flex min-h-11 items-center text-sm">{KINDS[kind] ?? kind}</p>
+          </div>
+        ) : (
+          <Campo etiqueta="Tipo">
+            <SelectorEntidad
+              titulo="Tipo de medio"
+              placeholder="Elegí un tipo"
+              opciones={Object.entries(KINDS).map(([v, l]) => ({ id: v, nombre: l }))}
+              valor={kind}
+              onCambio={setKind}
+            />
+          </Campo>
+        )}
         <Campo etiqueta="Últimos 4 (opcional)">
           <Input
             value={last4}

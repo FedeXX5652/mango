@@ -3,8 +3,10 @@ import { ArrowLeft, CalendarClock, Plus } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 
+import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { Monto } from "@/componentes/Monto"
 import { Vacio } from "@/componentes/Vacio"
+import { FilaRecurrente } from "@/componentes/recordatorios/FilaRecurrente"
 import { FormularioRecordatorio } from "@/componentes/recordatorios/FormularioRecordatorio"
 import { AccionesVencimiento, FilaVencimiento } from "@/componentes/recordatorios/Vencimiento"
 import { Button } from "@/componentes/ui/button"
@@ -17,31 +19,55 @@ import { fechaISO } from "@/lib/fecha"
 import {
   type CicloLocal,
   type RecordatorioLocal,
+  type RecurrenteEnCalendario,
   SQL_CICLOS,
   SQL_RECORDATORIOS,
+  SQL_RECORDATORIOS_GRUPO,
+  SQL_RECURRENTES,
   type Vencimiento,
   armarCalendario,
   etiquetaVence,
   vencimientoDe,
 } from "@/lib/recordatorios"
+import { type FechaDeRegla, recurrentesQueVienen } from "@/lib/recurrentes"
 import { describir, siguiente } from "@/lib/repeticion"
 
 // Calendario de pagos (1.5.0, ver 0030): lo que vence, lo vencido sin responder
-// y los recordatorios para editarlos.
+// y los recordatorios para editarlos. Desde la 1.6.0 tambien lo que viene de las
+// recurrentes, como informacion: se cargan solas.
+//
+// Con `grupo`, el calendario de un grupo (1.6.0, G1): sus recordatorios, que
+// avisan a todos y los responde cualquiera (dice quien). Las recurrentes son
+// personales: ahi no van.
 
 type Vista = "proximos" | "todos"
 
 const DIAS = 30
 
-export function CalendarioPagos() {
-  const volver = useVolver("/accesos")
-  const { data: recordatorios, isLoading } = useQuery<RecordatorioLocal>(SQL_RECORDATORIOS)
+export function CalendarioPagos({
+  grupo,
+  nombreMiembro,
+}: {
+  grupo?: { id: string; nombre: string; color: string | null }
+  nombreMiembro?: (id: string) => string
+} = {}) {
+  const volver = useVolver(grupo ? `/grupos/${grupo.id}` : "/accesos")
+  const { data: recordatorios, isLoading } = useQuery<RecordatorioLocal>(
+    grupo ? SQL_RECORDATORIOS_GRUPO : SQL_RECORDATORIOS,
+    grupo ? [grupo.id] : [],
+  )
   const { data: ciclos } = useQuery<CicloLocal>(SQL_CICLOS)
+  const { data: todasLasRecurrentes } = useQuery<RecurrenteEnCalendario>(SQL_RECURRENTES)
   const mostrarEsqueleto = useDemora(isLoading)
   const hoy = fechaISO(new Date())
   const cal = useMemo(
     () => armarCalendario(recordatorios, ciclos, hoy, DIAS),
     [recordatorios, ciclos, hoy],
+  )
+  const enGrupo = grupo !== undefined
+  const rec = useMemo(
+    () => recurrentesQueVienen(enGrupo ? [] : todasLasRecurrentes, hoy, DIAS),
+    [enGrupo, todasLasRecurrentes, hoy],
   )
   const [vista, setVista] = useState<Vista>("proximos")
   const [editando, setEditando] = useState<RecordatorioLocal | "nuevo" | null>(null)
@@ -73,12 +99,35 @@ export function CalendarioPagos() {
       v={v}
       hoy={hoy}
       cuantos={cuantos}
+      nombre={nombreMiembro}
       onAbrir={setAbierto}
     />
   )
 
+  // Recordatorios y recurrentes juntos, por fecha. En el mismo dia van primero
+  // los recordatorios, que son los que piden algo.
+  const mezclar = (vs: Vencimiento[], rs: FechaDeRegla<RecurrenteEnCalendario>[]) =>
+    [
+      ...vs.map((v) => ({ fecha: v.vence, nodo: fila(v) })),
+      ...rs.map((x) => ({
+        fecha: x.fecha,
+        nodo: (
+          <FilaRecurrente key={`rec:${x.regla.id}:${x.fecha}`} regla={x.regla} fecha={x.fecha} />
+        ),
+      })),
+    ]
+      .sort((a, b) => a.fecha.localeCompare(b.fecha))
+      .map((e) => e.nodo)
+
   const nada =
-    cal.vencidos.length + cal.hoy.length + cal.proximos.length + cal.masAdelante.length === 0
+    cal.vencidos.length +
+      cal.hoy.length +
+      cal.proximos.length +
+      cal.masAdelante.length +
+      rec.hoy.length +
+      rec.proximos.length +
+      rec.masAdelante.length ===
+    0
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
@@ -86,7 +135,10 @@ export function CalendarioPagos() {
         <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-2xl font-semibold">Calendario de pagos</h1>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold">Calendario de pagos</h1>
+          {grupo && <EtiquetaGrupo nombre={grupo.nombre} color={grupo.color} variante="punto" />}
+        </div>
       </header>
 
       <Button className="w-full" onClick={() => setEditando("nuevo")}>
@@ -103,11 +155,15 @@ export function CalendarioPagos() {
           <Esqueleto className="h-11" />
           <Esqueleto className="h-48 w-full rounded-xl" />
         </Cargando>
-      ) : recordatorios.length === 0 ? (
+      ) : recordatorios.length === 0 && (enGrupo || todasLasRecurrentes.length === 0) ? (
         <Vacio
           icono={CalendarClock}
-          titulo="Sin recordatorios"
-          detalle="Anotá lo que tenés que pagar (alquiler, tarjeta, expensas) y Mango te avisa cuando vence."
+          titulo={grupo ? "Sin recordatorios del grupo" : "Sin recordatorios"}
+          detalle={
+            grupo
+              ? "Anotá lo que paga el grupo (expensas, servicios) y Mango les avisa a todos cuando vence."
+              : "Anotá lo que tenés que pagar (alquiler, tarjeta, expensas) y Mango te avisa cuando vence."
+          }
         />
       ) : (
         <>
@@ -126,24 +182,19 @@ export function CalendarioPagos() {
                 "Vencidos sin marcar",
                 cal.vencidos.map((g) => fila(g.primero, g.cuantos)),
               )}
-              {seccion(
-                "Hoy",
-                cal.hoy.map((v) => fila(v)),
-              )}
-              {seccion(
-                `Próximos ${DIAS} días`,
-                cal.proximos.map((v) => fila(v)),
-              )}
-              {seccion(
-                "Más adelante",
-                cal.masAdelante.map((v) => fila(v)),
-              )}
+              {seccion("Hoy", mezclar(cal.hoy, rec.hoy))}
+              {seccion(`Próximos ${DIAS} días`, mezclar(cal.proximos, rec.proximos))}
+              {seccion("Más adelante", mezclar(cal.masAdelante, rec.masAdelante))}
               {nada && (
                 <p className="py-8 text-center text-sm text-muted-foreground">
                   No vence nada: los recordatorios ya terminaron.
                 </p>
               )}
             </div>
+          ) : recordatorios.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Todavía no anotaste recordatorios. Las recurrentes se administran en Recurrentes.
+            </p>
           ) : (
             <ListaInset>
               {recordatorios.map((r) => {
@@ -180,6 +231,7 @@ export function CalendarioPagos() {
           <FormularioRecordatorio
             key={editando === "nuevo" ? "nuevo" : editando.id}
             inicial={editando === "nuevo" ? undefined : editando}
+            grupo={grupo?.id}
             onCerrar={() => setEditando(null)}
           />
         )}
@@ -194,6 +246,7 @@ export function CalendarioPagos() {
           <AccionesVencimiento
             v={visible}
             hoy={hoy}
+            nombre={nombreMiembro}
             onListo={cerrarVencimiento}
             onEditar={() => {
               cerrarVencimiento()

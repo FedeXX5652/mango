@@ -494,6 +494,10 @@ persona gana** sobre la automatica.
 
   El monto es el de la regla. Si el mes vino distinto —la luz, el gas— se edita
   el movimiento: es preferible a que no aparezca nada y el saldo quede mal.
+
+  **El dia de una mensual o anual es el de su primera fecha** (1.6.0): una del
+  31 cae el 30 en abril y el 28 en febrero, y en marzo vuelve al 31. Antes el
+  recorte se arrastraba y la regla quedaba en el 28 para siempre.
 - **Presupuestos recurrentes** (`budget_rules`): la asignacion recurrente de un
   sobre (ver 3.6). La misma corrida las aplica, tambien local: crea la asignacion
   del mes que falte. No pisa la que ya existe, venga de una corrida anterior o
@@ -502,6 +506,11 @@ persona gana** sobre la automatica.
   cargan con un toque. En el alta, un boton "Plantillas" abre la lista y permite
   **guardar lo que esta cargado como plantilla nueva** (ver DESIGN.md 7). Pueden
   estar parciales y completarse al aplicarlas.
+
+  **Hay plantillas de un grupo** (1.6.0, ver 0030): de gasto, con una categoria
+  del grupo y sin cuenta (cada uno paga con la suya). Las edita o borra cualquier
+  miembro y se administran en Ajustes del grupo. El alta ofrece las del espacio
+  donde se carga.
 
 ### 3.7.1 Calendario de pagos
 
@@ -538,6 +547,24 @@ de Ajustes).
 
 Se ve en **Calendario de pagos** (vencidos sin marcar, hoy, proximos 30 dias y
 mas adelante) y en la tarjeta **Proximos pagos** del Inicio.
+
+**"Avisarme" en una tarjeta de credito o en una deuda con fecha** (1.6.0) crea un
+recordatorio que la sigue: todos los meses el dia de vencimiento de la tarjeta, o
+una vez en la fecha de la deuda. Si cambia el dia o la fecha, se corre solo;
+saldar la deuda del todo lo marca pagado; borrar la tarjeta o la deuda lo borra.
+El vencimiento de una deuda se responde con **"Saldar la deuda"** (en Deudas,
+con cuanto se pago), no con "Ya lo pague".
+
+**Recordatorios de un grupo** (1.6.0, ver 0030): "Casa: vencen las expensas".
+Avisan a todos los miembros, cualquiera lo marca pagado (o carga el pago, que
+queda como gasto del grupo) y se frena para todos; el calendario dice quien
+fue. Los edita o borra cualquier miembro, y "Mas tarde" es de cada uno: calla
+solo a quien lo pidio. Se ven en el espacio del grupo: su calendario (acceso
+"Calendario" del Inicio del grupo) y su tarjeta "Proximos pagos".
+
+**Las recurrentes tambien se ven en el calendario** (1.6.0), mezcladas por fecha,
+como informacion: "se carga solo", sin avisos ni respuesta, porque se generan
+solas (3.7). Tocarlas lleva a Recurrentes. No van a la tarjeta del Inicio.
 
 ### 3.8 Visualizacion
 
@@ -1173,13 +1200,14 @@ nuevo. Con heimdall apagado no hay push: los avisos quedan en la bandeja, y lo d
 mas de 48 h no sale al volver. El mismo planificador pide la **cotizacion del dia**
 de cada usuario aunque nadie abra la app.
 
-**Calendario de pagos (1.5.0): etapas 1 y 2 HECHAS.** Ver 3.7.1 y 0030:
+**Calendario de pagos (1.5.0 y 1.6.0): HECHO.** Ver 3.7.1 y 0030:
 recordatorios con repeticion estilo Samsung, vencidos sin marcar, "Cargar el
 pago" con la plantilla, la tarjeta "Proximos pagos" del Inicio, y los avisos
 (a su hora, seguimiento, "Mas tarde" y los botones de Android). En la 1.5.1
 los avisos pasaron a ir a cualquier hora y las fechas de toda la app, a
-dd/mm/aaaa. Faltan los recordatorios de grupo, de tarjetas y de deudas (etapa 3,
-que sale como 1.6.0).
+dd/mm/aaaa. En la 1.6.0, la etapa 3: recordatorios de grupo, plantillas de grupo,
+"Avisarme" en tarjetas y deudas y las recurrentes en el calendario. Lo
+automatico (A1/A2) y las propuestas de la ingesta (C9) van con la fase 2.
 
 Falta:
 

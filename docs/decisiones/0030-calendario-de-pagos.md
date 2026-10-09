@@ -1,7 +1,9 @@
 # 0030 - Calendario de pagos
 
-Estado: aceptada (etapas 1 y 2 en la 1.5.0: el calendario y los avisos; la 3 va en la 1.6.0).
-Cambiada en la 1.5.1: los avisos van a cualquier hora (C6) y las fechas, como dd/mm/aaaa.
+Estado: aceptada e implementada. Etapas 1 y 2 en la 1.5.0 (el calendario y los
+avisos), etapa 3 en la 1.6.0 (grupo, tarjetas, deudas y recurrentes). Cambiada en
+la 1.5.1: los avisos van a cualquier hora (C6) y las fechas, como dd/mm/aaaa.
+El formato para la ingesta está en `docs/recordatorios.md`.
 Fecha: 2026-10-04
 
 ## Contexto
@@ -220,17 +222,155 @@ Los pidió el usuario después de usar la 1.5.0:
   - El eje del gráfico de Estadísticas va como dd/mm: con el año, seis fechas
     no entran en el ancho de un teléfono.
 
-### Lo que falta (etapa 3, versión 1.6.0)
+### Etapa 3 (versión 1.6.0)
 
-- **Etapa 3.**
-  - Recordatorios de grupo (C3, con plantillas de grupo).
-  - "Avisarme" en tarjetas y deudas.
-  - Recurrentes como información.
-  - Lo automático marcado (A1/A2) y las propuestas de la ingesta (C9) van con
-    la fase 2 (decidido el 2026-10-08): hoy nada crea recordatorios
-    automáticos, y el indicador no se podría probar con datos reales.
-  - `docs/recordatorios.md` para la ingesta.
-  - Sale `recurring_rules.auto_create`.
+Plan aprobado el 2026-10-09, en incrementos. Lo que el usuario decidió ese día:
+
+- **G1.** Los recordatorios de grupo se ven en el espacio del grupo: su
+  calendario y la tarjeta de su Inicio. El calendario personal queda con lo
+  personal (la regla de los espacios, 0026).
+- **G2.** "Calendario" reemplaza a "Categorías" en los accesos fijos del grupo;
+  Categorías sigue en Ajustes del grupo.
+- **G3.** "Más tarde" en un recordatorio de grupo calla solo a quien lo pidió.
+- **G4.** Cualquier miembro edita o borra los recordatorios y las plantillas del
+  grupo, como las categorías.
+
+**Las recurrentes en el calendario** (incremento 1). Lo que viene de cada regla
+activa se ve mezclado por fecha con los vencimientos, como información: "se carga
+solo", el monto (un ingreso con el +) y sin avisos ni respuesta, porque se
+generan solas. Tocarlas lleva a Recurrentes. No van a la tarjeta del Inicio:
+no piden nada.
+
+- Las fechas salen de `recurrentesQueVienen` (`lib/recurrentes.ts`), desde
+  `next_run_date` y sin pasar de `end_date`.
+- **De paso se arregló el corrimiento al 28.** `siguienteFecha` tomaba el día
+  de la fecha anterior: una regla del 31 pasaba al 28 de febrero y se quedaba en
+  el 28. Ahora el día sale de `start_date` (`diaAncla`). Una regla que ya había
+  quedado en el 28 genera esa fecha (la guardada se respeta: puede venir de otro
+  dispositivo) y la siguiente vuelve al día de la regla.
+- Riesgo que queda: dos dispositivos, uno sin actualizar, que generan sin
+  conexión el mes siguiente a uno corto pueden escribir distinto
+  `next_run_date`. Hace falta una regla del 29 al 31, los dos dispositivos sin
+  red y versiones distintas a la vez; la actualización de la PWA (0028) lo
+  achica.
+
+**"Avisarme" en tarjetas y deudas** (incremento 2, C1). Abre el formulario del
+recordatorio ya armado, y lo guardado queda vinculado
+(`reminders.payment_method_id` o `reminders.debt_id`, uno u otro):
+
+- **Tarjeta de crédito** (en Medios de pago, si tiene día de vencimiento): todos
+  los meses, ese día. El día de vencimiento está en el medio de pago, no en la
+  cuenta. Para poder cambiarlo, los medios de pago ahora se editan (el tipo no:
+  el servidor no lo deja cambiar).
+- **Deuda con fecha** (en Deudas, mientras se deba): una vez, en su fecha, como
+  "Pagarle a Beto" o "Cobrarle a Ana".
+- **El servidor lo mantiene al día**, en la misma transacción que el cambio de la
+  tarjeta o de la deuda, así vale venga de donde venga:
+  - otro día de vencimiento: se corre (y lo vencido cuenta desde hoy, como al
+    cambiar la regla en el formulario);
+  - otra fecha de la deuda: se mueve; sin fecha, se borra;
+  - la deuda saldada del todo: su vencimiento queda pagado;
+  - la tarjeta archivada o borrada, o la deuda borrada: se borra.
+- Solo se corre la regla que armó "Avisarme" (mensual por día para una tarjeta,
+  de una vez para una deuda). Si la persona le cambió la forma en el
+  formulario, la regla es suya; igual se borra con la tarjeta o la deuda.
+- Un vínculo que no sirve (ajeno, borrado, archivado o una tarjeta que no es de
+  crédito) queda en nada, como la plantilla: se pudo borrar en otro
+  dispositivo y el recordatorio no tiene por qué perderse.
+- **Una deuda se salda en Deudas**, con cuánto se pagó. Por eso su vencimiento no
+  ofrece "Ya lo pagué" ni "Cargar el pago", que la dejarían abierta, sino
+  **"Saldar la deuda"**: abre Deudas con su hoja (`/deudas?saldar=<id>`).
+  Saldarla del todo marca el vencimiento. Su aviso en Android trae solo "Más
+  tarde"; un permiso de antes no la marca pagada (el service worker abre la app
+  en ese vencimiento).
+- Si se reabre una deuda (baja lo saldado, solo por la API), su vencimiento
+  queda como estaba.
+
+**Plantillas de grupo** (incremento 3, T1). `templates.group_id`. Sirven para
+cargar de un toque un gasto que se repite en el grupo, y para "Cargar el pago"
+de un recordatorio del grupo (incremento 5).
+
+- **De gasto, con una categoría del grupo y sin cuenta ni medio de pago**: cada
+  uno paga con lo suyo. El monto va en la moneda del grupo.
+- **Las edita o borra cualquier miembro** (G4), como las categorías del grupo.
+  Alguien que no es del grupo recibe 404, como con las otras cosas del grupo.
+- Se administran en **Ajustes del grupo** (sección "Plantillas del grupo"). El
+  alta ofrece las del espacio donde se carga: en un grupo, las del grupo; si no,
+  las personales. "Guardar lo cargado como plantilla" dentro de un grupo crea
+  una del grupo (solo de gasto).
+- **Sync:** van por el stream del grupo; el propio trae solo las personales
+  (`group_id IS NULL`), así una fila no llega por dos lados. Cambió
+  `sync-config.yaml`: en el deploy hay que reiniciar PowerSync.
+- **La validación que les faltaba a todas** (DomainError, 422): la categoría del
+  ámbito y del tipo, una cuenta propia (no la conjunta de un grupo), un medio de
+  pago propio, una transferencia sin categoría. Antes una referencia mala daba
+  409, que el conector toma por "ya aplicado", y la plantilla se perdía sin
+  aviso. Al editar se valida solo lo que cambia: una plantilla vieja que no
+  cumple no traba otro cambio.
+- Un recordatorio personal no usa una plantilla del grupo (queda sin
+  plantilla). Las personales ahora también se editan (lápiz), además de
+  borrarse.
+
+**Recordatorios de grupo** (incrementos 4 y 5, C3). `reminders.group_id` y
+`reminder_cycles.group_id` (la sync filtra sin JOIN).
+
+- **Se ven en el espacio del grupo** (G1): `/grupos/<grupo>/calendario`, la
+  tarjeta "Próximos pagos" del Inicio del grupo y el acceso **"Calendario"**,
+  que reemplaza a "Categorías" (G2; Categorías sigue en Ajustes del grupo). El
+  calendario personal y su tarjeta quedan con lo personal. Las recurrentes son
+  personales: el del grupo no las muestra.
+- **El calendario es una sección común de los espacios** (como Movimientos,
+  0026): cambiar de espacio desde el calendario deja en el del otro, y en
+  escritorio la herramienta "Calendario de pagos" de la barra lateral lleva al
+  del espacio actual.
+- **Avisan a cada miembro activo**, con el nombre del grupo ("Casa ·
+  Expensas", P2), y tocar el aviso abre el calendario del grupo. Quien se fue
+  del grupo deja de recibirlos. Cada aviso trae sus botones, con un permiso de
+  un solo uso para ese miembro.
+- **Cualquier miembro lo responde y se frena para todos**: el vencimiento es
+  uno. El calendario dice quién fue ("pagado por Beto"); a los demás no les
+  llega otro aviso.
+- **Cualquier miembro lo edita o lo borra** (G4). Alguien de afuera recibe 404,
+  como con lo demás del grupo.
+- **"Cargar el pago" abre el alta del grupo** con la plantilla del grupo: el
+  gasto queda compartido, con la cuenta de quien paga, y el vencimiento
+  vinculado. "Ver el pago" lleva al gasto en los movimientos del grupo.
+- Usa una plantilla del grupo (una personal queda en nada) y no sigue tarjetas
+  ni deudas, que son personales.
+- **"Más tarde" es de cada uno** (G3): `reminder_cycles.snoozes`, un mapa
+  `{user_id: instante}`. Calla solo a quien lo pidió: a los demás les sigue
+  avisando, y a él le llega un "Te lo recuerdo" cuando se cumple. Responder lo
+  deja sin efecto para todos. `snoozed_until` queda para los personales.
+  - El teléfono guarda el mapa como texto y lo sube entero, pero el servidor
+    **toma solo la clave de quien lo sube**: las demás son de otros y no las
+    puede tocar. Se cambia la clave propia y no `snoozed_until` porque "sacar
+    el Más tarde" tiene que subir algo aunque esa columna ya estuviera vacía (la
+    sync sube solo lo que cambia).
+  - Dos miembros que posponen a la vez no se pisan: el servidor fusiona en una
+    sola sentencia. Al cumplirse, saca la clave solo si sigue siendo la que
+    leyó.
+  - **Un "Más tarde" que llega tarde no deshace una respuesta**: si mientras
+    tanto otro lo marcó pagado u omitido, se descarta (la misma condición que el
+    botón del aviso). Pasaba también en los personales desde la 1.5.0, con dos
+    dispositivos: el "Más tarde" sin conexión subía como alta y el upsert pisaba
+    el pagado. Un "Deshacer" sí vuelve atrás lo respondido: es lo que se pidió.
+  - Si todos los miembros pospusieron, el aviso de esa hora no le llega a nadie
+    y se da por mandado: a cada uno le llega su "Te lo recuerdo" (con el monto y
+    el enlace) cuando se le cumple. Así nadie recibe dos.
+- **Sync:** los de grupo y sus vencimientos van por el stream del grupo; el
+  propio trae solo los personales. Cambió `sync-config.yaml`: en el deploy hay
+  que reiniciar PowerSync.
+
+### Lo que queda para después
+
+- Lo automático marcado (A1/A2) y las propuestas de la ingesta (C9) van con la
+  fase 2 (decidido el 2026-10-08): hoy nada crea recordatorios automáticos, y el
+  indicador no se podría probar con datos reales.
+- `docs/recordatorios.md` (hecho) describe el contrato de la persona; lo
+  automático se suma ahí con la fase 2.
+- `recurring_rules.auto_create` ya no existía: salió en la inc 26
+  (`0eb63c85705d_recurrentes_sin_auto_create`). Solo quedaban menciones en la
+  documentación.
 
 ## Consecuencias
 

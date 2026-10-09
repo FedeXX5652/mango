@@ -9,15 +9,22 @@ import {
   type Repeticion,
   type Vencimiento,
   SQL_RECORDATORIOS,
+  SQL_RECORDATORIOS_GRUPO,
   armarCalendario,
   cambioLaRegla,
   detalleVencimiento,
   etiquetaVence,
+  guardarRecordatorio,
+  pospuestoDe,
+  proximoDiaDelMes,
   puedeCaerEnFinde,
   reglaDe,
   repeticionDe,
   responderCiclo,
   semanaDelMes,
+  semillaDeDeuda,
+  semillaDeTarjeta,
+  textoVinculo,
 } from "@/lib/recordatorios"
 import { idCiclo } from "@/lib/repeticion"
 
@@ -33,6 +40,7 @@ type DatabaseSync = InstanceType<Sqlite["DatabaseSync"]>
 function recordatorio(over: Partial<RecordatorioLocal> = {}): RecordatorioLocal {
   return {
     id: "r1",
+    group_id: null,
     title: "Alquiler",
     notes: null,
     template_id: null,
@@ -48,6 +56,10 @@ function recordatorio(over: Partial<RecordatorioLocal> = {}): RecordatorioLocal 
     plantilla: null,
     monto: null,
     moneda: null,
+    payment_method_id: null,
+    debt_id: null,
+    tarjeta: null,
+    deuda_con: null,
     ...over,
   }
 }
@@ -72,7 +84,9 @@ describe("el calendario", () => {
         nominal_date: "2026-09-10",
         status: "paid",
         transaction_id: null,
+        answered_by: null,
         snoozed_until: null,
+        snoozes: null,
       },
     ]
     expect(armarCalendario([recordatorio()], ciclos, HOY).vencidos).toEqual([])
@@ -114,7 +128,9 @@ describe("el calendario", () => {
       nominal_date: HOY,
       status: "paid",
       transaction_id: "tx",
+      answered_by: null,
       snoozed_until: null,
+      snoozes: null,
     }
     const cal = armarCalendario([unico], [pagado], HOY)
     expect(cal.hoy.map((v) => [v.estado, v.transactionId])).toEqual([["paid", "tx"]])
@@ -223,10 +239,13 @@ describe("contra el SQLite del dispositivo", () => {
   beforeEach(() => {
     sq = new DatabaseSync(":memory:")
     sq.exec(`
-      CREATE TABLE reminders (id, owner_id, title, template_id, deleted_at);
+      CREATE TABLE reminders (id, owner_id, title, template_id, deleted_at,
+                              payment_method_id, debt_id, group_id);
       CREATE TABLE templates (id, name, amount, currency, deleted_at);
+      CREATE TABLE payment_methods (id, name, deleted_at);
+      CREATE TABLE debts (id, counterparty, deleted_at);
       CREATE TABLE reminder_cycles (id, owner_id, reminder_id, nominal_date, status,
-                                    transaction_id, snoozed_until, deleted_at);
+                                    transaction_id, snoozed_until, deleted_at, snoozes);
     `)
     const api = {
       execute: async (sql: string, params: unknown[] = []) => {
@@ -272,9 +291,9 @@ describe("contra el SQLite del dispositivo", () => {
     sq.exec(`
       INSERT INTO templates VALUES ('t1', 'Alq', 50000000, 'ARS', NULL);
       INSERT INTO templates VALUES ('t2', 'Vieja', 1, 'ARS', '2026-01-01');
-      INSERT INTO reminders VALUES ('r1', 'yo', 'Alquiler', 't1', NULL);
-      INSERT INTO reminders VALUES ('r2', 'yo', 'Expensas', 't2', NULL);
-      INSERT INTO reminders VALUES ('r3', 'yo', 'Borrado', NULL, '2026-01-01');
+      INSERT INTO reminders VALUES ('r1', 'yo', 'Alquiler', 't1', NULL, NULL, NULL, NULL);
+      INSERT INTO reminders VALUES ('r2', 'yo', 'Expensas', 't2', NULL, NULL, NULL, NULL);
+      INSERT INTO reminders VALUES ('r3', 'yo', 'Borrado', NULL, '2026-01-01', NULL, NULL, NULL);
     `)
     const filas = sq.prepare(SQL_RECORDATORIOS).all() as {
       title: string
@@ -285,6 +304,161 @@ describe("contra el SQLite del dispositivo", () => {
       ["Alquiler", "Alq", 50000000],
       ["Expensas", null, null],
     ])
+  })
+
+  it("la tarjeta o la deuda que sigue, si sigue viva", () => {
+    sq.exec(`
+      INSERT INTO payment_methods VALUES ('pm1', 'Visa', NULL);
+      INSERT INTO debts VALUES ('d1', 'Beto', NULL);
+      INSERT INTO debts VALUES ('d2', 'Borrada', '2026-01-01');
+      INSERT INTO reminders VALUES ('r1', 'yo', 'A', NULL, NULL, 'pm1', NULL, NULL);
+      INSERT INTO reminders VALUES ('r2', 'yo', 'B', NULL, NULL, NULL, 'd1', NULL);
+      INSERT INTO reminders VALUES ('r3', 'yo', 'C', NULL, NULL, NULL, 'd2', NULL);
+    `)
+    const filas = sq.prepare(SQL_RECORDATORIOS).all() as {
+      title: string
+      tarjeta: string | null
+      deuda_con: string | null
+    }[]
+    expect(filas.map((f) => [f.title, f.tarjeta, f.deuda_con])).toEqual([
+      ["A", "Visa", null],
+      ["B", null, "Beto"],
+      ["C", null, null],
+    ])
+  })
+
+  it("Avisarme guarda el vinculo al crearlo", async () => {
+    sq.exec(`
+      DROP TABLE reminders;
+      CREATE TABLE reminders (title, notes, template_id, freq, interval_count, weekdays,
+        month_mode, month_day, month_week, month_weekday, start_date, until_date, count,
+        weekend_shift, alerts, followup_days, track_from, id, owner_id, payment_method_id,
+        debt_id, group_id);
+    `)
+    const s = semillaDeDeuda({
+      id: "d1",
+      counterparty: "Beto",
+      direction: "payable",
+      due_date: "2026-11-20",
+    })
+    await guardarRecordatorio(
+      db,
+      {
+        ...reglaDe(s.start_date, s.rep),
+        title: s.title,
+        notes: null,
+        template_id: null,
+        weekend_shift: "none",
+        alerts: [],
+        followup_days: 3,
+        debt_id: s.debt_id,
+      },
+      HOY,
+    )
+    expect(sq.prepare("SELECT title, freq, start_date, debt_id FROM reminders").all()).toEqual([
+      { title: "Pagarle a Beto", freq: "once", start_date: "2026-11-20", debt_id: "d1" },
+    ])
+  })
+
+  it("los personales y los de un grupo, cada uno en su espacio", () => {
+    sq.exec(`
+      INSERT INTO reminders VALUES ('r1', 'yo', 'Mío', NULL, NULL, NULL, NULL, NULL);
+      INSERT INTO reminders VALUES ('r2', 'yo', 'Expensas', NULL, NULL, NULL, NULL, 'casa');
+      INSERT INTO reminders VALUES ('r3', 'beto', 'Luz', NULL, NULL, NULL, NULL, 'casa');
+      INSERT INTO reminders VALUES ('r4', 'ana', 'Club', NULL, NULL, NULL, NULL, 'otro');
+    `)
+    const titulos = (sql: string, params: string[] = []) =>
+      (sq.prepare(sql).all(...params) as { title: string }[]).map((f) => f.title)
+    expect(titulos(SQL_RECORDATORIOS)).toEqual(["Mío"])
+    expect(titulos(SQL_RECORDATORIOS_GRUPO, ["casa"])).toEqual(["Expensas", "Luz"])
+  })
+
+  it("más tarde en uno de grupo: solo mi clave del mapa", async () => {
+    const hasta = new Date(Date.UTC(2026, 9, 12, 18))
+    const id = idCiclo("r9", "2026-10-12")
+    // Ya tiene el de Beto (vino por la sync).
+    sq.prepare(
+      "INSERT INTO reminder_cycles (id, reminder_id, nominal_date, status, snoozes) VALUES (?, 'r9', '2026-10-12', 'pending', ?)",
+    ).run(id, JSON.stringify({ beto: "2026-10-12T20:00:00.000Z" }))
+    await posponerCiclo(db, "r9", "2026-10-12", hasta, true)
+    const fila = () =>
+      sq.prepare("SELECT snoozed_until, snoozes FROM reminder_cycles WHERE id = ?").get(id) as {
+        snoozed_until: string | null
+        snoozes: string | null
+      }
+    expect(fila().snoozed_until).toBeNull()
+    expect(JSON.parse(fila().snoozes ?? "{}")).toEqual({
+      beto: "2026-10-12T20:00:00.000Z",
+      yo: hasta.toISOString(),
+    })
+    // Lo saco: el de Beto queda.
+    await posponerCiclo(db, "r9", "2026-10-12", null, true)
+    expect(JSON.parse(fila().snoozes ?? "{}")).toEqual({ beto: "2026-10-12T20:00:00.000Z" })
+    // Responder lo deja sin efecto para todos.
+    await responderCiclo(db, "r9", "2026-10-12", "paid")
+    expect(fila().snoozes).toBeNull()
+  })
+})
+
+describe("Avisarme en una tarjeta o una deuda", () => {
+  it("el proximo dia de vencimiento, sin recortar la regla", () => {
+    expect(proximoDiaDelMes(12, "2026-10-09")).toBe("2026-10-12")
+    expect(proximoDiaDelMes(9, "2026-10-09")).toBe("2026-10-09")
+    expect(proximoDiaDelMes(5, "2026-10-09")).toBe("2026-11-05")
+    expect(proximoDiaDelMes(5, "2026-12-20")).toBe("2027-01-05")
+    // Febrero no tiene 30: el primero es en marzo (un 28 dejaria la regla en 28).
+    expect(proximoDiaDelMes(30, "2027-02-10")).toBe("2027-03-30")
+    // El 31 es "el ultimo dia": cualquier mes lo tiene.
+    expect(proximoDiaDelMes(31, "2026-11-10")).toBe("2026-11-30")
+    expect(proximoDiaDelMes(31, "2027-02-10")).toBe("2027-02-28")
+  })
+
+  it("una tarjeta: todos los meses, el dia de vencimiento", () => {
+    const s = semillaDeTarjeta({ id: "pm1", name: "Visa", due_day: 5 }, "2026-10-09")
+    expect(s.title).toBe("Visa")
+    expect(s.payment_method_id).toBe("pm1")
+    const regla = reglaDe(s.start_date, s.rep)
+    expect([regla.freq, regla.month_mode, regla.month_day, regla.start_date]).toEqual([
+      "monthly",
+      "day",
+      5,
+      "2026-11-05",
+    ])
+    // El 31 queda como "el ultimo dia", aunque arranque el 30 de noviembre.
+    const ultimo = semillaDeTarjeta({ id: "pm1", name: "Visa", due_day: 31 }, "2026-11-10")
+    expect(reglaDe(ultimo.start_date, ultimo.rep).month_day).toBe(31)
+  })
+
+  it("una deuda: una vez, en su fecha, y dice a quien", () => {
+    const debo = semillaDeDeuda({
+      id: "d1",
+      counterparty: "Beto",
+      direction: "payable",
+      due_date: "2026-11-20",
+    })
+    expect([debo.title, debo.start_date, debo.rep.freq, debo.debt_id]).toEqual([
+      "Pagarle a Beto",
+      "2026-11-20",
+      "once",
+      "d1",
+    ])
+    const meDeben = semillaDeDeuda({
+      id: "d2",
+      counterparty: "Ana",
+      direction: "receivable",
+      due_date: "2026-11-20",
+    })
+    expect(meDeben.title).toBe("Cobrarle a Ana")
+  })
+
+  it("dice a que sigue", () => {
+    expect(textoVinculo({ tarjeta: "Visa", deuda_con: null })).toBe(
+      "Sigue a la tarjeta Visa: si cambia su día de vencimiento, se corre solo.",
+    )
+    expect(textoVinculo({ tarjeta: null, deuda_con: "Beto" })).toBe(
+      "Sigue a la deuda con Beto: saldarla lo marca pagado.",
+    )
+    expect(textoVinculo({ tarjeta: null, deuda_con: null })).toBeNull()
   })
 })
 
@@ -298,6 +472,18 @@ describe("como se lee un vencimiento", () => {
   })
 })
 
+describe("el más tarde de cada uno (grupo)", () => {
+  it("el del ciclo si es personal; si no, mi clave del mapa", () => {
+    expect(pospuestoDe({ snoozed_until: "2026-10-12T18:00:00Z", snoozes: null })).toBe(
+      "2026-10-12T18:00:00Z",
+    )
+    const mapa = JSON.stringify({ yo: "2026-10-12T15:00:00Z", beto: "2026-10-12T20:00:00Z" })
+    expect(pospuestoDe({ snoozed_until: null, snoozes: mapa })).toBe("2026-10-12T15:00:00Z")
+    expect(pospuestoDe({ snoozed_until: null, snoozes: JSON.stringify({ beto: "x" }) })).toBeNull()
+    expect(pospuestoDe({ snoozed_until: null, snoozes: "no es json" })).toBeNull()
+  })
+})
+
 describe("la linea de un vencimiento", () => {
   const v = (vence: string, estado: Vencimiento["estado"] = "pending"): Vencimiento => ({
     recordatorio: recordatorio(),
@@ -306,6 +492,7 @@ describe("la linea de un vencimiento", () => {
     estado,
     transactionId: null,
     pospuesto: null,
+    respondidoPor: null,
   })
   it("la fecha (dd/mm/aaaa) y cuanto falta, o el estado", () => {
     expect(detalleVencimiento(v("2026-10-12"), HOY)).toBe("12/10/2026 · lunes, en 8 días")

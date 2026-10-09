@@ -49,6 +49,11 @@ describe("seccion actual", () => {
     expect(seccionDeRuta("/movimientos")).toBe("movimientos")
     expect(seccionDeRuta("/movimientos/tx-1")).toBe("movimientos")
     expect(seccionDeRuta("/grupos/casa-1/estadisticas")).toBe("estadisticas")
+    // El calendario de pagos, desde la 1.6.0: cada grupo tiene el suyo.
+    expect(seccionDeRuta("/calendario")).toBe("calendario")
+    expect(rutaEspacio({ tipo: "grupo", id: "casa-1" }, "calendario")).toBe(
+      "/grupos/casa-1/calendario",
+    )
   })
 
   it("Inicio, Ajustes y lo demas no son comunes", () => {

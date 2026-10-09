@@ -27,7 +27,7 @@ export interface Generado {
 const SQL_REGLAS = `
   SELECT id, kind, account_id, transfer_account_id, category_id, payment_method_id,
          amount, currency, payee, notes, frequency, interval_count,
-         next_run_date, end_date, active
+         start_date, next_run_date, end_date, active
   FROM recurring_rules
   WHERE deleted_at IS NULL AND active = 1 AND next_run_date <= ?`
 

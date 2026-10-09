@@ -1,7 +1,10 @@
+import { Link } from "react-router-dom"
+
 import { cn } from "@/lib/utils"
 
 // Lista agrupada estilo iOS Settings: grupo redondeado con separadores hairline
-// internos. FilaInset es button (tappable, con hover) o div segun onClick.
+// internos. FilaInset es button (tappable, con hover) segun onClick, enlace si
+// lleva a otra pantalla (`to`), o div.
 export function ListaInset({
   children,
   className,
@@ -24,11 +27,13 @@ export function ListaInset({
 export function FilaInset({
   children,
   onClick,
+  to,
   className,
   actual,
 }: {
   children: React.ReactNode
   onClick?: () => void
+  to?: string
   className?: string
   // La fila abierta (el detalle del panel de escritorio): lo dice tambien al
   // lector de pantalla, no solo con el fondo.
@@ -36,9 +41,16 @@ export function FilaInset({
 }) {
   const clases = cn(
     "flex w-full items-center justify-between gap-3 px-4 py-3 text-left",
-    onClick && "transition-colors hover:bg-muted",
+    (onClick || to) && "transition-colors hover:bg-muted",
     className,
   )
+  if (to) {
+    return (
+      <Link to={to} className={clases}>
+        {children}
+      </Link>
+    )
+  }
   if (onClick) {
     return (
       <button

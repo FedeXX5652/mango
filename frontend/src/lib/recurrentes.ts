@@ -32,6 +32,9 @@ export interface ReglaRecurrente {
   notes: string | null
   frequency: Frecuencia
   interval_count: number
+  // La primera fecha. Su dia es el que pide la regla mensual o anual: ver
+  // `diaAncla`.
+  start_date: string
   // Fecha de la proxima ocurrencia, "YYYY-MM-DD".
   next_run_date: string
   end_date: string | null
@@ -57,8 +60,8 @@ export interface Pendientes {
 //
 // La aritmetica se hace sobre los numeros de la fecha, sin objetos Date, porque
 // Date trabaja en la zona local y sumar un mes cruzando un cambio de horario
-// puede mover el dia. Espeja `_add_period` del servidor, que es de donde salen
-// las reglas de borde.
+// puede mover el dia. Las reglas de borde salen de `_add_period`, que el
+// servidor usaba cuando generaba el (ya no: genera el dispositivo).
 
 function partes(fecha: string): [number, number, number] {
   const [y, m, d] = fecha.split("-").map(Number)
@@ -73,13 +76,32 @@ function diasDelMes(y: number, m: number): number {
   return new Date(Date.UTC(y, m, 0)).getUTCDate()
 }
 
-export function siguienteFecha(fecha: string, frecuencia: Frecuencia, n: number): string {
+function sumarDias(fecha: string, dias: number): string {
   const [y, m, d] = partes(fecha)
+  const t = new Date(Date.UTC(y, m - 1, d + dias))
+  return armar(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate())
+}
+
+// El dia del mes que pide una regla mensual o anual: el de su primera fecha.
+// Sin el, el recorte de un mes corto se arrastraba: una regla del 31 pasaba al
+// 28 de febrero y se quedaba en el 28 para siempre (1.6.0).
+export function diaAncla(regla: Pick<ReglaRecurrente, "start_date">): number {
+  return partes(regla.start_date)[2]
+}
+
+// La fecha que sigue a `fecha`. Con `ancla`, el mes o el año siguiente caen en
+// ese dia (recortado si el mes es mas corto); sin ella, en el de `fecha`.
+export function siguienteFecha(
+  fecha: string,
+  frecuencia: Frecuencia,
+  n: number,
+  ancla?: number,
+): string {
+  const [y, m, d] = partes(fecha)
+  const dia = ancla ?? d
 
   if (frecuencia === "daily" || frecuencia === "weekly") {
-    const dias = frecuencia === "weekly" ? n * 7 : n
-    const t = new Date(Date.UTC(y, m - 1, d + dias))
-    return armar(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate())
+    return sumarDias(fecha, frecuencia === "weekly" ? n * 7 : n)
   }
 
   if (frecuencia === "monthly") {
@@ -88,12 +110,12 @@ export function siguienteFecha(fecha: string, frecuencia: Frecuencia, n: number)
     const mes = ((total % 12) + 12) % 12
     // El 31 de enero + 1 mes es el 28 (o 29) de febrero: se recorta al ultimo
     // dia del mes destino. No se "arrastra" al 3 de marzo.
-    return armar(anio, mes + 1, Math.min(d, diasDelMes(anio, mes + 1)))
+    return armar(anio, mes + 1, Math.min(dia, diasDelMes(anio, mes + 1)))
   }
 
   // yearly: el 29 de febrero de un bisiesto cae al 28 en los que no lo son.
   const anio = y + n
-  return armar(anio, m, Math.min(d, diasDelMes(anio, m)))
+  return armar(anio, m, Math.min(dia, diasDelMes(anio, m)))
 }
 
 // --- Id determinista ---------------------------------------------------------
@@ -131,6 +153,7 @@ function instante(fecha: string): string {
 export function ocurrenciasPendientes(regla: ReglaRecurrente, hasta: string): Pendientes {
   const ocurrencias: Ocurrencia[] = []
   let fecha = regla.next_run_date
+  const ancla = diaAncla(regla)
 
   if (!regla.active) return { ocurrencias, proxima: fecha }
 
@@ -141,10 +164,84 @@ export function ocurrenciasPendientes(regla: ReglaRecurrente, hasta: string): Pe
       fecha,
       occurred_at: instante(fecha),
     })
-    fecha = siguienteFecha(fecha, regla.frequency, regla.interval_count)
+    fecha = siguienteFecha(fecha, regla.frequency, regla.interval_count, ancla)
   }
 
   return { ocurrencias, proxima: fecha }
+}
+
+// --- Lo que viene (calendario de pagos, 1.6.0) -------------------------------
+//
+// Las recurrentes se ven en el calendario como informacion: se cargan solas,
+// asi que no piden respuesta ni avisan (0030).
+
+export type FechasDeRegla = Pick<
+  ReglaRecurrente,
+  "frequency" | "interval_count" | "start_date" | "next_run_date" | "end_date" | "active"
+>
+
+// Las fechas de la regla entre `desde` y `hasta` (inclusive), desde su proxima
+// fecha y sin pasar de su fin. Una regla pausada no tiene.
+export function fechasDeRegla(regla: FechasDeRegla, desde: string, hasta: string): string[] {
+  const salida: string[] = []
+  if (!regla.active) return salida
+  const ancla = diaAncla(regla)
+  for (
+    let fecha = regla.next_run_date;
+    fecha <= hasta && (regla.end_date === null || fecha <= regla.end_date);
+    fecha = siguienteFecha(fecha, regla.frequency, regla.interval_count, ancla)
+  ) {
+    if (fecha >= desde) salida.push(fecha)
+  }
+  return salida
+}
+
+// La primera fecha de la regla desde `desde`, o null si ya termino o esta
+// pausada.
+export function siguienteDeRegla(regla: FechasDeRegla, desde: string): string | null {
+  if (!regla.active) return null
+  const ancla = diaAncla(regla)
+  let fecha = regla.next_run_date
+  // Tope por si la proxima fecha quedo muy atras: una diaria abandonada años.
+  for (let i = 0; i < 5000 && fecha < desde; i++) {
+    fecha = siguienteFecha(fecha, regla.frequency, regla.interval_count, ancla)
+  }
+  if (fecha < desde || (regla.end_date !== null && fecha > regla.end_date)) return null
+  return fecha
+}
+
+export type FechaDeRegla<R> = { regla: R; fecha: string }
+
+export type RecurrentesQueVienen<R> = {
+  hoy: FechaDeRegla<R>[]
+  // De mañana a `dias` dias.
+  proximos: FechaDeRegla<R>[]
+  // La siguiente de cada regla que no tiene nada en los proximos.
+  masAdelante: FechaDeRegla<R>[]
+}
+
+// Lo que viene de cada regla, repartido como el calendario: hoy, los proximos
+// `dias` dias y, si no tiene nada en ellos, su siguiente fecha.
+export function recurrentesQueVienen<R extends FechasDeRegla>(
+  reglas: R[],
+  hoy: string,
+  dias = 30,
+): RecurrentesQueVienen<R> {
+  const hasta = sumarDias(hoy, dias)
+  const salida: RecurrentesQueVienen<R> = { hoy: [], proximos: [], masAdelante: [] }
+  for (const regla of reglas) {
+    const fechas = fechasDeRegla(regla, hoy, hasta)
+    for (const fecha of fechas)
+      (fecha === hoy ? salida.hoy : salida.proximos).push({ regla, fecha })
+    if (fechas.length === 0) {
+      const fecha = siguienteDeRegla(regla, sumarDias(hasta, 1))
+      if (fecha) salida.masAdelante.push({ regla, fecha })
+    }
+  }
+  const porFecha = (a: FechaDeRegla<R>, b: FechaDeRegla<R>) => a.fecha.localeCompare(b.fecha)
+  salida.proximos.sort(porFecha)
+  salida.masAdelante.sort(porFecha)
+  return salida
 }
 
 // --- Sobres recurrentes ------------------------------------------------------

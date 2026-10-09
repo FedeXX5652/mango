@@ -339,3 +339,17 @@ async def test_avisos_a_cualquier_hora(api: SimpleNamespace) -> None:
         alerts=[{"days_before": 0, "time": "23:30"}, {"days_before": 1, "time": "00:15"}],
     )
     assert [a["time"] for a in creado["alerts"]] == ["23:30", "00:15"]
+
+
+async def test_un_mas_tarde_atrasado_no_deshace_un_pago(api: SimpleNamespace) -> None:
+    """Dos dispositivos: uno lo pago; el otro lo habia pospuesto sin conexion y lo
+    sube despues (1.6.0). El pago queda. Un "Deshacer" si lo vuelve atras."""
+    creado = await _crear(api)
+    await api.client.post("/api/v1/reminder-cycles", json=_ciclo(creado["id"]))
+    tarde = _ciclo(creado["id"], status="pending", snoozed_until="2026-10-10T18:00:00-03:00")
+    assert (await api.client.post("/api/v1/reminder-cycles", json=tarde)).status_code == 201
+    ciclo = await api.fila("reminder_cycles", tarde["id"])
+    assert ciclo["status"] == "paid" and ciclo["snoozed_until"] is None
+    deshacer = _ciclo(creado["id"], status="pending")
+    assert (await api.client.post("/api/v1/reminder-cycles", json=deshacer)).status_code == 201
+    assert (await api.fila("reminder_cycles", tarde["id"]))["status"] == "pending"

@@ -54,6 +54,9 @@ class Template(Base, IdMixin, TimestampMixin):
     __tablename__ = "templates"
 
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # Plantilla de un grupo (1.6.0, T1): de gasto, con una categoria del grupo y
+    # sin cuenta (cada uno paga con la suya). La edita o borra cualquier miembro.
+    group_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groups.id"))
     name: Mapped[str] = mapped_column(Text, nullable=False)
     kind: Mapped[str] = mapped_column(Text, nullable=False)
     account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))

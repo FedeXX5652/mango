@@ -50,7 +50,8 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   calculan con el motor en los dos lados, en vez de materializar los ciclos (0030
   explica por que); un dia habil es solo de lunes a viernes, sin feriados (R1).
   Las etapas 1 y 2 salen como **1.5.0**; la etapa 3 (grupo, tarjetas y deudas,
-  recurrentes como informacion, el formato para la ingesta) como **1.6.0**, y el
+  recurrentes como informacion, el formato para la ingesta) como **1.6.0**
+  (**HECHA** el 2026-10-09), y el
   resto del plan se corre un numero (decidido el 2026-10-08). El indicador de lo
   automatico (A1/A2) y las propuestas de la ingesta (C9) van con la fase 2: hoy
   nada crea recordatorios automaticos.
@@ -65,8 +66,8 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   como informacion. Dia habil: se elige al crear, sin opcion preelegida. Lo
   automatico (`origen`) se marca con un indicador chico y discreto, y editarlo
   pide confirmacion y lo pasa a ser del usuario. Formato documentado
-  (`docs/recordatorios.md`) para la ingesta. Sale `recurring_rules.auto_create`,
-  que nunca se uso.
+  (`docs/recordatorios.md`) para la ingesta. (`recurring_rules.auto_create` ya
+  habia salido en la inc 26.)
 - **1.7.0 - Fase 4.** Dolar elegible por moneda (MEP por defecto), serie diaria
   completa con historia (ArgentinaDatos para los dolares, Frankfurter/BCE para el
   resto, pivote USD: cambiar la moneda base no obliga a regenerar nada) y grafico
@@ -104,12 +105,6 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   "Todo" que sume patrimonios).
 - **Mas eventos de notificacion** (0019): te quitaron de un grupo, gasto compartido
   nuevo, presupuesto del grupo excedido.
-- **Los recurrentes mensuales se corren al 28 para siempre** (encontrado el
-  2026-10-04). `siguienteFecha` (lib/recurrentes.ts) acumula el tope de fin de mes:
-  un alquiler del 31 pasa al 28/2 y de ahi en mas cae el 28 (31/1 -> 28/2 ->
-  28/3). La prueba lo da por bueno (`recurrentes.test.ts`). El arreglo es anclar
-  al dia original (`day_of_period` ya existe en el modelo). El calendario de pagos
-  no tiene el problema: su motor ancla el dia (0030).
 - **`SelectorEntidad` no anuncia lo elegido** al lector de pantalla. Dentro de un
   `Campo` (un `<label>`), el nombre del disparador es solo la etiqueta ("Cuenta"),
   no "Cuenta, Efectivo". Mismo arreglo que el selector de repeticion (0030):
@@ -122,6 +117,9 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
 - **`backend/tests/compat/replay.py` tiene una copia vieja del mapa tabla -> ruta**
   del conector: le faltan goals, debts, splits, settlements, notifications y las
   del calendario.
+- **Las etiquetas de grupo no se pueden crear** (encontrado el 2026-10-09). La
+  sync las trae (`tags.group_id`), pero `TagCreate` no tiene `group_id`, el CRUD
+  filtra solo por dueño y el cliente las inserta sin grupo.
 - **El CSV exportado lleva la fecha en ISO** (`occurred_at.isoformat()`, con hora
   y zona). La 1.5.1 paso a dd/mm/aaaa todo lo que se ve en la app, pero el
   archivo se dejo como estaba hasta que el usuario decida: el ISO lo lee

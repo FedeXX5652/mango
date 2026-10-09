@@ -11,6 +11,8 @@ import { uuidv4 } from "@/lib/uuid"
 
 export interface PlantillaLocal {
   id: string
+  // De un grupo (1.6.0): el alta ofrece las del espacio donde se carga.
+  group_id: string | null
   name: string
   kind: string
   account_id: string | null
@@ -24,6 +26,8 @@ export interface PlantillaLocal {
 
 // Lo que hay cargado en el formulario, para guardarlo como plantilla.
 export interface CargaActual {
+  // El grupo donde se carga, o null si es personal.
+  group_id: string | null
   kind: string
   account_id: string | null
   category_id: string | null
@@ -90,23 +94,28 @@ export function HojaPlantillas({
   async function guardarNueva() {
     const limpio = nombre.trim()
     if (!limpio) return setError("Ponele un nombre")
+    // La de un grupo es de gasto y sin cuenta: cada uno paga con la suya (T1).
+    const grupo = actual.group_id
+    if (grupo && actual.kind !== "expense")
+      return setError("Las plantillas de un grupo son de gastos")
     try {
       await db.execute(
         `INSERT INTO templates
-           (id, name, kind, account_id, category_id, payment_method_id, amount, currency, payee, notes, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+           (id, name, kind, account_id, category_id, payment_method_id, amount, currency, payee, notes, sort_order, group_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
         [
           uuidv4(),
           limpio,
           actual.kind,
-          actual.account_id,
+          grupo ? null : actual.account_id,
           // Una transferencia no lleva categoria (igual que en Plantillas).
           actual.kind === "transfer" ? null : actual.category_id,
-          actual.payment_method_id,
+          grupo ? null : actual.payment_method_id,
           actual.amount,
           actual.currency,
           actual.payee,
           actual.notes,
+          grupo,
         ],
       )
       setGuardada(limpio)

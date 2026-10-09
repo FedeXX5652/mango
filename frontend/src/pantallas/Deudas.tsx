@@ -1,18 +1,22 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft, HandCoins, Trash2 } from "lucide-react"
+import { ArrowLeft, BellPlus, BellRing, HandCoins, Trash2 } from "lucide-react"
 import { useState } from "react"
+import { useSearchParams } from "react-router-dom"
 
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Vacio } from "@/componentes/Vacio"
+import { HojaAvisarme } from "@/componentes/recordatorios/HojaAvisarme"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
+import { useVinculados } from "@/hooks/useVinculados"
 import { useVolver } from "@/hooks/useVolver"
 import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { formatearFechaCorta } from "@/lib/fecha"
+import { semillaDeDeuda } from "@/lib/recordatorios"
 import { uuidv4 } from "@/lib/uuid"
 
 // Deudas y prestamos fuera de un grupo (fase 5). `receivable` = me deben (yo
@@ -36,9 +40,22 @@ export function Deudas() {
   const { data: deudas } = useQuery<Deuda>(
     "SELECT id, direction, counterparty, description, amount, amount_settled, currency, due_date FROM debts WHERE deleted_at IS NULL ORDER BY settled_at IS NOT NULL, created_at",
   )
+  const { porDeuda } = useVinculados()
   const [form, setForm] = useState(false)
   const [saldando, setSaldando] = useState<Deuda | null>(null)
   const [aBorrar, setABorrar] = useState<Deuda | null>(null)
+  const [avisando, setAvisando] = useState<Deuda | null>(null)
+
+  // "Saldar la deuda" desde el calendario de pagos (1.6.0): `?saldar=<id>` abre
+  // su hoja, si todavia se debe.
+  const [params, setParams] = useSearchParams()
+  const pedida = params.get("saldar")
+  const deudaPedida = deudas.find((x) => x.id === pedida && x.amount > x.amount_settled) ?? null
+  const aSaldar = saldando ?? deudaPedida
+  function cerrarSaldar() {
+    setSaldando(null)
+    if (pedida) setParams({}, { replace: true })
+  }
 
   const meDeben = deudas.filter((d) => d.direction === "receivable")
   const debo = deudas.filter((d) => d.direction === "payable")
@@ -56,6 +73,7 @@ export function Deudas() {
           {lista.map((d) => {
             const pendiente = d.amount - d.amount_settled
             const saldada = pendiente <= 0
+            const aviso = porDeuda.get(d.id)
             return (
               <FilaInset key={d.id}>
                 <div className="min-w-0">
@@ -70,6 +88,21 @@ export function Deudas() {
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
+                  {/* "Avisarme" (1.6.0): solo con fecha, y mientras se deba. */}
+                  {!saldada && d.due_date && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={
+                        aviso
+                          ? `Recordatorio de la deuda con ${d.counterparty}`
+                          : `Avisarme del vencimiento con ${d.counterparty}`
+                      }
+                      onClick={() => setAvisando(d)}
+                    >
+                      {aviso ? <BellRing className="h-4 w-4" /> : <BellPlus className="h-4 w-4" />}
+                    </Button>
+                  )}
                   {!saldada && (
                     <Button variant="outline" size="sm" onClick={() => setSaldando(d)}>
                       Saldar
@@ -121,7 +154,14 @@ export function Deudas() {
         </div>
       )}
 
-      {saldando && <SaldarDeuda deuda={saldando} onCerrar={() => setSaldando(null)} />}
+      {aSaldar && <SaldarDeuda deuda={aSaldar} onCerrar={cerrarSaldar} />}
+      {avisando?.due_date && (
+        <HojaAvisarme
+          existente={porDeuda.get(avisando.id)}
+          semilla={semillaDeDeuda({ ...avisando, due_date: avisando.due_date })}
+          onCerrar={() => setAvisando(null)}
+        />
+      )}
       <Confirmar
         abierta={aBorrar !== null}
         onOpenChange={(v) => !v && setABorrar(null)}

@@ -36,10 +36,17 @@ def _lista_o_json(v: Any) -> Any:
 
 Avisos = Annotated[list[Aviso], BeforeValidator(_lista_o_json), Field(max_length=10)]
 
+# El "Mas tarde" de cada uno en un vencimiento de grupo (1.6.0, G3). El telefono
+# lo guarda como el texto de un JSON; del mapa que sube, el servidor toma solo
+# la clave de quien lo sube (las demas son de otros y no las puede tocar).
+Snoozes = Annotated[dict[str, str | None] | None, BeforeValidator(_lista_o_json)]
+
 
 class ReminderCreate(BaseModel):
     # El id lo genera el cliente (regla 2).
     id: uuid.UUID
+    # De un grupo (1.6.0, C3). Se elige al crearlo.
+    group_id: uuid.UUID | None = None
     title: Titulo
     notes: str | None = Field(default=None, max_length=1000)
     template_id: uuid.UUID | None = None
@@ -59,6 +66,9 @@ class ReminderCreate(BaseModel):
     alerts: Avisos = Field(default_factory=lambda: [Aviso(days_before=0, time="09:00")])
     # NULL = hasta que se responda; 0 = no se sigue avisando.
     followup_days: int | None = Field(default=3, ge=0, le=30)
+    # "Avisarme" (1.6.0): la tarjeta o la deuda que sigue. Solo al crearlo.
+    payment_method_id: uuid.UUID | None = None
+    debt_id: uuid.UUID | None = None
 
 
 class ReminderUpdate(BaseModel):
@@ -88,6 +98,7 @@ class ReminderRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    group_id: uuid.UUID | None
     title: str
     notes: str | None
     template_id: uuid.UUID | None
@@ -105,6 +116,8 @@ class ReminderRead(BaseModel):
     track_from: date
     alerts: list[dict]
     followup_days: int | None
+    payment_method_id: uuid.UUID | None
+    debt_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
 
@@ -121,12 +134,14 @@ class ReminderCycleCreate(BaseModel):
     transaction_id: uuid.UUID | None = None
     # "Mas tarde" (etapa 2): hasta cuando callar este vencimiento.
     snoozed_until: datetime | None = None
+    snoozes: Snoozes = None
 
 
 class ReminderCycleUpdate(BaseModel):
     status: EstadoCiclo | None = None
     transaction_id: uuid.UUID | None = None
     snoozed_until: datetime | None = None
+    snoozes: Snoozes = None
 
 
 class ReminderCycleRead(BaseModel):
@@ -140,6 +155,9 @@ class ReminderCycleRead(BaseModel):
     answered_by: uuid.UUID | None
     transaction_id: uuid.UUID | None
     snoozed_until: datetime | None
+    # De un grupo: el "Mas tarde" de cada uno ({user_id: instante ISO}).
+    group_id: uuid.UUID | None
+    snoozes: dict[str, str] | None
     created_at: datetime
     updated_at: datetime
 

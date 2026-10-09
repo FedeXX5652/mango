@@ -217,6 +217,8 @@ const settlements = new Table(
 
 const templates = new Table({
   owner_id: column.text,
+  // De un grupo (1.6.0, T1): llega por el stream del grupo.
+  group_id: column.text,
   name: column.text,
   kind: column.text,
   account_id: column.text,
@@ -260,6 +262,8 @@ const recurring_rules = new Table({
 // la lista de avisos.
 const reminders = new Table({
   owner_id: column.text,
+  // De un grupo (1.6.0, C3): llega por el stream del grupo.
+  group_id: column.text,
   title: column.text,
   notes: column.text,
   template_id: column.text,
@@ -277,6 +281,9 @@ const reminders = new Table({
   track_from: column.text,
   alerts: column.text,
   followup_days: column.integer,
+  // "Avisarme" (1.6.0): la tarjeta o la deuda que sigue.
+  payment_method_id: column.text,
+  debt_id: column.text,
   created_at: column.text,
   updated_at: column.text,
   deleted_at: column.text,
@@ -287,6 +294,7 @@ const reminders = new Table({
 const reminder_cycles = new Table(
   {
     owner_id: column.text,
+    group_id: column.text,
     reminder_id: column.text,
     nominal_date: column.text,
     status: column.text,
@@ -295,6 +303,8 @@ const reminder_cycles = new Table(
     transaction_id: column.text,
     // "Más tarde" (etapa 2): hasta cuando calla el aviso de este vencimiento.
     snoozed_until: column.text,
+    // En uno de grupo, el de cada uno (1.6.0, G3): el JSON de {user_id: instante}.
+    snoozes: column.text,
     created_at: column.text,
     updated_at: column.text,
     deleted_at: column.text,

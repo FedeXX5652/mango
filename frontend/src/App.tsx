@@ -17,6 +17,7 @@ import { LayoutMovil } from "@/layouts/movil/LayoutMovil"
 import { Accesos } from "@/pantallas/Accesos"
 import { Grupos } from "@/pantallas/Grupos"
 import { AjustesGrupo } from "@/pantallas/grupo/AjustesGrupo"
+import { CalendarioGrupo } from "@/pantallas/grupo/CalendarioGrupo"
 import { DetalleGastoGrupo } from "@/pantallas/grupo/DetalleGastoGrupo"
 import { EstadisticasGrupo } from "@/pantallas/grupo/EstadisticasGrupo"
 import { InicioGrupo } from "@/pantallas/grupo/InicioGrupo"
@@ -90,6 +91,8 @@ function Rutas() {
         <Route path="grupos/:grupo/presupuesto" element={<PresupuestoDelGrupo />} />
         <Route path="grupos/:grupo/estadisticas" element={<EstadisticasGrupo />} />
         <Route path="grupos/:grupo/ajustes" element={<AjustesGrupo />} />
+        {/* El calendario de pagos del grupo (1.6.0, 0030 G1). */}
+        <Route path="grupos/:grupo/calendario" element={<CalendarioGrupo />} />
         <Route path="cuentas" element={<Cuentas />} />
         <Route path="categorias" element={<Categorias />} />
         <Route path="medios" element={<MediosPago />} />

@@ -739,6 +739,13 @@ con la lista (buscador con mas de 6) y **"+ Guardar lo cargado como
 plantilla"**. No una fila de chips con scroll horizontal: con muchas plantillas
 se ven dos y el resto queda oculto (ver "Listas que crecen con el tiempo").
 
+**Son las del espacio donde se carga** (1.6.0): en un grupo, las del grupo; si
+no, las personales. Las del grupo se administran en **Ajustes del grupo**
+("Plantillas del grupo", con lapiz y tacho por fila). Su formulario no tiene
+cuenta ni medio de pago, y lo dice: "Sin cuenta: cada uno paga con la suya al
+cargar el gasto". El tipo se muestra como texto y no se elige: una del grupo es
+de gasto, y al editar el tipo no cambia (el servidor no lo deja).
+
 ### Calculadora
 
 - **Muestra la cuenta**: arriba, a la izquierda, lo acumulado y el operador
@@ -862,6 +869,26 @@ Pantalla `/calendario` y tarjeta "Próximos pagos" del Inicio (0030).
   parte si no entra: en el movil comparte la fila con el monto.
 - **Vencido**: la linea en `destructive`, y el texto dice "venció": el color
   solo no dice nada.
+- **"Avisarme" es una campana en la fila** de la tarjeta (Medios de pago) o de la
+  deuda (1.6.0): con un **+** si todavia no avisa ("Avisarme del vencimiento de
+  Visa"), sonando si ya tiene recordatorio ("Recordatorio del vencimiento de
+  Visa", que lo abre para editarlo). La hoja dice a que sigue ("Sigue a la
+  tarjeta Visa: si cambia su día de vencimiento, se corre solo"). En esas filas
+  el nombre y el detalle **no se cortan**: con cuatro iconos, a 360 px se
+  partian y escondian el dia de vencimiento.
+- **El calendario de un grupo** (`/grupos/<grupo>/calendario`, 1.6.0) es la misma
+  pantalla con lo del grupo. Bajo el titulo, el punto y el nombre del grupo
+  (`EtiquetaGrupo` en variante punto): dice de que espacio es. Se llega por el
+  acceso **"Calendario"** del Inicio del grupo y por su tarjeta "Próximos
+  pagos". Lo respondido dice **quien** ("12/10/2026 · pagado por Beto"; "por
+  vos"), en la fila y en la hoja.
+- **El vencimiento de una deuda ofrece "Saldar la deuda"** en lugar de "Cargar el
+  pago" y "Ya lo pagué": es un enlace a Deudas con su hoja abierta.
+- **Las recurrentes van mezcladas por fecha, como informacion** (1.6.0): el
+  icono de repetir antes del nombre, "05/11/2026 · se carga solo" y el monto (un
+  ingreso con el +), sin acciones. La fila es un **enlace** a Recurrentes
+  (`FilaInset` con `to`), no un boton: lleva a otra pantalla. En el mismo dia van
+  primero los recordatorios, que son los que piden algo.
 - **Lo ya respondido** (pagado u omitido) se apaga con el **color del texto**
   (`muted-foreground`, que cumple AA), mas un icono (check u omitido). **No con
   opacidad**: el texto secundario a 70% bajaba de 4,5:1.

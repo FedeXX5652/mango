@@ -1,5 +1,5 @@
 import { useQuery } from "@powersync/react"
-import { HandCoins, PiggyBank, Tags, Users } from "lucide-react"
+import { CalendarClock, HandCoins, PiggyBank, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
@@ -87,10 +87,12 @@ export function AccesosGrupo({ groupId }: { groupId: string }) {
             Miembros
           </Link>
         </li>
+        {/* "Calendario" reemplaza a "Categorías", que sigue en Ajustes del grupo
+            (1.6.0, G2): pagar lo del grupo es usarlo; las categorías, administrarlo. */}
         <li>
-          <Link to={`${ajustes}#categorias`} className={BALDOSA}>
-            <Icono icono={Tags} />
-            Categorías
+          <Link to={`/grupos/${groupId}/calendario`} className={BALDOSA}>
+            <Icono icono={CalendarClock} />
+            Calendario
           </Link>
         </li>
       </ul>

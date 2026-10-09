@@ -1,44 +1,21 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft, Trash2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { ArrowLeft, Pencil, Trash2 } from "lucide-react"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+import { FormPlantilla, type PlantillaEditable } from "@/componentes/FormPlantilla"
 import { Button } from "@/componentes/ui/button"
-import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
-import { Input } from "@/componentes/ui/input"
-import { Select } from "@/componentes/ui/select"
-import { SelectorCategoria } from "@/componentes/SelectorCategoria"
-import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { useVolver } from "@/hooks/useVolver"
-import { ordenarJerarquico } from "@/lib/categorias"
-import { aCentavos, formatearCentavos } from "@/lib/dinero"
-import { uuidv4 } from "@/lib/uuid"
+import { formatearMonto } from "@/lib/dinero"
+import { TIPOS_PLANTILLA } from "@/lib/plantillas"
 
-interface Plantilla {
-  id: string
-  name: string
-  kind: string
-  amount: number | null
-}
-interface Opcion {
-  id: string
-  name: string
-  currency?: string
-  kind?: string
-  parent_id?: string | null
-  icon?: string | null
-}
-
-const TIPOS: { valor: string; etiqueta: string }[] = [
-  { valor: "expense", etiqueta: "Gasto" },
-  { valor: "income", etiqueta: "Ingreso" },
-  { valor: "transfer", etiqueta: "Transferencia" },
-]
+// Plantillas personales. Las de un grupo se administran en Ajustes del grupo
+// (1.6.0, T1).
 
 function etiquetaTipo(k: string): string {
-  return TIPOS.find((t) => t.valor === k)?.etiqueta ?? k
+  return TIPOS_PLANTILLA.find((t) => t.valor === k)?.etiqueta ?? k
 }
 
 export function Plantillas() {
@@ -46,13 +23,14 @@ export function Plantillas() {
   // A donde se vino (Inicio, Accesos, Ajustes o un atajo), no a un lugar fijo.
   const volver = useVolver("/accesos")
   const db = usePowerSync()
-  const { data: plantillas } = useQuery<Plantilla>(
-    "SELECT id, name, kind, amount FROM templates WHERE deleted_at IS NULL ORDER BY sort_order, name",
+  const { data: plantillas } = useQuery<PlantillaEditable>(
+    `SELECT id, name, kind, account_id, category_id, payment_method_id, amount, currency, payee, notes
+     FROM templates WHERE deleted_at IS NULL AND group_id IS NULL ORDER BY sort_order, name`,
   )
-  const [mostrarForm, setMostrarForm] = useState(false)
-  const [aBorrar, setABorrar] = useState<Plantilla | null>(null)
+  const [editando, setEditando] = useState<PlantillaEditable | "nueva" | null>(null)
+  const [aBorrar, setABorrar] = useState<PlantillaEditable | null>(null)
 
-  async function borrar(t: Plantilla) {
+  async function borrar(t: PlantillaEditable) {
     await db.execute("DELETE FROM templates WHERE id = ?", [t.id])
   }
 
@@ -69,11 +47,21 @@ export function Plantillas() {
         Gastos o ingresos frecuentes precargados. Tocá una para cargarla de un toque.
       </p>
 
-      <Button className="w-full" onClick={() => setMostrarForm(true)}>
+      <Button className="w-full" onClick={() => setEditando("nueva")}>
         Nueva plantilla
       </Button>
-      <Hoja abierta={mostrarForm} onOpenChange={setMostrarForm} titulo="Nueva plantilla">
-        <FormPlantilla onCerrar={() => setMostrarForm(false)} />
+      <Hoja
+        abierta={editando !== null}
+        onOpenChange={(v) => !v && setEditando(null)}
+        titulo={editando === "nueva" ? "Nueva plantilla" : "Editar plantilla"}
+      >
+        {editando !== null && (
+          <FormPlantilla
+            key={editando === "nueva" ? "nueva" : editando.id}
+            inicial={editando === "nueva" ? undefined : editando}
+            onCerrar={() => setEditando(null)}
+          />
+        )}
       </Hoja>
 
       {plantillas.length === 0 ? (
@@ -85,24 +73,35 @@ export function Plantillas() {
           {plantillas.map((t) => (
             <li key={t.id} className="flex items-center justify-between gap-3 py-3">
               <button
-                className="min-w-0 flex-1 text-left"
+                className="min-h-11 min-w-0 flex-1 text-left"
                 onClick={() => navigate("/nuevo", { state: { plantillaId: t.id } })}
               >
                 <p className="truncate font-medium">{t.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {etiquetaTipo(t.kind)}
-                  {t.amount != null && ` · $ ${formatearCentavos(t.amount)}`}
+                  {t.amount != null &&
+                    ` · ${formatearMonto(t.amount, { moneda: t.currency ?? "ARS" })}`}
                 </p>
               </button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-expense"
-                onClick={() => setABorrar(t)}
-                aria-label="Borrar plantilla"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Editar ${t.name}`}
+                  onClick={() => setEditando(t)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-expense"
+                  onClick={() => setABorrar(t)}
+                  aria-label={`Borrar ${t.name}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </li>
           ))}
         </ul>
@@ -119,156 +118,6 @@ export function Plantillas() {
         etiqueta="Borrar"
         onConfirmar={() => aBorrar && borrar(aBorrar)}
       />
-    </div>
-  )
-}
-
-function FormPlantilla({ onCerrar }: { onCerrar: () => void }) {
-  const db = usePowerSync()
-  const { data: cuentas } = useQuery<Opcion>(
-    "SELECT id, name, currency FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
-  )
-  const { data: categorias } = useQuery<Opcion>(
-    "SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0",
-  )
-  const { data: medios } = useQuery<Opcion>(
-    "SELECT id, name FROM payment_methods WHERE deleted_at IS NULL AND archived = 0",
-  )
-
-  const [name, setName] = useState("")
-  const [kind, setKind] = useState("expense")
-  const [monto, setMonto] = useState("")
-  const [cuentaId, setCuentaId] = useState("")
-  const [categoriaId, setCategoriaId] = useState("")
-  const [medioId, setMedioId] = useState("")
-  const [payee, setPayee] = useState("")
-  const [notas, setNotas] = useState("")
-  const [error, setError] = useState("")
-
-  const cats = useMemo(
-    () =>
-      ordenarJerarquico(categorias).filter(
-        (c) => c.kind === (kind === "income" ? "income" : "expense"),
-      ),
-    [categorias, kind],
-  )
-
-  async function guardar() {
-    setError("")
-    if (!name.trim()) return setError("Poné un nombre")
-    const centavos = aCentavos(monto)
-    const importe = centavos && centavos > 0 ? centavos : null
-    const moneda =
-      importe != null ? (cuentas.find((c) => c.id === cuentaId)?.currency ?? "ARS") : null
-    try {
-      await db.execute(
-        `INSERT INTO templates
-           (id, name, kind, account_id, category_id, payment_method_id, amount, currency, payee, notes, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-        [
-          uuidv4(),
-          name.trim(),
-          kind,
-          cuentaId || null,
-          kind === "transfer" ? null : categoriaId || null,
-          medioId || null,
-          importe,
-          moneda,
-          payee.trim() || null,
-          notas.trim() || null,
-        ],
-      )
-      onCerrar()
-    } catch {
-      setError("No se pudo guardar")
-    }
-  }
-
-  return (
-    <div className="space-y-3">
-      <Campo etiqueta="Nombre">
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Alquiler, Súper…"
-        />
-      </Campo>
-      <div className="grid grid-cols-2 gap-3">
-        <Campo etiqueta="Tipo">
-          <Select
-            value={kind}
-            onChange={(e) => {
-              setKind(e.target.value)
-              setCategoriaId("")
-            }}
-          >
-            {TIPOS.map((t) => (
-              <option key={t.valor} value={t.valor}>
-                {t.etiqueta}
-              </option>
-            ))}
-          </Select>
-        </Campo>
-        <Campo etiqueta="Monto (opcional)">
-          <Input
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            inputMode="decimal"
-            placeholder="0"
-          />
-        </Campo>
-      </div>
-      <Campo etiqueta="Cuenta (opcional)">
-        <SelectorEntidad
-          titulo="Cuenta"
-          placeholder="Sin cuenta"
-          vacio="Sin cuenta"
-          opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency ?? null }))}
-          valor={cuentaId}
-          onCambio={setCuentaId}
-        />
-      </Campo>
-      {kind !== "transfer" && (
-        <Campo etiqueta="Categoría (opcional)">
-          <SelectorCategoria
-            categorias={cats.map((c) => ({
-              id: c.id,
-              name: c.name,
-              parent_id: c.parent_id ?? null,
-              icon: c.icon ?? null,
-            }))}
-            valor={categoriaId}
-            onCambio={setCategoriaId}
-            placeholder="Sin categoría"
-            vacio="Sin categoría"
-          />
-        </Campo>
-      )}
-      <Campo etiqueta="Medio de pago (opcional)">
-        <SelectorEntidad
-          titulo="Medio de pago"
-          placeholder="Sin medio"
-          vacio="Sin medio"
-          opciones={medios.map((m) => ({ id: m.id, nombre: m.name }))}
-          valor={medioId}
-          onCambio={setMedioId}
-        />
-      </Campo>
-      <Campo etiqueta="Comercio / contraparte (opcional)">
-        <Input value={payee} onChange={(e) => setPayee(e.target.value)} />
-      </Campo>
-      <Campo etiqueta="Notas (opcional)">
-        <Input value={notas} onChange={(e) => setNotas(e.target.value)} />
-      </Campo>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="flex gap-2">
-        <Button className="flex-1" onClick={guardar}>
-          Guardar
-        </Button>
-        <Button variant="outline" onClick={onCerrar}>
-          Cancelar
-        </Button>
-      </div>
     </div>
   )
 }

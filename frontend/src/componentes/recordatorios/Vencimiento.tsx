@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 
 import { Monto } from "@/componentes/Monto"
-import { Button } from "@/componentes/ui/button"
+import { Button, botonVariants } from "@/componentes/ui/button"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { formatearFechaCorta } from "@/lib/fecha"
@@ -15,6 +15,7 @@ import {
   detalleVencimiento,
   posponerCiclo,
   responderCiclo,
+  textoVinculo,
 } from "@/lib/recordatorios"
 import { aDia, describir, diaDeSemana, nombreDia } from "@/lib/repeticion"
 import { cn } from "@/lib/utils"
@@ -41,21 +42,31 @@ const ESTADO: Record<Exclude<EstadoCiclo, "pending">, string> = {
   skipped: "Omitido",
 }
 
+// En uno de grupo se dice quien lo respondio ("pagado por Beto", "por vos").
+function quienRespondio(v: Vencimiento, nombre?: (id: string) => string): string | undefined {
+  if (!v.respondidoPor || !nombre || !v.recordatorio.group_id) return undefined
+  const n = nombre(v.respondidoPor)
+  return n === "Vos" ? "vos" : n
+}
+
 export function FilaVencimiento({
   v,
   hoy,
   cuantos = 1,
+  nombre,
   onAbrir,
 }: {
   v: Vencimiento
   hoy: string
   // Vencidos sin responder de este recordatorio (se muestra el mas viejo).
   cuantos?: number
+  // El nombre de un miembro, en el calendario de un grupo.
+  nombre?: (id: string) => string
   onAbrir: (v: Vencimiento) => void
 }) {
   const r = v.recordatorio
   const vencido = v.estado === "pending" && v.vence < hoy
-  const detalle = detalleVencimiento(v, hoy, cuantos)
+  const detalle = detalleVencimiento(v, hoy, cuantos, new Date(), quienRespondio(v, nombre))
   return (
     // Lo ya respondido se apaga con el color del texto (AA), no con opacidad: la
     // opacidad bajaba el texto secundario de 4,5:1.
@@ -93,11 +104,13 @@ export function AccionesVencimiento({
   hoy,
   onListo,
   onEditar,
+  nombre,
 }: {
   v: Vencimiento
   hoy: string
   onListo: () => void
   onEditar: () => void
+  nombre?: (id: string) => string
 }) {
   const db = usePowerSync()
   const navigate = useNavigate()
@@ -111,7 +124,8 @@ export function AccionesVencimiento({
   async function posponer(hasta: Date | null) {
     setError("")
     try {
-      await posponerCiclo(db, r.id, v.nominal, hasta)
+      // En uno de grupo, el "Más tarde" es de cada uno (G3).
+      await posponerCiclo(db, r.id, v.nominal, hasta, r.group_id !== null)
       onListo()
     } catch {
       setError("No se pudo guardar")
@@ -135,13 +149,19 @@ export function AccionesVencimiento({
       titulo: r.title,
       vence: v.vence,
     }
-    navigate("/nuevo", {
+    // En uno de grupo, el alta del grupo (con su plantilla).
+    navigate(r.group_id ? `/grupos/${r.group_id}/nuevo` : "/nuevo", {
       state: { plantillaId: r.template_id ?? undefined, ciclo: pago, volverA: location.pathname },
     })
   }
 
   const cuando =
     v.vence === hoy ? "Vence hoy" : `${v.vence < hoy ? "Venció" : "Vence"} el ${diaYFecha(v.vence)}`
+  // Una deuda se salda en Deudas, con cuanto se pago: saldarla del todo marca
+  // este vencimiento (lo hace el servidor). Sin "Ya lo pagué" que la dejaria
+  // abierta (1.6.0).
+  const deuda = r.debt_id && r.deuda_con !== null ? r.debt_id : null
+  const vinculo = textoVinculo(r)
 
   return (
     <div className="space-y-4">
@@ -156,6 +176,7 @@ export function AccionesVencimiento({
           </p>
         )}
         <p className="text-xs text-muted-foreground">{describir(r)}</p>
+        {vinculo && <p className="text-xs text-muted-foreground">{vinculo}</p>}
         {r.monto ? (
           <p className="pt-1">
             <Monto centavos={r.monto} moneda={r.moneda ?? "ARS"} />
@@ -178,10 +199,18 @@ export function AccionesVencimiento({
               </Button>
             </p>
           )}
-          <Button onClick={cargarPago}>Cargar el pago</Button>
-          <Button variant="secondary" onClick={() => responder("paid")}>
-            Ya lo pagué
-          </Button>
+          {deuda ? (
+            <Link to={`/deudas?saldar=${deuda}`} className={botonVariants()}>
+              Saldar la deuda
+            </Link>
+          ) : (
+            <>
+              <Button onClick={cargarPago}>Cargar el pago</Button>
+              <Button variant="secondary" onClick={() => responder("paid")}>
+                Ya lo pagué
+              </Button>
+            </>
+          )}
           <Button variant="outline" onClick={() => setPosponiendo(true)}>
             Más tarde
           </Button>
@@ -198,9 +227,14 @@ export function AccionesVencimiento({
               <SkipForward className="h-4 w-4 text-muted-foreground" aria-hidden />
             )}
             {ESTADO[v.estado]}
+            {quienRespondio(v, nombre) && ` por ${quienRespondio(v, nombre)}`}
             {v.transactionId && (
               <Link
-                to={`/movimientos/${v.transactionId}`}
+                to={
+                  r.group_id
+                    ? `/grupos/${r.group_id}/movimientos/${v.transactionId}`
+                    : `/movimientos/${v.transactionId}`
+                }
                 className="ml-1 font-normal text-enlace underline underline-offset-2"
               >
                 Ver el pago

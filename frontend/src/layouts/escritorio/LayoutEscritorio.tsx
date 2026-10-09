@@ -80,7 +80,14 @@ export function LayoutEscritorio() {
           {HERRAMIENTAS_ESCRITORIO.map((id) => acceso(id))
             .filter((a) => a !== undefined)
             .map((a) => (
-              <Destino key={a.id} to={a.to} etiqueta={a.etiqueta} icono={a.icono} />
+              // El calendario sigue al espacio: en un grupo, el del grupo (0030).
+              <Destino
+                key={a.id}
+                to={a.to}
+                etiqueta={a.etiqueta}
+                icono={a.icono}
+                seccion={a.id === "calendario" ? "calendario" : undefined}
+              />
             ))}
           <div className="mt-4">
             {DESTINOS.filter((d) => d.to === "/ajustes").map((d) => (

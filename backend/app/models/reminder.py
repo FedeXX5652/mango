@@ -31,6 +31,9 @@ class Reminder(Base, IdMixin, TimestampMixin):
     __tablename__ = "reminders"
 
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # De un grupo (1.6.0, C3): avisa a todos los miembros, cualquiera lo marca y
+    # se frena para todos. Lo edita o borra cualquier miembro (G4).
+    group_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groups.id"))
     title: Mapped[str] = mapped_column(Text, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
     # El monto, la cuenta y la categoria viven en la plantilla: "Cargar el pago"
@@ -68,6 +71,12 @@ class Reminder(Base, IdMixin, TimestampMixin):
     # base: NULL tiene significado (el 3 por defecto lo pone el esquema).
     followup_days: Mapped[int | None] = mapped_column(SmallInteger)
 
+    # "Avisarme" (1.6.0): el recordatorio sigue a una tarjeta (su dia de
+    # vencimiento) o a una deuda (su fecha). El servidor lo mantiene al dia: ver
+    # `crud/reminder.py`, "Recordatorios vinculados".
+    payment_method_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("payment_methods.id"))
+    debt_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("debts.id"))
+
     __table_args__ = (
         CheckConstraint(
             "freq IN ('once','daily','weekly','monthly','yearly')", name="reminders_freq_chk"
@@ -100,14 +109,25 @@ class Reminder(Base, IdMixin, TimestampMixin):
             "followup_days IS NULL OR followup_days BETWEEN 0 AND 30",
             name="reminders_followup_chk",
         ),
+        CheckConstraint(
+            "payment_method_id IS NULL OR debt_id IS NULL", name="reminders_un_vinculo_chk"
+        ),
+        # Para seguir a la tarjeta o a la deuda cuando cambian (crud/reminder.py).
+        Index(
+            "reminders_payment_method_idx",
+            "payment_method_id",
+            postgresql_where=text("payment_method_id IS NOT NULL"),
+        ),
+        Index("reminders_debt_idx", "debt_id", postgresql_where=text("debt_id IS NOT NULL")),
     )
 
 
 class ReminderCycle(Base, IdMixin, TimestampMixin):
     __tablename__ = "reminder_cycles"
 
-    # El del recordatorio: la sync filtra por dueno sin JOIN.
+    # Los del recordatorio: la sync filtra por dueno o por grupo sin JOIN.
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    group_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groups.id"))
     reminder_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("reminders.id"), nullable=False)
     # La fecha que da la regla (no la corrida por el fin de semana): identifica al
     # ciclo aunque despues cambie que hacer con los sabados y domingos.
@@ -123,6 +143,9 @@ class ReminderCycle(Base, IdMixin, TimestampMixin):
     # "Mas tarde": calla este vencimiento hasta ese momento. Lo pone la persona; el
     # servidor lo limpia al avisar o al responder.
     snoozed_until: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+    # En uno de grupo, "Mas tarde" es de cada uno (G3): {user_id: instante ISO}.
+    # `snoozed_until` queda vacio: el vencimiento es de todos.
+    snoozes: Mapped[dict[str, str] | None] = mapped_column(JSONB(none_as_null=True))
     # Lo que el servidor ya aviso, para no repetirlo: las claves de los avisos
     # ("3@09:00") y el ultimo dia de seguimiento. Solo los escribe el servidor.
     alerts_sent: Mapped[list[str] | None] = mapped_column(JSONB(none_as_null=True))

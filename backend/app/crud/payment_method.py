@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
+from app.crud import reminder as recordatorios
 from app.models.account import Account, PaymentMethod, PaymentMethodAccount
 from app.schemas.payment_method import (
     PaymentMethodAccountCreate,
@@ -66,6 +67,12 @@ async def update_payment_method(
         raise DomainError("La cuenta por defecto no existe")
     for field, value in values.items():
         setattr(pm, field, value)
+    # Los recordatorios de "Avisarme" siguen a la tarjeta (1.6.0): archivada, se
+    # borran; con otro dia de vencimiento, se corren.
+    if values.get("archived"):
+        await recordatorios.borrar_vinculados(session, payment_method_id=pm.id)
+    elif "due_day" in values:
+        await recordatorios.seguir_tarjeta(session, pm)
     await session.commit()
     await session.refresh(pm)
     return pm
@@ -73,6 +80,7 @@ async def update_payment_method(
 
 async def soft_delete_payment_method(session: AsyncSession, pm: PaymentMethod) -> None:
     pm.deleted_at = func.now()
+    await recordatorios.borrar_vinculados(session, payment_method_id=pm.id)
     await session.commit()
 
 

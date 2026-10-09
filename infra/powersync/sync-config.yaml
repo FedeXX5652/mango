@@ -51,13 +51,15 @@ streams:
       - SELECT * FROM budgets WHERE owner_id = auth.user_id()
       - SELECT * FROM budget_rules WHERE owner_id = auth.user_id()
       - SELECT * FROM recurring_rules WHERE owner_id = auth.user_id()
-      - SELECT * FROM templates WHERE owner_id = auth.user_id()
+      # Las de un grupo van por el stream del grupo (1.6.0).
+      - SELECT * FROM templates WHERE owner_id = auth.user_id() AND group_id IS NULL
       - SELECT * FROM goals WHERE owner_id = auth.user_id()
       - SELECT * FROM debts WHERE owner_id = auth.user_id()
       # Calendario de pagos (1.5.0, 0030). Los ciclos llevan su propio owner_id:
       # la sync no hace JOIN con reminders.
-      - SELECT * FROM reminders WHERE owner_id = auth.user_id()
-      - SELECT * FROM reminder_cycles WHERE owner_id = auth.user_id()
+      # Los de un grupo van por el stream del grupo (1.6.0).
+      - SELECT * FROM reminders WHERE owner_id = auth.user_id() AND group_id IS NULL
+      - SELECT * FROM reminder_cycles WHERE owner_id = auth.user_id() AND group_id IS NULL
       # Adjuntos: solo METADATA. `storage_path` no viaja: el binario se baja por
       # la API (/attachments/<id>/file), no por la sync (fase 5).
       - SELECT id, transaction_id, owner_id, filename, mime_type, size_bytes,
@@ -183,6 +185,11 @@ streams:
 
       # Presupuestos del grupo (fase 3b.3, ver 0015): por group_id, los ven todos.
       - SELECT * FROM budgets WHERE group_id IN (SELECT group_id FROM mis_grupos)
+      # Plantillas del grupo (1.6.0, T1): las ve y las edita cualquier miembro.
+      - SELECT * FROM templates WHERE group_id IN (SELECT group_id FROM mis_grupos)
+      # Recordatorios del grupo y sus vencimientos (1.6.0, C3).
+      - SELECT * FROM reminders WHERE group_id IN (SELECT group_id FROM mis_grupos)
+      - SELECT * FROM reminder_cycles WHERE group_id IN (SELECT group_id FROM mis_grupos)
 
       # Los vinculos tag<->movimiento de cada gasto compartido: para saber que
       # tags tiene un movimiento del grupo. El tag ya viajo por group_id arriba.

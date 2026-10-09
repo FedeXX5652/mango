@@ -11,6 +11,9 @@ TxKind = Literal["expense", "income", "transfer"]
 
 class TemplateCreate(BaseModel):
     id: uuid.UUID
+    # De un grupo (1.6.0, T1): de gasto, con categoria del grupo y sin cuenta.
+    # Se elige al crearla.
+    group_id: uuid.UUID | None = None
     name: str
     kind: TxKind
     # Campos que definen la transaccion, todos opcionales: una plantilla puede
@@ -41,6 +44,7 @@ class TemplateRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    group_id: uuid.UUID | None
     name: str
     kind: TxKind
     account_id: uuid.UUID | None

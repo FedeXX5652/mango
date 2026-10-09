@@ -18,16 +18,20 @@ import {
   NO_SE_REPITE,
   type RecordatorioLocal,
   type Repeticion,
+  type Semilla,
   avisosDe,
   borrarRecordatorio,
   guardarRecordatorio,
   puedeCaerEnFinde,
   reglaDe,
   repeticionDe,
+  textoVinculo,
 } from "@/lib/recordatorios"
 import type { CorrimientoFinde } from "@/lib/repeticion"
 
-// Alta y edicion de un recordatorio (1.5.0, 0030).
+// Alta y edicion de un recordatorio (1.5.0, 0030). Con `semilla`, el alta de
+// "Avisarme" en una tarjeta o una deuda (1.6.0): arranca armado y queda
+// vinculado.
 
 interface PlantillaLocal {
   id: string
@@ -80,21 +84,32 @@ function camposDe(r: RecordatorioLocal): CamposRegla {
 
 export function FormularioRecordatorio({
   inicial,
+  semilla,
+  grupo,
   onCerrar,
 }: {
   inicial?: RecordatorioLocal
+  semilla?: Semilla
+  // De un grupo (1.6.0, C3): sus plantillas, y se guarda en el grupo.
+  grupo?: string
   onCerrar: () => void
 }) {
   const db = usePowerSync()
   const hoy = fechaISO(new Date())
   const { data: plantillas } = useQuery<PlantillaLocal>(
-    "SELECT id, name, amount, currency FROM templates WHERE deleted_at IS NULL ORDER BY sort_order, name",
+    grupo
+      ? "SELECT id, name, amount, currency FROM templates WHERE deleted_at IS NULL AND group_id = ? ORDER BY sort_order, name"
+      : "SELECT id, name, amount, currency FROM templates WHERE deleted_at IS NULL AND group_id IS NULL ORDER BY sort_order, name",
+    grupo ? [grupo] : [],
   )
 
-  const [titulo, setTitulo] = useState(inicial?.title ?? "")
+  const [titulo, setTitulo] = useState(inicial?.title ?? semilla?.title ?? "")
   const [plantillaId, setPlantillaId] = useState(inicial?.template_id ?? "")
-  const [fecha, setFecha] = useState(inicial?.start_date ?? hoy)
-  const [rep, setRep] = useState<Repeticion>(inicial ? repeticionDe(inicial) : NO_SE_REPITE)
+  const [fecha, setFecha] = useState(inicial?.start_date ?? semilla?.start_date ?? hoy)
+  const [rep, setRep] = useState<Repeticion>(
+    inicial ? repeticionDe(inicial) : (semilla?.rep ?? NO_SE_REPITE),
+  )
+  const vinculo = inicial ? textoVinculo(inicial) : (semilla?.vinculo ?? null)
   // Un recordatorio guardado conserva su regla tal cual mientras no se toque la
   // fecha ni la repeticion (puede venir de otro lado, con valores que la pantalla
   // no arma).
@@ -149,6 +164,9 @@ export function FormularioRecordatorio({
             (a, b) => b.days_before - a.days_before || a.time.localeCompare(b.time),
           ),
           followup_days: seguimiento === "" ? null : Number(seguimiento),
+          payment_method_id: semilla?.payment_method_id ?? null,
+          debt_id: semilla?.debt_id ?? null,
+          group_id: grupo ?? null,
         },
         hoy,
         inicial,
@@ -173,14 +191,17 @@ export function FormularioRecordatorio({
 
   return (
     <div className="space-y-4">
-      <Campo etiqueta="Qué hay que pagar">
-        <Input
-          value={titulo}
-          onChange={(e) => setTitulo(e.target.value)}
-          placeholder="Alquiler, tarjeta, expensas…"
-          maxLength={120}
-        />
-      </Campo>
+      <div className="space-y-1">
+        <Campo etiqueta="Qué hay que pagar">
+          <Input
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            placeholder="Alquiler, tarjeta, expensas…"
+            maxLength={120}
+          />
+        </Campo>
+        {vinculo && <p className="text-xs text-muted-foreground">{vinculo}</p>}
+      </div>
 
       <Campo etiqueta={rep.freq === "once" ? "Vence" : "Primer vencimiento"}>
         <Input
@@ -232,7 +253,9 @@ export function FormularioRecordatorio({
           />
         </Campo>
         <p className="text-xs text-muted-foreground">
-          El monto, la cuenta y la categoría del pago salen de la plantilla.
+          {grupo
+            ? "El monto y la categoría salen de la plantilla del grupo; la cuenta la elige quien paga."
+            : "El monto, la cuenta y la categoría del pago salen de la plantilla."}
         </p>
       </div>
 
