@@ -18,6 +18,7 @@ import { SelectorEspacio } from "@/componentes/SelectorEspacio"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { iconoCuenta } from "@/lib/cuentas"
 import { type Direccion } from "@/lib/dinero"
+import { formatearFechaCorta } from "@/lib/fecha"
 import type { SaldoMoneda } from "@/lib/patrimonio"
 import { saldoCuenta } from "@/lib/saldos"
 import { cn } from "@/lib/utils"
@@ -74,10 +75,6 @@ const SQL_RECIENTES = `
   ORDER BY t.occurred_at DESC
   LIMIT ${MAX_RECIENTES}
 `
-
-function fechaCorta(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })
-}
 
 export function Inicio() {
   const { data: cuentas, isLoading: cargaCuentas } = useQuery<SaldoCuenta>(SQL_SALDOS)
@@ -243,7 +240,9 @@ export function Inicio() {
                             m.categoria ||
                             (m.kind === "transfer" ? "Transferencia" : "—")}
                         </p>
-                        <p className="text-xs text-muted-foreground">{fechaCorta(m.occurred_at)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatearFechaCorta(m.occurred_at)}
+                        </p>
                         {m.grupo_nombre && (
                           <EtiquetaGrupo
                             nombre={m.grupo_nombre}

@@ -1,6 +1,7 @@
 # 0030 - Calendario de pagos
 
-Estado: aceptada (etapas 1 y 2 en la 1.5.0: el calendario y los avisos; la 3 va en la 1.6.0)
+Estado: aceptada (etapas 1 y 2 en la 1.5.0: el calendario y los avisos; la 3 va en la 1.6.0).
+Cambiada en la 1.5.1: los avisos van a cualquier hora (C6) y las fechas, como dd/mm/aaaa.
 Fecha: 2026-10-04
 
 ## Contexto
@@ -15,7 +16,9 @@ las tomó él (2026-10-03 y 2026-10-04). Las que importan acá:
   plantilla, el recordatorio queda, desvinculado.
 - **C4.** Qué hacer si vence en fin de semana se elige al crear, sin opción
   preelegida.
-- **C6.** Los avisos son a las 9:00 por defecto, y nunca entre las 22 y las 8.
+- **C6.** Los avisos son a las 9:00 por defecto. Al principio no podían caer
+  entre las 22 y las 8; el usuario sacó esa restricción el 2026-10-08 (1.5.1):
+  van a la hora que se elija, sea la que sea.
 - **C10.** Se guarda en la base y se sincroniza: se ve en todos los dispositivos.
 - **R1. Sin feriados.** No se puede saber qué feriados respeta cada vencimiento,
   y menos en otros países. Solo se considera el fin de semana.
@@ -117,7 +120,7 @@ hay ("y 2 más sin marcar"). Así uno diario sin respuestas no llena la pantalla
 
 - **Avisos** (`alerts`): una lista de `{days_before, time}`.
   - Por defecto, el mismo día a las 9:00.
-  - Entre las 8:00 y las 21:59 (C6); el servidor lo valida.
+  - A cualquier hora (C6); el servidor valida que sea "HH:MM".
   - `followup_days`: 3 por defecto; NULL = hasta que responda; 0 = no seguir.
   - Se cargan con el recordatorio y los manda la etapa 2 (abajo).
 - **Validación en el CRUD** (DomainError, 422), no solo en los CHECK de la base.
@@ -144,7 +147,7 @@ candado. Mira la hora local del servidor (`settings.tz`) y decide qué toca
 - **Seguimiento.** Vencido y sin responder, avisa **una vez por día**, a la hora
   del primer aviso, durante `followup_days` (NULL = hasta que se responda; se
   mira hasta un año para atrás).
-- **Nunca entre las 22 y las 8** (C6). Lo que toca en ese rato espera a las 8.
+- **A cualquier hora** (C6). Sale a la hora elegida, aunque sea de noche.
 - **Sin avisos, no avisa.** Un recordatorio que no tiene avisos solo se ve en el
   calendario, salvo lo que la persona pospuso a propósito.
 
@@ -159,7 +162,8 @@ también en la campanita.
 
 - El título es el del recordatorio.
 - El cuerpo dice cuándo vence y cuánto ("Vence hoy · $500.000,00"; "Venció el
-  lunes 12/10. ¿Ya lo pagaste?").
+  lunes 12/10/2026. ¿Ya lo pagaste?"). Las fechas, como en toda la app, van
+  como dd/mm/aaaa.
 - **Tocarlo abre ese vencimiento** (`/calendario?r=<id>&n=<fecha>`).
 
 **"Más tarde"** (R2) calla ese vencimiento hasta un momento (`snoozed_until`).
@@ -168,9 +172,9 @@ Cuando llega, avisa una vez ("Te lo recuerdo: …"). Responder lo deja sin efect
 - **En la app** hay atajos que muestran a qué hora quedaría cada uno: en 1
   hora, en 3, mañana a las 9, el lunes a las 9. También se puede elegir fecha y
   hora.
-- **Nunca cae de noche**: entre las 22 y las 8 pasa a las 8, y se dice.
-- **Hasta dos meses.** El servidor lo vuelve a correr al horario, por si llega
-  de un dispositivo con otra hora.
+- **A cualquier hora**, como los avisos (C6): "en 3 horas" a las 21 es a
+  medianoche.
+- **Hasta dos meses.** Más lejos, el servidor lo rechaza.
 
 **Botones del aviso en Android** (C5): "Ya lo pagué" y "Más tarde". Responden
 **sin abrir la app**.
@@ -197,6 +201,24 @@ Cuando llega, avisa una vez ("Te lo recuerdo: …"). Responder lo deja sin efect
 - Si el botón no puede responder (sin conexión, permiso vencido), abre la app en
   ese vencimiento.
 - En iPhone no hay botones: se toca el aviso y se responde en la app.
+
+### Arreglos de la 1.5.1 (2026-10-08)
+
+Los pidió el usuario después de usar la 1.5.0:
+
+- **Sin franja horaria** (C6 cambiada). Los avisos, el seguimiento y "Más
+  tarde" van a cualquier hora. Se fueron el control del servidor ("HH:MM" entre
+  las 08:00 y las 21:59), el corrimiento a las 8 y la nota "De noche no avisa".
+- **Todas las fechas, como dd/mm/aaaa**, en la app y en los avisos. Un mes
+  ("Septiembre de 2026") o un año no son fechas y quedan como estaban.
+  - En el calendario sale el chip "12 OCT": la fecha encabeza la segunda línea
+    de cada vencimiento ("12/10/2026 · lunes, en 8 días").
+  - Una repetición anual dice "el 10/10": un aniversario no tiene año.
+  - Las otras pantallas que tenían otro formato: los títulos de día de
+    Movimientos, Inicio, Recurrentes, deudas y metas (que mostraban la fecha
+    ISO), el filtro de día de Movimientos y el período de Estadísticas.
+  - El eje del gráfico de Estadísticas va como dd/mm: con el año, seis fechas
+    no entran en el ancho de un teléfono.
 
 ### Lo que falta (etapa 3, versión 1.6.0)
 

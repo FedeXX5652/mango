@@ -144,8 +144,9 @@ async def test_una_regla_incoherente_se_rechaza(
 @pytest.mark.parametrize(
     "over",
     [
-        {"alerts": [{"days_before": 0, "time": "23:00"}]},  # nada entre las 22 y las 8
-        {"alerts": [{"days_before": 0, "time": "07:59"}]},
+        {"alerts": [{"days_before": 0, "time": "24:00"}]},
+        {"alerts": [{"days_before": 0, "time": "9:00"}]},
+        {"alerts": [{"days_before": 0, "time": "12:60"}]},
         {"weekend_shift": "despues"},
         {"weekend_shift": None},  # se elige al crear, no hay valor por defecto
         {"interval_count": 0},
@@ -329,3 +330,12 @@ async def test_borrar_dos_veces_no_es_un_error(api: SimpleNamespace) -> None:
     # El de otra persona sigue siendo 404, este borrado o no.
     ajeno = await _de_otro(api)
     assert (await api.client.delete(f"/api/v1/reminders/{ajeno}")).status_code == 404
+
+
+async def test_avisos_a_cualquier_hora(api: SimpleNamespace) -> None:
+    # Sin franja horaria (2026-10-08): de noche o de madrugada, vale.
+    creado = await _crear(
+        api,
+        alerts=[{"days_before": 0, "time": "23:30"}, {"days_before": 1, "time": "00:15"}],
+    )
+    assert [a["time"] for a in creado["alerts"]] == ["23:30", "00:15"]

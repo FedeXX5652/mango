@@ -459,8 +459,13 @@ asi que el fallo del pedido se maneja igual.
 
 **Agrupada por dia.** Cada dia es un grupo con encabezado propio (texto chico,
 `muted-foreground`) y una **tarjeta** (`ListaInset`) con sus filas. El encabezado
-dice `Hoy`, `Ayer` o la fecha (`2 de septiembre`; agrega el ano si no es el
-corriente).
+dice `Hoy`, `Ayer` o la fecha (`02/09/2026`).
+
+**Las fechas van siempre como dd/mm/aaaa** (`formatearFechaCorta`), en toda la
+app y en los avisos: nada de "2 de septiembre", "12 oct" ni la fecha ISO. Un mes
+o un año no son fechas ("Septiembre de 2026"). Las unicas excepciones son por
+espacio: el eje de un grafico va como dd/mm, y una repeticion anual dice "el
+10/10".
 
 Cada fila tiene tres zonas:
 
@@ -850,11 +855,13 @@ primeros) y en la lista de saltos de escritorio (hasta 10). iOS no los muestra.
 
 Pantalla `/calendario` y tarjeta "Próximos pagos" del Inicio (0030).
 
-- **Cada vencimiento lleva un chip con la fecha** (dia y mes, "12 OCT"). La linea
-  de abajo no la repite: dice el dia de la semana y cuanto falta ("Lunes, en 8
-  días"), o el estado. Corta a proposito, porque en el movil comparte la fila con
-  el monto.
-- **Vencido**: chip y linea en `destructive`. **Hoy**: chip en `primary`.
+- **Cada vencimiento dice su fecha al principio de la segunda linea**, como
+  dd/mm/aaaa, y despues cuanto falta o el estado ("12/10/2026 · lunes, en 8
+  días"; "06/10/2026 · venció hace 2 días"). Hasta la 1.5.0 la fecha iba en un
+  chip ("12 OCT"); salio para que todas las fechas se lean igual. La linea se
+  parte si no entra: en el movil comparte la fila con el monto.
+- **Vencido**: la linea en `destructive`, y el texto dice "venció": el color
+  solo no dice nada.
 - **Lo ya respondido** (pagado u omitido) se apaga con el **color del texto**
   (`muted-foreground`, que cumple AA), mas un icono (check u omitido). **No con
   opacidad**: el texto secundario a 70% bajaba de 4,5:1.
@@ -871,10 +878,10 @@ Pantalla `/calendario` y tarjeta "Próximos pagos" del Inicio (0030).
   el pago"; despues vienen "Ya lo pagué", "Más tarde" y "Omitir". Lo respondido
   ofrece "Deshacer".
 - **"Más tarde" dice a que hora queda cada atajo** ("En 3 horas · hoy a las
-  17:09"), en una lista donde la fila entera es el boton. La fecha y hora a
-  eleccion avisa si cae de noche ("De noche no avisa: queda para mañana a las
-  08:00"). Lo pospuesto se ve en la fila ("Pospuesto hasta hoy a las 15:08") y en
-  la hoja, con "Quitar".
+  17:09"), en una lista donde la fila entera es el boton, y tambien deja elegir
+  fecha y hora. A cualquier hora, como los avisos: desde la 1.5.1 no hay franja
+  de noche. Lo pospuesto se ve en la fila ("12/10/2026 · pospuesto hasta hoy a
+  las 15:08") y en la hoja, con "Quitar".
 
 ### Avisos del sistema (push)
 

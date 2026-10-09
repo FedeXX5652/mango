@@ -131,8 +131,9 @@ export function FormularioRecordatorio({
     // vencimiento, puede haber quedado antes. El servidor la rechazaria.
     if (regla.until_date && regla.until_date < regla.start_date)
       return setError("La repetición termina antes del primer vencimiento: cambiá la fecha de fin")
-    if (avisos.some((a) => !/^\d\d:\d\d$/.test(a.time) || a.time < "08:00" || a.time > "21:59"))
-      return setError("Los avisos van entre las 8 y las 22")
+    // A cualquier hora (2026-10-08: se saco la franja de 8 a 22).
+    if (avisos.some((a) => !/^\d\d:\d\d$/.test(a.time)))
+      return setError("Falta la hora de un aviso")
     setGuardando(true)
     try {
       await guardarRecordatorio(
@@ -259,8 +260,6 @@ export function FormularioRecordatorio({
             <Input
               type="time"
               aria-label={`Aviso ${i + 1}: hora`}
-              min="08:00"
-              max="21:59"
               value={a.time}
               onChange={(e) => cambiarAviso(i, { time: e.target.value })}
               className="w-32 tabular"

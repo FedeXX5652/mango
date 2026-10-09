@@ -8,12 +8,11 @@ import { Button } from "@/componentes/ui/button"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { formatearFechaCorta } from "@/lib/fecha"
-import { ATAJOS_POSPONER, alHorario, cuandoPosponer, textoHasta } from "@/lib/posponer"
+import { ATAJOS_POSPONER, cuandoPosponer, textoHasta } from "@/lib/posponer"
 import {
   type EstadoCiclo,
   type Vencimiento,
   detalleVencimiento,
-  mesCorto,
   posponerCiclo,
   responderCiclo,
 } from "@/lib/recordatorios"
@@ -32,27 +31,9 @@ export interface PagoDeCiclo {
   vence: string
 }
 
-function diaYNumero(fecha: string): string {
-  return `${nombreDia(diaDeSemana(aDia(fecha)))} ${Number(fecha.slice(8, 10))}`
-}
-
-function FechaChip({ vence, hoy, vencido }: { vence: string; hoy: string; vencido: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg border leading-none",
-        vencido
-          ? "border-destructive/40 bg-destructive/10 text-destructive"
-          : vence === hoy
-            ? "border-primary/40 bg-primary/10"
-            : "border-border bg-muted/40",
-      )}
-    >
-      <span className="text-base font-semibold tabular">{Number(vence.slice(8, 10))}</span>
-      <span className="text-xs uppercase">{mesCorto(vence)}</span>
-    </span>
-  )
+// "lunes 12/10/2026": las fechas van siempre como dd/mm/aaaa (2026-10-08).
+function diaYFecha(fecha: string): string {
+  return `${nombreDia(diaDeSemana(aDia(fecha)))} ${formatearFechaCorta(fecha)}`
 }
 
 const ESTADO: Record<Exclude<EstadoCiclo, "pending">, string> = {
@@ -79,25 +60,20 @@ export function FilaVencimiento({
     // Lo ya respondido se apaga con el color del texto (AA), no con opacidad: la
     // opacidad bajaba el texto secundario de 4,5:1.
     <FilaInset onClick={() => onAbrir(v)}>
-      <span className="flex min-w-0 items-center gap-3">
-        <FechaChip vence={v.vence} hoy={hoy} vencido={vencido} />
-        <span className="min-w-0">
-          <span
-            className={cn(
-              "block truncate text-sm font-medium",
-              v.estado !== "pending" && "text-muted-foreground",
-            )}
-          >
-            {r.title}
-          </span>
-          <span
-            className={cn(
-              "block truncate text-xs",
-              vencido ? "text-destructive" : "text-muted-foreground",
-            )}
-          >
-            {detalle}
-          </span>
+      <span className="min-w-0">
+        <span
+          className={cn(
+            "block truncate text-sm font-medium",
+            v.estado !== "pending" && "text-muted-foreground",
+          )}
+        >
+          {r.title}
+        </span>
+        {/* La fecha va completa (dd/mm/aaaa): la linea puede bajar a dos. */}
+        <span
+          className={cn("block text-xs", vencido ? "text-destructive" : "text-muted-foreground")}
+        >
+          {detalle}
         </span>
       </span>
       <span className="flex shrink-0 items-center gap-2">
@@ -165,9 +141,7 @@ export function AccionesVencimiento({
   }
 
   const cuando =
-    v.vence === hoy
-      ? "Vence hoy"
-      : `${v.vence < hoy ? "Venció" : "Vence"} el ${diaYNumero(v.vence)} (${formatearFechaCorta(v.vence)})`
+    v.vence === hoy ? "Vence hoy" : `${v.vence < hoy ? "Venció" : "Vence"} el ${diaYFecha(v.vence)}`
 
   return (
     <div className="space-y-4">
@@ -177,7 +151,7 @@ export function AccionesVencimiento({
         </p>
         {v.vence !== v.nominal && (
           <p className="text-xs text-muted-foreground">
-            Era el {diaYNumero(v.nominal)}:{" "}
+            Era el {diaYFecha(v.nominal)}:{" "}
             {v.vence > v.nominal ? "pasó al lunes" : "se adelantó al viernes"}.
           </p>
         )}
@@ -251,8 +225,7 @@ export function AccionesVencimiento({
 }
 
 // "Más tarde" (0030, R2): atajos con la hora a la que quedaria cada uno, o una
-// fecha y hora a eleccion. Nunca entre las 22 y las 8: lo que caeria de noche
-// pasa a las 8 (y se dice).
+// fecha y hora a eleccion, a cualquier hora.
 function MasTarde({
   ahora,
   onElegir,
@@ -263,8 +236,7 @@ function MasTarde({
   onVolver: () => void
 }) {
   const [otra, setOtra] = useState("")
-  const elegida = otra ? alHorario(new Date(otra)) : null
-  const corrida = elegida !== null && elegida.getTime() !== new Date(otra).getTime()
+  const elegida = otra ? new Date(otra) : null
   return (
     <div className="space-y-3">
       <ListaInset>
@@ -287,11 +259,6 @@ function MasTarde({
           onChange={(e) => setOtra(e.target.value)}
         />
       </label>
-      {elegida && corrida && (
-        <p className="text-xs text-muted-foreground">
-          De noche no avisa: queda para {textoHasta(elegida, ahora)}.
-        </p>
-      )}
       <div className="flex gap-2">
         <Button
           className="flex-1"

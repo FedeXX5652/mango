@@ -179,7 +179,7 @@ CREATE TABLE reminders (
     weekend_shift   TEXT NOT NULL,              -- none|next|previous (se elige al crear)
     -- Desde cuando cuentan los vencimientos sin marcar; al cambiar la regla, hoy.
     track_from      DATE NOT NULL,
-    -- [{"days_before": 0, "time": "09:00"}], entre las 08:00 y las 21:59.
+    -- [{"days_before": 0, "time": "09:00"}], a cualquier hora (1.5.1).
     alerts          JSONB NOT NULL DEFAULT '[{"days_before": 0, "time": "09:00"}]',
     followup_days   SMALLINT,                   -- NULL = hasta que responda
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -204,8 +204,8 @@ CREATE TABLE reminder_cycles (
     answered_at     TIMESTAMPTZ,                -- los pone el servidor
     answered_by     UUID REFERENCES users(id),
     transaction_id  UUID REFERENCES transactions(id),    -- "Cargar el pago"
-    -- Avisos (etapa 2): "Mas tarde" (nunca entre las 22 y las 8; responder lo
-    -- limpia) y lo que el servidor ya aviso, para no repetirlo (solo el servidor).
+    -- Avisos (etapa 2): "Mas tarde" (a cualquier hora; responder lo limpia) y
+    -- lo que el servidor ya aviso, para no repetirlo (solo el servidor).
     snoozed_until   TIMESTAMPTZ,
     alerts_sent     JSONB,                      -- ["3@09:00", "0@09:00"]
     followup_sent_on DATE,

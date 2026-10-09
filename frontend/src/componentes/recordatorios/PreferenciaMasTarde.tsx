@@ -35,9 +35,7 @@ export function PreferenciaMasTarde() {
           ))}
         </Select>
       </label>
-      <p className="text-xs text-muted-foreground">
-        El botón del aviso no deja elegir: usa esto. Nunca avisa entre las 22 y las 8.
-      </p>
+      <p className="text-xs text-muted-foreground">El botón del aviso no deja elegir: usa esto.</p>
     </div>
   )
 }

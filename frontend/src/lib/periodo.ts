@@ -10,6 +10,8 @@
 // comparan contra `occurred_at`, que se guarda asi. Usar UTC correria los
 // movimientos de la noche al dia siguiente (ESPECIFICACION 8).
 
+import { fechaISO, formatearFechaCorta } from "@/lib/fecha"
+
 export type TipoPeriodo = "dia" | "semana" | "mes" | "anio"
 
 export interface Ventana {
@@ -45,6 +47,11 @@ function mayuscula(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+// dd/mm/aaaa, como todas las fechas (2026-10-08).
+function corta(d: Date): string {
+  return formatearFechaCorta(fechaISO(d))
+}
+
 // Lunes de la semana de `d`. `getDay()` da 0 para domingo, asi que el domingo
 // pertenece a la semana que arranco el lunes anterior, no a la que empieza.
 function lunesDe(d: Date): Date {
@@ -63,22 +70,17 @@ export function ventanaDe(tipo: TipoPeriodo, ancla: Date): Ventana {
     return {
       inicio: iso(new Date(y, m, d)),
       fin: iso(new Date(y, m, d + 1)),
-      etiqueta: `${mayuscula(DIAS[ancla.getDay()])} ${d} de ${MESES[m]}`,
+      etiqueta: `${mayuscula(DIAS[ancla.getDay()])} ${corta(ancla)}`,
     }
   }
 
   if (tipo === "semana") {
     const lunes = lunesDe(ancla)
     const domingo = new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() + 6)
-    // Si la semana cruza de mes, se nombran los dos: "29 sep - 5 oct".
-    const mismoMes = lunes.getMonth() === domingo.getMonth()
-    const etiqueta = mismoMes
-      ? `${lunes.getDate()} al ${domingo.getDate()} de ${MESES[lunes.getMonth()]}`
-      : `${lunes.getDate()} de ${MESES[lunes.getMonth()]} al ${domingo.getDate()} de ${MESES[domingo.getMonth()]}`
     return {
       inicio: iso(lunes),
       fin: iso(new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() + 7)),
-      etiqueta,
+      etiqueta: `${corta(lunes)} al ${corta(domingo)}`,
     }
   }
 
@@ -123,11 +125,11 @@ export function serie(tipo: TipoPeriodo, ancla: Date, cantidad: number): Ventana
   return salida
 }
 
-// Etiqueta corta para el eje del grafico, donde no entra la larga.
+// Etiqueta corta para el eje del grafico, donde no entra la larga. Los dias y las
+// semanas van como dd/mm: con el año, seis no entran en el ancho de un telefono.
 export function etiquetaCorta(tipo: TipoPeriodo, v: Ventana): string {
   const d = new Date(v.inicio)
-  if (tipo === "dia") return `${d.getDate()}/${d.getMonth() + 1}`
-  if (tipo === "semana") return `${d.getDate()}/${d.getMonth() + 1}`
+  if (tipo === "dia" || tipo === "semana") return corta(d).slice(0, 5)
   if (tipo === "mes") return MESES[d.getMonth()].slice(0, 3)
   return String(d.getFullYear())
 }

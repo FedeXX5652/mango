@@ -14,9 +14,8 @@ Corrimiento = Literal["none", "next", "previous"]
 EstadoCiclo = Literal["pending", "paid", "skipped"]
 
 Titulo = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
-# "HH:MM" entre las 08:00 y las 21:59: nada entre las 22 y las 8 (decision del
-# usuario, C6).
-Hora = Annotated[str, StringConstraints(pattern=r"^(0[89]|1\d|2[01]):[0-5]\d$")]
+# "HH:MM", a cualquier hora (2026-10-08: se saco la franja de 8 a 22 de la 1.5.0).
+Hora = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
 
 
 class Aviso(BaseModel):

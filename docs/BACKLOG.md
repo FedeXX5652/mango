@@ -122,6 +122,13 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
 - **`backend/tests/compat/replay.py` tiene una copia vieja del mapa tabla -> ruta**
   del conector: le faltan goals, debts, splits, settlements, notifications y las
   del calendario.
+- **El CSV exportado lleva la fecha en ISO** (`occurred_at.isoformat()`, con hora
+  y zona). La 1.5.1 paso a dd/mm/aaaa todo lo que se ve en la app, pero el
+  archivo se dejo como estaba hasta que el usuario decida: el ISO lo lee
+  cualquier planilla, y dd/mm/aaaa perderia la hora.
+- **Movimientos salta de `h1` a `h3`** en los titulos de cada dia (regla
+  `heading-order` de axe, de "best-practice": la auditoria completa no la mira).
+  Encontrado al revisar la 1.5.1. Arreglo: `h2`.
 
 ## Fases del roadmap que faltan (resumen; detalle en ESPECIFICACION §7)
 

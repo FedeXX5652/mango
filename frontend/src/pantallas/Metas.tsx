@@ -11,6 +11,7 @@ import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { useVolver } from "@/hooks/useVolver"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
+import { formatearFechaCorta } from "@/lib/fecha"
 import { saldoCuenta } from "@/lib/saldos"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
@@ -92,7 +93,7 @@ export function Metas() {
                     <p className="text-xs text-muted-foreground">
                       {formatearMonto(usado, { moneda: m.currency })} de{" "}
                       {formatearMonto(m.target_amount, { moneda: m.currency })}
-                      {m.target_date ? ` · para ${m.target_date}` : ""}
+                      {m.target_date ? ` · para el ${formatearFechaCorta(m.target_date)}` : ""}
                     </p>
                   </div>
                   <Button

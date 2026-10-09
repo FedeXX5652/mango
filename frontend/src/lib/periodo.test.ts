@@ -13,7 +13,7 @@ describe("ventanaDe", () => {
     const v = ventanaDe("dia", new Date(2026, 8, 14))
     expect(dia(v.inicio)).toBe("2026-09-14")
     expect(dia(v.fin)).toBe("2026-09-15")
-    expect(v.etiqueta).toBe("Lunes 14 de septiembre")
+    expect(v.etiqueta).toBe("Lunes 14/09/2026")
   })
 
   it("semana: arranca el lunes", () => {
@@ -30,9 +30,11 @@ describe("ventanaDe", () => {
     expect(dia(v.fin)).toBe("2026-09-21")
   })
 
-  it("semana: si cruza de mes lo dice en la etiqueta", () => {
-    const v = ventanaDe("semana", new Date(2026, 8, 30))
-    expect(v.etiqueta).toBe("28 de septiembre al 4 de octubre")
+  it("semana: del lunes al domingo, como dd/mm/aaaa", () => {
+    expect(ventanaDe("semana", new Date(2026, 8, 16)).etiqueta).toBe("14/09/2026 al 20/09/2026")
+    // Cruza de mes (y de año): las dos fechas completas.
+    expect(ventanaDe("semana", new Date(2026, 8, 30)).etiqueta).toBe("28/09/2026 al 04/10/2026")
+    expect(ventanaDe("semana", new Date(2026, 11, 30)).etiqueta).toBe("28/12/2026 al 03/01/2027")
   })
 
   it("mes y año", () => {
@@ -100,6 +102,7 @@ describe("etiquetaCorta", () => {
     const hoy = new Date(2026, 8, 14)
     expect(etiquetaCorta("mes", ventanaDe("mes", hoy))).toBe("sep")
     expect(etiquetaCorta("anio", ventanaDe("anio", hoy))).toBe("2026")
-    expect(etiquetaCorta("dia", ventanaDe("dia", hoy))).toBe("14/9")
+    expect(etiquetaCorta("dia", ventanaDe("dia", hoy))).toBe("14/09")
+    expect(etiquetaCorta("semana", ventanaDe("semana", new Date(2026, 9, 1)))).toBe("28/09")
   })
 })

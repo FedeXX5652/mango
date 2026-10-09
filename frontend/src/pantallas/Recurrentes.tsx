@@ -11,6 +11,7 @@ import { Select } from "@/componentes/ui/select"
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { useVolver } from "@/hooks/useVolver"
+import { formatearFechaCorta } from "@/lib/fecha"
 import { generarVencidas } from "@/lib/generar"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
@@ -59,9 +60,6 @@ function etiquetaFrec(f: string, n: number): string {
 function hoyISO(): string {
   const d = new Date()
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
-}
-function fechaCorta(iso: string): string {
-  return new Date(`${iso}T12:00:00`).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })
 }
 
 export function Recurrentes() {
@@ -145,7 +143,7 @@ export function Recurrentes() {
                 <p className="text-xs text-muted-foreground">
                   {etiquetaTipo(r.kind)} · {formatearMonto(r.amount, { moneda: r.currency })} ·{" "}
                   {etiquetaFrec(r.frequency, r.interval_count)} · próx.{" "}
-                  {fechaCorta(r.next_run_date)}
+                  {formatearFechaCorta(r.next_run_date)}
                 </p>
               </div>
               <div className="flex shrink-0 items-center">

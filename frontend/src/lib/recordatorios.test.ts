@@ -289,13 +289,11 @@ describe("contra el SQLite del dispositivo", () => {
 })
 
 describe("como se lee un vencimiento", () => {
-  it("relativo a hoy", () => {
+  it("hoy, mañana o la fecha como dd/mm/aaaa", () => {
     expect(etiquetaVence(HOY, HOY)).toBe("Hoy")
     expect(etiquetaVence("2026-10-05", HOY)).toBe("Mañana")
-    expect(etiquetaVence("2026-10-03", HOY)).toBe("Ayer")
-    expect(etiquetaVence("2026-09-30", HOY)).toBe("Hace 4 días")
-    expect(etiquetaVence("2026-10-08", HOY)).toBe("Jueves")
-    expect(etiquetaVence("2026-10-12", HOY)).toBe("12/10")
+    expect(etiquetaVence("2026-10-03", HOY)).toBe("03/10/2026")
+    expect(etiquetaVence("2026-10-08", HOY)).toBe("08/10/2026")
     expect(etiquetaVence("2027-01-05", HOY)).toBe("05/01/2027")
   })
 })
@@ -309,26 +307,26 @@ describe("la linea de un vencimiento", () => {
     transactionId: null,
     pospuesto: null,
   })
-  it("dia de la semana y cuanto falta, o el estado", () => {
-    expect(detalleVencimiento(v("2026-10-12"), HOY)).toBe("Lunes, en 8 días")
-    expect(detalleVencimiento(v("2026-10-08"), HOY)).toBe("Jueves, en 4 días")
-    expect(detalleVencimiento(v("2026-10-05"), HOY)).toBe("Vence mañana")
-    expect(detalleVencimiento(v(HOY), HOY)).toBe("Vence hoy")
-    expect(detalleVencimiento(v("2026-10-03"), HOY)).toBe("Venció ayer")
+  it("la fecha (dd/mm/aaaa) y cuanto falta, o el estado", () => {
+    expect(detalleVencimiento(v("2026-10-12"), HOY)).toBe("12/10/2026 · lunes, en 8 días")
+    expect(detalleVencimiento(v("2026-10-08"), HOY)).toBe("08/10/2026 · jueves, en 4 días")
+    expect(detalleVencimiento(v("2026-10-05"), HOY)).toBe("05/10/2026 · vence mañana")
+    expect(detalleVencimiento(v(HOY), HOY)).toBe("04/10/2026 · vence hoy")
+    expect(detalleVencimiento(v("2026-10-03"), HOY)).toBe("03/10/2026 · venció ayer")
     expect(detalleVencimiento(v("2026-09-10"), HOY, 3)).toBe(
-      "Venció hace 24 días · y 2 más sin marcar",
+      "10/09/2026 · venció hace 24 días · y 2 más sin marcar",
     )
-    expect(detalleVencimiento(v("2026-10-12", "paid"), HOY)).toBe("Pagado")
-    expect(detalleVencimiento(v("2026-10-12", "skipped"), HOY)).toBe("Omitido")
+    expect(detalleVencimiento(v("2026-10-12", "paid"), HOY)).toBe("12/10/2026 · pagado")
+    expect(detalleVencimiento(v("2026-10-12", "skipped"), HOY)).toBe("12/10/2026 · omitido")
   })
   it("lo pospuesto dice hasta cuando", () => {
     const ahora = new Date(2026, 9, 12, 10)
     const pospuesto = { ...v("2026-10-12"), pospuesto: new Date(2026, 9, 12, 15).toISOString() }
     expect(detalleVencimiento(pospuesto, "2026-10-12", 1, ahora)).toBe(
-      "Pospuesto hasta hoy a las 15:00",
+      "12/10/2026 · pospuesto hasta hoy a las 15:00",
     )
     // Ya paso: vuelve a decir cuando vence.
     const tarde = new Date(2026, 9, 12, 16)
-    expect(detalleVencimiento(pospuesto, "2026-10-12", 1, tarde)).toBe("Vence hoy")
+    expect(detalleVencimiento(pospuesto, "2026-10-12", 1, tarde)).toBe("12/10/2026 · vence hoy")
   })
 })

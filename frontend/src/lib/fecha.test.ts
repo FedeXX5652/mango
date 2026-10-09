@@ -32,10 +32,9 @@ describe("dias de una lista", () => {
     const hoy = new Date(2026, 9, 1, 9, 0)
     expect(etiquetaDia(noche, hoy)).toBe("Hoy")
     expect(etiquetaDia(new Date(2026, 8, 30, 22, 0).toISOString(), hoy)).toBe("Ayer")
-    expect(etiquetaDia(new Date(2026, 8, 6, 12, 0).toISOString(), hoy)).toBe("6 de septiembre")
-    expect(etiquetaDia(new Date(2025, 8, 6, 12, 0).toISOString(), hoy)).toBe(
-      "6 de septiembre de 2025",
-    )
+    // Las fechas van siempre como dd/mm/aaaa (2026-10-08).
+    expect(etiquetaDia(new Date(2026, 8, 6, 12, 0).toISOString(), hoy)).toBe("06/09/2026")
+    expect(etiquetaDia(new Date(2025, 8, 6, 12, 0).toISOString(), hoy)).toBe("06/09/2025")
   })
 })
 

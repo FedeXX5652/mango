@@ -527,8 +527,8 @@ cuando se responde, con id determinista, asi dos dispositivos que lo marcan sin
 conexion escriben la misma fila. Lo vencido sin responder cuenta desde que se
 creo el recordatorio o se cambio su regla.
 
-Cada recordatorio tiene sus **avisos** (por defecto el mismo dia a las 9:00;
-nunca entre las 22 y las 8) y un **seguimiento** si no se responde (3 dias por
+Cada recordatorio tiene sus **avisos** (por defecto el mismo dia a las 9:00; a
+cualquier hora, desde la 1.5.1) y un **seguimiento** si no se responde (3 dias por
 defecto, o hasta que se responda). Los manda el planificador del servidor (0029)
 por push y a la campanita; tocarlo abre ese vencimiento. Cada vencimiento se
 puede **posponer** ("Mas tarde": en 1 o 3 horas, mañana o el lunes a las 9, o
@@ -552,6 +552,12 @@ manda sobre toda la pantalla —la dona por categoria, ingresos contra egresos, 
 gasto por etiqueta— y tambien sobre la evolucion, que muestra los ultimos seis
 **de ese periodo**: con "Semana" son semanas, no meses. La semana arranca el
 lunes. La eleccion se guarda por dispositivo: es una preferencia de lectura.
+
+**Las fechas se muestran como dd/mm/aaaa** en toda la app y en los avisos
+(1.5.1): "12/10/2026", "Lunes 14/09/2026", "05/10/2026 al 11/10/2026". Un mes
+("Septiembre de 2026") o un año no son fechas y van con su nombre. Las
+excepciones son por espacio: el eje de un grafico va como dd/mm, y una
+repeticion anual dice "el 10/10" porque un aniversario no tiene año.
 
 **Cada categoria puede tener un icono**, que aparece en la lista de categorias,
 al elegir la categoria de un movimiento y en cada fila de movimiento.
@@ -1170,8 +1176,10 @@ de cada usuario aunque nadie abra la app.
 **Calendario de pagos (1.5.0): etapas 1 y 2 HECHAS.** Ver 3.7.1 y 0030:
 recordatorios con repeticion estilo Samsung, vencidos sin marcar, "Cargar el
 pago" con la plantilla, la tarjeta "Proximos pagos" del Inicio, y los avisos
-(a su hora, seguimiento, "Mas tarde" y los botones de Android). Faltan los
-recordatorios de grupo, de tarjetas y de deudas (etapa 3, que sale como 1.6.0).
+(a su hora, seguimiento, "Mas tarde" y los botones de Android). En la 1.5.1
+los avisos pasaron a ir a cualquier hora y las fechas de toda la app, a
+dd/mm/aaaa. Faltan los recordatorios de grupo, de tarjetas y de deudas (etapa 3,
+que sale como 1.6.0).
 
 Falta:
 

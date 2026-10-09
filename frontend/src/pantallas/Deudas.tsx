@@ -12,6 +12,7 @@ import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { useVolver } from "@/hooks/useVolver"
 import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
+import { formatearFechaCorta } from "@/lib/fecha"
 import { uuidv4 } from "@/lib/uuid"
 
 // Deudas y prestamos fuera de un grupo (fase 5). `receivable` = me deben (yo
@@ -59,12 +60,13 @@ export function Deudas() {
               <FilaInset key={d.id}>
                 <div className="min-w-0">
                   <p className="truncate font-medium">{d.counterparty}</p>
-                  <p className="truncate text-xs text-muted-foreground">
+                  {/* Sin cortar: al final va la fecha de vencimiento (1.5.1). */}
+                  <p className="break-words text-xs text-muted-foreground">
                     {saldada
                       ? "Saldada"
                       : `Pendiente ${formatearMonto(pendiente, { moneda: d.currency })} de ${formatearMonto(d.amount, { moneda: d.currency })}`}
                     {d.description ? ` · ${d.description}` : ""}
-                    {d.due_date ? ` · vence ${d.due_date}` : ""}
+                    {d.due_date ? ` · vence ${formatearFechaCorta(d.due_date)}` : ""}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">

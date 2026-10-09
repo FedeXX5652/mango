@@ -96,16 +96,18 @@ async def test_seguimiento_si_no_se_responde(api: SimpleNamespace) -> None:
     rid = await _recordatorio(api)
     await servicio.avisar(api.session, _local(13, 9, 30))
     assert [a["body"] for a in await _avisos(api, rid)] == [
-        "Venció el lunes 12/10. ¿Ya lo pagaste?"
+        "Venció el lunes 12/10/2026. ¿Ya lo pagaste?"
     ]
     assert (await _ciclo(api, rid))["followup_sent_on"] == "2026-10-13"
 
 
-async def test_nada_entre_las_22_y_las_8(api: SimpleNamespace) -> None:
-    rid = await _recordatorio(api)
-    await servicio.avisar(api.session, _local(12, 23))
-    await servicio.avisar(api.session, _local(13, 7, 30))
+async def test_avisa_a_cualquier_hora(api: SimpleNamespace) -> None:
+    # Sin franja horaria (2026-10-08): un aviso a las 23:30 sale a las 23:30.
+    rid = await _recordatorio(api, alerts=[{"days_before": 0, "time": "23:30"}])
+    await servicio.avisar(api.session, _local(12, 23, 29))
     assert await _avisos(api, rid) == []
+    await servicio.avisar(api.session, _local(12, 23, 30))
+    assert [a["body"] for a in await _avisos(api, rid)] == ["Vence hoy"]
 
 
 async def test_lo_respondido_no_avisa(api: SimpleNamespace) -> None:
@@ -146,11 +148,13 @@ async def test_pospuesto_calla_y_avisa_una_vez(api: SimpleNamespace) -> None:
 # --- "Mas tarde" desde la app -----------------------------------------------------
 
 
-async def test_mas_tarde_nunca_cae_de_madrugada(api: SimpleNamespace) -> None:
+async def test_mas_tarde_a_cualquier_hora(api: SimpleNamespace) -> None:
     rid = await _recordatorio(api)
     cid = str(id_ciclo(rid, OCT))
-    # Pedido para las 23:30 (hora local): queda a las 8 del dia siguiente.
-    noche = (datetime.now(TZ) + timedelta(days=1)).replace(hour=23, minute=30)
+    # Pedido para las 23:30 (hora local): queda a las 23:30, sin correrse.
+    noche = (datetime.now(TZ) + timedelta(days=1)).replace(
+        hour=23, minute=30, second=0, microsecond=0
+    )
     r = await api.client.post(
         "/api/v1/reminder-cycles",
         json={
@@ -163,7 +167,7 @@ async def test_mas_tarde_nunca_cae_de_madrugada(api: SimpleNamespace) -> None:
     )
     assert r.status_code == 201, r.text
     quedo = datetime.fromisoformat(r.json()["snoozed_until"]).astimezone(TZ)
-    assert (quedo.date(), quedo.hour, quedo.minute) == (noche.date() + timedelta(days=1), 8, 0)
+    assert quedo == noche
     # Responder lo deja sin efecto.
     r = await api.client.patch(f"/api/v1/reminder-cycles/{cid}", json={"status": "paid"})
     assert r.json()["snoozed_until"] is None

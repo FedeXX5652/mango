@@ -200,20 +200,6 @@ export function siguiente(r: Regla, desde: string): Ocurrencia | null {
 
 const DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 const DIAS_PLURAL = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábados", "domingos"]
-const MESES = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "septiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
-]
 export const ORDINALES: Record<number, string> = {
   1: "primer",
   2: "segundo",
@@ -265,7 +251,8 @@ export function describir(r: Regla): string {
       break
     }
     case "yearly":
-      texto = `${n === 1 ? "Todos los años" : `Cada ${n} años`}, el ${dia0} de ${MESES[mes0 - 1]}`
+      // dd/mm, como todas las fechas (2026-10-08); un aniversario no tiene año.
+      texto = `${n === 1 ? "Todos los años" : `Cada ${n} años`}, el ${String(dia0).padStart(2, "0")}/${String(mes0).padStart(2, "0")}`
       break
   }
   if (r.count) return `${texto}, ${r.count} ${r.count === 1 ? "vez" : "veces"}`

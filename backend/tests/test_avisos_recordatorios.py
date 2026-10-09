@@ -7,7 +7,6 @@ from app.services.recordatorios import (
     Aviso,
     EstadoCiclo,
     avisos_debidos,
-    corrido_al_horario,
     texto,
 )
 from app.services.repeticion import Regla
@@ -55,9 +54,13 @@ def test_avisos_con_anticipacion() -> None:
     assert [a.clave for a in _debidos(_a(12, 18, 30), alerts=alerts)] == ["0@18:30"]
 
 
-def test_nunca_entre_las_22_y_las_8() -> None:
-    assert _debidos(_a(12, 22, 0)) == []
-    assert _debidos(_a(12, 7, 59)) == []
+def test_a_cualquier_hora() -> None:
+    # Sin franja horaria (2026-10-08): la hora la elige la persona.
+    de_noche = [{"days_before": 0, "time": "23:30"}]
+    assert _debidos(_a(12, 23, 29), alerts=de_noche) == []
+    assert [a.clave for a in _debidos(_a(12, 23, 30), alerts=de_noche)] == ["0@23:30"]
+    de_madrugada = [{"days_before": 0, "time": "06:00"}]
+    assert [a.clave for a in _debidos(_a(12, 6), alerts=de_madrugada)] == ["0@06:00"]
 
 
 def test_seguimiento_diario_hasta_el_limite() -> None:
@@ -110,18 +113,14 @@ def test_lo_vencido_cuenta_desde_track_from() -> None:
     assert _debidos(_a(14, 9), desde=date(2026, 10, 14)) == []
 
 
-def test_mas_tarde_nunca_cae_de_madrugada() -> None:
-    assert corrido_al_horario(_a(12, 23, 30)) == _a(13, 8)
-    assert corrido_al_horario(_a(12, 6)) == _a(12, 8)
-    assert corrido_al_horario(_a(12, 10, 15)) == _a(12, 10, 15)
-
-
 def test_el_texto_dice_cuando_y_cuanto() -> None:
     hoy = date(2026, 10, 12)
     aviso = Aviso(OCT, hoy, "aviso", "0@09:00")
     assert texto(aviso, hoy, "$ 500.000,00") == "Vence hoy · $ 500.000,00"
     assert texto(aviso, hoy - timedelta(days=1), None) == "Vence mañana"
-    assert texto(aviso, hoy - timedelta(days=3), None) == "Vence el lunes 12/10"
-    assert texto(aviso, hoy + timedelta(days=1), None) == "Venció el lunes 12/10. ¿Ya lo pagaste?"
+    assert texto(aviso, hoy - timedelta(days=3), None) == "Vence el lunes 12/10/2026"
+    assert (
+        texto(aviso, hoy + timedelta(days=1), None) == "Venció el lunes 12/10/2026. ¿Ya lo pagaste?"
+    )
     pospuesto = Aviso(OCT, hoy, "pospuesto", "pospuesto")
     assert texto(pospuesto, hoy, None) == "Te lo recuerdo: vence hoy"

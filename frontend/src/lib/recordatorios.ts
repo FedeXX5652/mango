@@ -418,69 +418,48 @@ export async function responderCiclo(
 
 // --- Como se lee un vencimiento --------------------------------------------------
 
-const MESES_CORTOS = [
-  "ene",
-  "feb",
-  "mar",
-  "abr",
-  "may",
-  "jun",
-  "jul",
-  "ago",
-  "sep",
-  "oct",
-  "nov",
-  "dic",
-]
-
-export function mesCorto(fecha: string): string {
-  return MESES_CORTOS[Number(fecha.slice(5, 7)) - 1]
+// Las fechas van siempre como dd/mm/aaaa (2026-10-08).
+function ddmmaaaa(fecha: string): string {
+  return `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}/${fecha.slice(0, 4)}`
 }
 
-// "Hoy", "Mañana", "Hace 3 días", "Jueves" (en la semana) o "12/10" (con el año
-// si no es el de hoy).
+// "Hoy", "Mañana" o la fecha.
 export function etiquetaVence(vence: string, hoy: string): string {
   const d = aDia(vence) - aDia(hoy)
   if (d === 0) return "Hoy"
   if (d === 1) return "Mañana"
-  if (d === -1) return "Ayer"
-  if (d < 0) return `Hace ${-d} días`
-  if (d < 7) {
-    const nombre = nombreDia(diaDeSemana(aDia(vence)))
-    return nombre.charAt(0).toUpperCase() + nombre.slice(1)
-  }
-  const corta = `${vence.slice(8, 10)}/${vence.slice(5, 7)}`
-  return vence.slice(0, 4) === hoy.slice(0, 4) ? corta : `${corta}/${vence.slice(0, 4)}`
+  return ddmmaaaa(vence)
 }
 
-// La linea de abajo de un vencimiento en una lista. La fecha ya esta en el chip:
-// aca va el dia de la semana y cuanto falta (o el estado).
+// La linea de abajo de un vencimiento en una lista: la fecha (dd/mm/aaaa) y que
+// pasa con el ("vence hoy", "lunes, en 8 días", "pagado"...).
 export function detalleVencimiento(
   v: Vencimiento,
   hoy: string,
   cuantos = 1,
   ahora: Date = new Date(),
 ): string {
-  if (v.estado === "paid") return "Pagado"
-  if (v.estado === "skipped") return "Omitido"
+  return `${ddmmaaaa(v.vence)} · ${estadoVencimiento(v, hoy, cuantos, ahora)}`
+}
+
+function estadoVencimiento(v: Vencimiento, hoy: string, cuantos: number, ahora: Date): string {
+  if (v.estado === "paid") return "pagado"
+  if (v.estado === "skipped") return "omitido"
   if (v.pospuesto && new Date(v.pospuesto) > ahora) {
-    return `Pospuesto hasta ${textoHasta(new Date(v.pospuesto), ahora)}`
+    return `pospuesto hasta ${textoHasta(new Date(v.pospuesto), ahora)}`
   }
   const d = aDia(v.vence) - aDia(hoy)
   if (d < 0) {
     const hace = d === -1 ? "ayer" : `hace ${-d} días`
-    return `Venció ${hace}${cuantos > 1 ? ` · y ${cuantos - 1} más sin marcar` : ""}`
+    return `venció ${hace}${cuantos > 1 ? ` · y ${cuantos - 1} más sin marcar` : ""}`
   }
-  if (d === 0) return "Vence hoy"
-  if (d === 1) return "Vence mañana"
-  // Corto, que en el movil comparte la linea con el monto: "Lunes, en 8 días".
-  const dia = nombreDia(diaDeSemana(aDia(v.vence)))
-  return `${dia.charAt(0).toUpperCase()}${dia.slice(1)}, en ${d} días`
+  if (d === 0) return "vence hoy"
+  if (d === 1) return "vence mañana"
+  return `${nombreDia(diaDeSemana(aDia(v.vence)))}, en ${d} días`
 }
 
 // "Más tarde" (etapa 2): calla el aviso de este vencimiento hasta `hasta`
-// (null = quitarlo). Solo para uno pendiente; el servidor lo corre fuera de las
-// 22 a las 8 si hiciera falta.
+// (null = quitarlo). Solo para uno pendiente.
 export async function posponerCiclo(
   db: AbstractPowerSyncDatabase,
   reminderId: string,

@@ -120,8 +120,8 @@ class ReminderCycle(Base, IdMixin, TimestampMixin):
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("transactions.id"))
 
     # --- Avisos (etapa 2) ---
-    # "Mas tarde": calla este vencimiento hasta ese momento (nunca entre las 22 y
-    # las 8). Lo pone la persona; el servidor lo limpia al avisar o al responder.
+    # "Mas tarde": calla este vencimiento hasta ese momento. Lo pone la persona; el
+    # servidor lo limpia al avisar o al responder.
     snoozed_until: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     # Lo que el servidor ya aviso, para no repetirlo: las claves de los avisos
     # ("3@09:00") y el ultimo dia de seguimiento. Solo los escribe el servidor.

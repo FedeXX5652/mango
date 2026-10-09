@@ -8,13 +8,11 @@ aplicado", y la escritura se perderia sin aviso.
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import case, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.errors import DomainError
 from app.models.recurring import Template
 from app.models.reminder import Reminder, ReminderCycle
@@ -25,7 +23,6 @@ from app.schemas.reminder import (
     ReminderCycleUpdate,
     ReminderUpdate,
 )
-from app.services.recordatorios import corrido_al_horario
 from app.services.repeticion import id_ciclo
 
 # --- Recordatorios -----------------------------------------------------------------
@@ -160,16 +157,15 @@ _POSPONER_MAX = timedelta(days=60)
 
 
 def _pospuesto(momento: datetime | None) -> datetime | None:
-    """ "Mas tarde" en la hora del usuario: nunca entre las 22 y las 8 (C6), y no
-    mas alla de dos meses. Uno ya pasado se acepta (se subio tarde, sin conexion):
-    avisa en la proxima vuelta del planificador."""
+    """ "Mas tarde": a cualquier hora, hasta dos meses. Uno ya pasado se acepta (se
+    subio tarde, sin conexion): avisa en la proxima vuelta del planificador."""
     if momento is None:
         return None
     if momento.tzinfo is None:
         momento = momento.replace(tzinfo=UTC)
     if momento - datetime.now(UTC) > _POSPONER_MAX:
         raise DomainError("Se puede posponer hasta dos meses")
-    return corrido_al_horario(momento.astimezone(ZoneInfo(settings.tz)))
+    return momento
 
 
 async def guardar_ciclo(

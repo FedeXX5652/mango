@@ -69,7 +69,7 @@ describe("como se lee", () => {
         month_weekday: 4,
       }),
     ).toBe("Cada 2 meses, el último viernes")
-    expect(describir({ ...base, freq: "yearly" })).toBe("Todos los años, el 10 de octubre")
+    expect(describir({ ...base, freq: "yearly" })).toBe("Todos los años, el 10/10")
   })
   it("con el fin", () => {
     expect(describir({ ...base, freq: "daily", count: 1 })).toBe("Todos los días, 1 vez")
@@ -77,7 +77,7 @@ describe("como se lee", () => {
       "Todos los meses, el día 10, 6 veces",
     )
     expect(describir({ ...base, freq: "yearly", until_date: "2030-12-31" })).toBe(
-      "Todos los años, el 10 de octubre, hasta el 31/12/2030",
+      "Todos los años, el 10/10, hasta el 31/12/2030",
     )
   })
 })

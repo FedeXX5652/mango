@@ -26,13 +26,7 @@ from app.models.recurring import Template
 from app.models.reminder import Reminder, ReminderActionToken, ReminderCycle
 from app.models.user import Notification, User
 from app.schemas.reminder import ReminderCycleCreate
-from app.services.recordatorios import (
-    EstadoCiclo,
-    avisos_debidos,
-    corrido_al_horario,
-    en_silencio,
-    texto,
-)
+from app.services.recordatorios import EstadoCiclo, avisos_debidos, texto
 from app.services.repeticion import Regla, id_ciclo
 
 TIPO = "recordatorio"
@@ -88,8 +82,6 @@ async def _ciclo(session: AsyncSession, r: Reminder, nominal: date) -> ReminderC
 async def avisar(session: AsyncSession, ahora: datetime | None = None) -> int:
     """Crea los avisos que tocan ahora. Devuelve cuantos."""
     ahora = (ahora or datetime.now(UTC)).astimezone(ZoneInfo(settings.tz))
-    if en_silencio(ahora):
-        return 0
     hoy = ahora.date()
     recordatorios = (
         (await session.execute(select(Reminder).where(Reminder.deleted_at.is_(None))))
@@ -208,14 +200,14 @@ async def acciones_de(session: AsyncSession, aviso: Notification) -> dict:
 
 def hasta_por_defecto(preferencia: str | None, ahora: datetime) -> datetime:
     """ "Mas tarde" desde el boton: la preferencia del usuario (3 horas si no
-    eligio), nunca entre las 22 y las 8."""
+    eligio)."""
     local = ahora.astimezone(ZoneInfo(settings.tz))
     if preferencia == "1h":
-        return corrido_al_horario(local + timedelta(hours=1))
+        return local + timedelta(hours=1)
     if preferencia == "manana":
         manana = local + timedelta(days=1)
         return manana.replace(hour=9, minute=0, second=0, microsecond=0)
-    return corrido_al_horario(local + timedelta(hours=3))
+    return local + timedelta(hours=3)
 
 
 async def usar_permiso(session: AsyncSession, token: str, accion: str) -> bool:

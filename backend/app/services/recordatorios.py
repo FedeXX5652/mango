@@ -4,7 +4,7 @@ La parte pura: dado un recordatorio, lo que paso con sus vencimientos y la hora
 local, que avisos tocan ahora. La tarea del planificador
 (`planificador.avisar_recordatorios`) los manda y anota.
 
-Las reglas (decisiones del usuario, C6/C7/R2/R4):
+Las reglas (decisiones del usuario, C7/R2/R4):
 - Cada vencimiento avisa en sus `alerts` ({days_before, time}): el dia y la hora
   locales. Si el servidor estuvo apagado a esa hora, sale cuando vuelve, pero solo
   el mismo dia: lo de dias anteriores lo cubre el seguimiento.
@@ -12,7 +12,8 @@ Las reglas (decisiones del usuario, C6/C7/R2/R4):
   primer aviso, durante `followup_days` dias (NULL = hasta que se responda).
 - "Mas tarde" (`snoozed_until`) calla ese vencimiento hasta esa hora; ahi avisa
   una vez.
-- Nunca entre las 22 y las 8: lo que toca en ese rato espera a las 8.
+- A cualquier hora: la hora la elige la persona (2026-10-08, se saco la franja
+  de 8 a 22 de la 1.5.0).
 - Un recordatorio sin avisos no avisa (solo se ve en el calendario), salvo lo que
   la persona pospuso a proposito.
 """
@@ -22,8 +23,6 @@ from datetime import date, datetime, time, timedelta
 
 from app.services.repeticion import Regla, correr, ocurrencias
 
-HORA_DESDE = time(8, 0)
-HORA_HASTA = time(22, 0)
 # Hasta cuanto para atras se mira el seguimiento "hasta que responda": un
 # recordatorio olvidado hace meses no tiene que recorrer años de fechas.
 _SEGUIMIENTO_MAX = timedelta(days=366)
@@ -51,22 +50,6 @@ class Aviso:
     clave: str
 
 
-def en_silencio(ahora: datetime) -> bool:
-    """Entre las 22 y las 8 no se avisa (C6)."""
-    return not (HORA_DESDE <= ahora.time() < HORA_HASTA)
-
-
-def corrido_al_horario(momento: datetime) -> datetime:
-    """Un momento entre las 22 y las 8 pasa a las 8 (del dia siguiente si era de
-    noche): "Mas tarde" nunca cae de madrugada."""
-    if not en_silencio(momento):
-        return momento
-    dia = momento.date() if momento.time() < HORA_DESDE else momento.date() + timedelta(days=1)
-    return momento.replace(
-        year=dia.year, month=dia.month, day=dia.day, hour=8, minute=0, second=0, microsecond=0
-    )
-
-
 def _hora(texto: str) -> time:
     return time.fromisoformat(texto)
 
@@ -81,8 +64,6 @@ def avisos_debidos(
 ) -> list[Aviso]:
     """Los avisos que tocan `ahora` (hora local, con zona) para un recordatorio.
     `ciclos` va por fecha nominal."""
-    if en_silencio(ahora):
-        return []
     hoy = ahora.date()
     salida: list[Aviso] = []
 
@@ -130,7 +111,8 @@ def _vence_de(regla: Regla, nominal: date) -> date:
 
 
 def _dia(d: date) -> str:
-    return f"{_DIAS[d.weekday()]} {d.day:02d}/{d.month:02d}"
+    """ "lunes 12/10/2026": las fechas van siempre como dd/mm/aaaa."""
+    return f"{_DIAS[d.weekday()]} {d.day:02d}/{d.month:02d}/{d.year}"
 
 
 def texto(aviso: Aviso, hoy: date, monto: str | None) -> str:

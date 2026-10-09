@@ -4,6 +4,27 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.5.1] - 2026-10-08
+
+### Cambiado
+
+- **Los avisos van a cualquier hora.** Se sacó la franja de 8 a 22: los avisos,
+  el seguimiento y "Más tarde" salen a la hora que elijas, aunque sea de noche.
+- **Todas las fechas se ven como dd/mm/aaaa** ("12/10/2026"), en la app y en
+  los avisos.
+  - Calendario de pagos: la fecha encabeza cada vencimiento ("12/10/2026 ·
+    lunes, en 8 días"), en lugar del chip "12 OCT".
+  - Movimientos (los títulos de cada día y el filtro por día), Inicio,
+    Recurrentes y el período de Estadísticas ("Lunes 14/09/2026", "05/10/2026
+    al 11/10/2026").
+  - Los meses ("Octubre de 2026") siguen con su nombre. El eje del gráfico de
+    Estadísticas va como dd/mm, para que entre en el teléfono.
+
+### Corregido
+
+- Deudas y metas mostraban la fecha como "2026-10-20". En Deudas, además, la
+  fecha quedaba cortada en el teléfono.
+
 ## [1.5.0] - 2026-10-08
 
 ### Agregado

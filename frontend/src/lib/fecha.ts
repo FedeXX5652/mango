@@ -50,8 +50,8 @@ export function claveDia(iso: string): string {
   return `${anio}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`
 }
 
-// Encabezado de un dia: "Hoy", "Ayer" o "6 de septiembre" (con el año si no es
-// el actual).
+// Encabezado de un dia: "Hoy", "Ayer" o la fecha. Las fechas van siempre como
+// dd/mm/aaaa (2026-10-08); antes era "6 de septiembre".
 export function etiquetaDia(iso: string, hoy: Date = new Date()): string {
   const d = new Date(iso)
   const ayer = new Date(hoy)
@@ -59,7 +59,5 @@ export function etiquetaDia(iso: string, hoy: Date = new Date()): string {
   const mismoDia = (a: Date, b: Date) => a.toDateString() === b.toDateString()
   if (mismoDia(d, hoy)) return "Hoy"
   if (mismoDia(d, ayer)) return "Ayer"
-  const opciones: Intl.DateTimeFormatOptions = { day: "numeric", month: "long" }
-  if (d.getFullYear() !== hoy.getFullYear()) opciones.year = "numeric"
-  return d.toLocaleDateString("es-AR", opciones)
+  return formatearFechaCorta(iso)
 }

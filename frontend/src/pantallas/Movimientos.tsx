@@ -34,7 +34,7 @@ import { useLayout } from "@/hooks/useLayout"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { iconoDe } from "@/lib/iconos"
 import { type Direccion } from "@/lib/dinero"
-import { claveDia, etiquetaDia, mesAnio } from "@/lib/fecha"
+import { claveDia, etiquetaDia, fechaISO, formatearFechaCorta, mesAnio } from "@/lib/fecha"
 import { monedaPorDefecto, ordenarMonedas } from "@/lib/monedas"
 import { cn } from "@/lib/utils"
 
@@ -604,7 +604,7 @@ export function Movimientos() {
                 className="min-h-6 text-sm font-medium text-enlace underline underline-offset-2"
                 onClick={() => cambiar({ dia: null })}
               >
-                Día {diaSel} — quitar filtro
+                Día {formatearFechaCorta(fechaISO(new Date(anio, mes, diaSel)))} — quitar filtro
               </button>
             )}
             {lista.length === 0 ? (
