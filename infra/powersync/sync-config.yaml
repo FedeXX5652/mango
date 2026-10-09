@@ -54,6 +54,10 @@ streams:
       - SELECT * FROM templates WHERE owner_id = auth.user_id()
       - SELECT * FROM goals WHERE owner_id = auth.user_id()
       - SELECT * FROM debts WHERE owner_id = auth.user_id()
+      # Calendario de pagos (1.5.0, 0030). Los ciclos llevan su propio owner_id:
+      # la sync no hace JOIN con reminders.
+      - SELECT * FROM reminders WHERE owner_id = auth.user_id()
+      - SELECT * FROM reminder_cycles WHERE owner_id = auth.user_id()
       # Adjuntos: solo METADATA. `storage_path` no viaja: el binario se baja por
       # la API (/attachments/<id>/file), no por la sync (fase 5).
       - SELECT id, transaction_id, owner_id, filename, mime_type, size_bytes,
@@ -80,8 +84,9 @@ streams:
       # que alguien tenga que acordarse de actualizar, es que no se selecciona.
       # Si algun dia se agrega una columna sensible a `users`, no llega sola.
       # `home_shortcuts`: los accesos del panel de Inicio (0024).
+      # `snooze_default`: hasta cuando calla el boton "Mas tarde" del aviso (0030).
       - SELECT id, display_name, base_currency, theme_id, color_scheme, fx_manual,
-               home_shortcuts
+               home_shortcuts, snooze_default
         FROM users WHERE id = auth.user_id()
 
   # Las cotizaciones son **compartidas y a proposito**: el dolar del 12/09 es el

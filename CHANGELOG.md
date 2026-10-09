@@ -4,6 +4,37 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.5.0] - 2026-10-08
+
+### Agregado
+
+- **Calendario de pagos** (0030): anotá lo que tenés que pagar (alquiler,
+  tarjeta, expensas) con su vencimiento y su repetición, como en Samsung
+  Reminder.
+  - Repetición: no se repite, todos los días, semanas (en los días que elijas),
+    meses (el día D, o el primero o el último lunes…) o años. Para siempre, unas
+    veces o hasta una fecha.
+  - Si vence sábado o domingo, se elige si queda ese día, pasa al lunes o se
+    adelanta al viernes.
+  - Está en **Más › Calendario de pagos**: lo vencido sin marcar, lo de hoy, lo
+    de los próximos 30 días y más adelante.
+  - Cada vencimiento se responde con **"Cargar el pago"** (abre el alta con la
+    plantilla del recordatorio y queda vinculado al movimiento), **"Ya lo
+    pagué"**, **"Más tarde"** u **"Omitir"**, y se puede deshacer.
+  - El Inicio muestra **"Próximos pagos"** cuando hay algo vencido o que vence
+    en la semana.
+- **Avisos de los vencimientos** (0030), por push y en la campanita.
+  - A la hora que elijas, uno o varios por vencimiento (por defecto, el mismo
+    día a las 9). Nunca entre las 22 y las 8.
+  - Si no respondés, sigue preguntando una vez por día (3 días, o hasta que
+    respondas).
+  - Tocarlo abre ese vencimiento.
+- **"Más tarde"**: en 1 hora, en 3, mañana o el lunes a las 9, o cuando
+  elijas.
+- **Botones en el aviso de Android**: **"Ya lo pagué"** y **"Más tarde"**
+  responden sin abrir la app. El botón "Más tarde" usa la opción nueva de
+  **Ajustes › Notificaciones** (3 horas si no elegís otra).
+
 ## [1.4.0] - 2026-10-03
 
 ### Agregado

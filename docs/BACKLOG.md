@@ -44,10 +44,20 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   plano). Cada aviso dice a que pertenece y usa el logo con fondo transparente
   (`icon` mango-512, `badge` mango-mono-96). Notification Triggers no sirve:
   Chrome termino su desarrollo y nunca salio a estable.
-- **1.5.0 - Calendario de pagos.** Recordatorios (aviso o vencimiento) con
+- **1.5.0 - Calendario de pagos** (0030). **Etapa 1 HECHA** (2026-10-04): el
+  calendario, la repeticion y "Cargar el pago". **Etapa 2 HECHA** (2026-10-07):
+  los avisos, el seguimiento, "Mas tarde" y los botones de Android. Las fechas se
+  calculan con el motor en los dos lados, en vez de materializar los ciclos (0030
+  explica por que); un dia habil es solo de lunes a viernes, sin feriados (R1).
+  Las etapas 1 y 2 salen como **1.5.0**; la etapa 3 (grupo, tarjetas y deudas,
+  recurrentes como informacion, el formato para la ingesta) como **1.6.0**, y el
+  resto del plan se corre un numero (decidido el 2026-10-08). El indicador de lo
+  automatico (A1/A2) y las propuestas de la ingesta (C9) van con la fase 2: hoy
+  nada crea recordatorios automaticos.
+  Recordatorios (aviso o vencimiento) con
   repeticion tipo Samsung (RRULE propio, sin dependencias, mismos casos de prueba
   en servidor y app), varios avisos por ciclo, seguimiento "¿ya lo pagaste?" hasta
-  responder (limitable), ciclos materializados por el servidor, zona horaria del
+  responder (limitable), zona horaria del
   usuario, botones en la notificacion de Android ("Ya lo pague", "Mas tarde") con
   un permiso de un solo uso. Asociado a una **plantilla** ("Cargar el pago" abre
   el alta con ella; si se borra la plantilla, se desvincula); plantillas de grupo
@@ -57,11 +67,11 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   pide confirmacion y lo pasa a ser del usuario. Formato documentado
   (`docs/recordatorios.md`) para la ingesta. Sale `recurring_rules.auto_create`,
   que nunca se uso.
-- **1.6.0 - Fase 4.** Dolar elegible por moneda (MEP por defecto), serie diaria
+- **1.7.0 - Fase 4.** Dolar elegible por moneda (MEP por defecto), serie diaria
   completa con historia (ArgentinaDatos para los dolares, Frankfurter/BCE para el
   resto, pivote USD: cambiar la moneda base no obliga a regenerar nada) y grafico
   en Cotizaciones.
-- **1.7.0 - Pagos en conjunto.** Un gasto compartido = total + cuanto puso cada
+- **1.8.0 - Pagos en conjunto.** Un gasto compartido = total + cuanto puso cada
   uno + cuanto le toca a cada uno. Lo que puso otro le llega como "pago por
   confirmar" (de que cuenta salio); cuenta en el balance desde que se carga; lo
   edita quien lo cargo y cada pagador solo su parte. Rechazar es reversible:
@@ -94,6 +104,24 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   "Todo" que sume patrimonios).
 - **Mas eventos de notificacion** (0019): te quitaron de un grupo, gasto compartido
   nuevo, presupuesto del grupo excedido.
+- **Los recurrentes mensuales se corren al 28 para siempre** (encontrado el
+  2026-10-04). `siguienteFecha` (lib/recurrentes.ts) acumula el tope de fin de mes:
+  un alquiler del 31 pasa al 28/2 y de ahi en mas cae el 28 (31/1 -> 28/2 ->
+  28/3). La prueba lo da por bueno (`recurrentes.test.ts`). El arreglo es anclar
+  al dia original (`day_of_period` ya existe en el modelo). El calendario de pagos
+  no tiene el problema: su motor ancla el dia (0030).
+- **`SelectorEntidad` no anuncia lo elegido** al lector de pantalla. Dentro de un
+  `Campo` (un `<label>`), el nombre del disparador es solo la etiqueta ("Cuenta"),
+  no "Cuenta, Efectivo". Mismo arreglo que el selector de repeticion (0030):
+  `aria-labelledby` con la etiqueta y el valor.
+- **Borrar dos veces termina en "Rechazados"** en todas las tablas salvo los
+  recordatorios (0030). Si dos dispositivos borran lo mismo sin conexion (o la
+  sync reintenta un DELETE que ya se aplico), el segundo recibe 404 y el conector
+  lo registra como rechazo. Arreglo: DELETE idempotente en el backend (lo ya
+  borrado devuelve 204, lo ajeno sigue en 404), como `reminders`.
+- **`backend/tests/compat/replay.py` tiene una copia vieja del mapa tabla -> ruta**
+  del conector: le faltan goals, debts, splits, settlements, notifications y las
+  del calendario.
 
 ## Fases del roadmap que faltan (resumen; detalle en ESPECIFICACION §7)
 

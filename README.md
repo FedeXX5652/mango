@@ -20,8 +20,8 @@ decide compartir**, con reparto de gastos estilo Splitwise incluido.
 ![PowerSync](https://img.shields.io/badge/PowerSync-offline--first-1c1c1c)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalable-5A0FC8?logo=pwa&logoColor=white)
-![Versión](https://img.shields.io/badge/versión-1.4.0-FDBE02)
-![Tests](https://img.shields.io/badge/tests-556%20verdes-2EA043)
+![Versión](https://img.shields.io/badge/versión-1.5.0-FDBE02)
+![Tests](https://img.shields.io/badge/tests-715%20verdes-2EA043)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED?logo=docker&logoColor=white)
 
 </div>
@@ -62,6 +62,10 @@ de un hogar, con tres convicciones:
   cuenta con la cotización guardada (el peso físico nunca se distorsiona).
 - **Plantillas** y **movimientos recurrentes** que se generan solos en el
   dispositivo.
+- **Calendario de pagos**: lo que tenés que pagar, cuándo vence y cada cuánto se
+  repite (como en Samsung Reminder). Te avisa a la hora que elijas y sigue
+  preguntando "¿ya lo pagaste?" hasta que respondas. "Cargar el pago" abre el alta
+  con su plantilla; en Android, el aviso trae "Ya lo pagué" y "Más tarde".
 - **Metas de ahorro**, **deudas y préstamos**, y **fotos de tickets** adjuntas.
 - Tarjetas de crédito con día de **cierre** y **vencimiento**.
 
@@ -181,7 +185,7 @@ por **una sola puerta** (nginx), así que se expone un único puerto.
   cliente una versión atrás.
 - **Decisiones de arquitectura documentadas** (29 ADRs en
   [`docs/decisiones/`](docs/decisiones)) — nada importante se decide dos veces.
-- **Incrementos chicos con pruebas**: **556** pruebas (backend + frontend) en
+- **Incrementos chicos con pruebas**: **715** pruebas (backend + frontend) en
   verde, más un banco de compatibilidad para detectar regresiones de esquema.
 - **Deploy por imágenes**: el servidor no tiene el código; baja imágenes
   publicadas, y la base migra sola al arrancar.
@@ -346,7 +350,8 @@ Uso personal y compartido: **funcionando**. Resumen del roadmap (detalle en
 | Reparto estilo Splitwise (splits, saldos, pagos, cuenta conjunta) | ✅ |
 | Extras (metas, deudas, adjuntos, fechas de tarjeta) | ✅ |
 | Notificaciones push + planificador en el servidor | ✅ |
-| Calendario de pagos (recordatorios con aviso) | 🚧 en camino |
+| Calendario de pagos con avisos (personal) | ✅ |
+| Calendario de pagos de grupo, tarjetas y deudas | 🚧 en camino |
 | Multimoneda: histórico de cotización + reportes en moneda base | 🚧 en camino |
 | Ingesta automática desde correo + sugerencias de IA | 🗓️ después |
 

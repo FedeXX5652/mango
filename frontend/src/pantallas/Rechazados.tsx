@@ -47,10 +47,17 @@ const ETIQUETA_TABLA: Record<string, string> = {
   budget_rules: "regla de presupuesto",
   tags: "etiqueta",
   transaction_tags: "etiqueta de movimiento",
+  transaction_splits: "reparto",
+  settlements: "pago entre miembros",
   templates: "plantilla",
   recurring_rules: "recurrente",
+  goals: "meta",
+  debts: "deuda",
+  reminders: "recordatorio",
+  reminder_cycles: "vencimiento",
   exchange_rates: "cotización",
   users: "preferencias",
+  notifications: "aviso",
 }
 
 function describir(r: Rechazada): string {

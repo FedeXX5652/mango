@@ -12,6 +12,8 @@ Tareas:
   sin mandar: queda en la bandeja y no hay catarata al volver.
 - `cotizaciones`: la cotizacion del dia de cada usuario (0005), aunque nadie
   abra la app. Hoy la serie solo crecia los dias en que se abria.
+- `recordatorios`: los avisos del calendario de pagos (0030), a su hora y con el
+  seguimiento si no se responde.
 """
 
 import asyncio
@@ -28,8 +30,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db import SessionLocal, engine
 from app.models.user import Notification, User
+from app.services import aviso_recordatorios, push
 from app.services import fx as servicio_fx
-from app.services import push
 
 log = logging.getLogger(__name__)
 
@@ -64,9 +66,12 @@ async def despachar_avisos(session: AsyncSession) -> int:
         .all()
     )
     for aviso in pendientes:
-        await push.enviar(
-            session, aviso.user_id, push.mensaje_de(aviso), push.familia_de(aviso.type)
-        )
+        # Los de un vencimiento llevan los botones "Ya lo pague" y "Mas tarde".
+        mensaje = push.mensaje_de(aviso) | await aviso_recordatorios.acciones_de(session, aviso)
+        # El permiso de los botones queda en la base ANTES de mandarlo: si la base
+        # falla aca, no sale un permiso que no existe.
+        await session.flush()
+        await push.enviar(session, aviso.user_id, mensaje, push.familia_de(aviso.type))
         # Tambien si no habia a donde mandarlo: un dispositivo que se suscriba
         # despues no tiene que recibir lo de antes.
         aviso.pushed_at = func.now()
@@ -97,6 +102,9 @@ class Tarea:
 TAREAS = (
     Tarea("avisos", 60, despachar_avisos, al_despertar=True),
     Tarea("cotizaciones", 3600, cotizaciones_del_dia),
+    # Calendario de pagos (0030): crea los avisos de los vencimientos; los manda
+    # `avisos` en la vuelta siguiente (o al toque: despiertan al confirmarse).
+    Tarea("recordatorios", 60, aviso_recordatorios.avisar),
 )
 
 

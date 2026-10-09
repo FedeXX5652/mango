@@ -32,6 +32,9 @@ const RUTA: Record<string, string> = {
   recurring_rules: "/recurring",
   goals: "/goals",
   debts: "/debts",
+  reminders: "/reminders",
+  // POST = alta o actualizacion: el id del ciclo es determinista (0030).
+  reminder_cycles: "/reminder-cycles",
   exchange_rates: "/exchange-rates",
   // Preferencias. Solo se modifican: crear o borrar un usuario no es cosa del
   // cliente, y por eso las otras dos operaciones se descartan abajo.

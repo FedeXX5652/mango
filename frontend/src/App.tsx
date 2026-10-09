@@ -29,6 +29,7 @@ import { Alta } from "@/pantallas/Alta"
 import { Categorias } from "@/pantallas/Categorias"
 import { Cotizaciones } from "@/pantallas/Cotizaciones"
 import { Cuentas } from "@/pantallas/Cuentas"
+import { CalendarioPagos } from "@/pantallas/CalendarioPagos"
 import { Deudas } from "@/pantallas/Deudas"
 import { DetalleMovimiento } from "@/pantallas/DetalleMovimiento"
 import { Estadisticas } from "@/pantallas/Estadisticas"
@@ -99,6 +100,7 @@ function Rutas() {
         <Route path="presupuesto" element={<Presupuestos />} />
         <Route path="metas" element={<Metas />} />
         <Route path="deudas" element={<Deudas />} />
+        <Route path="calendario" element={<CalendarioPagos />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

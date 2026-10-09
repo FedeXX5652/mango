@@ -1,6 +1,7 @@
 import {
   ArrowLeftRight,
   ArrowUpRight,
+  CalendarClock,
   Coins,
   CreditCard,
   Files,
@@ -44,6 +45,15 @@ export const ACCESOS: Acceso[] = [
     corta: "Metas",
     to: "/metas",
     icono: Target,
+    grupo: "funciones",
+  },
+  {
+    // Calendario de pagos (1.5.0, 0030).
+    id: "calendario",
+    etiqueta: "Calendario de pagos",
+    corta: "Calendario",
+    to: "/calendario",
+    icono: CalendarClock,
     grupo: "funciones",
   },
   {
@@ -147,7 +157,13 @@ export const DE_FABRICA = ["metas", "deudas", "recurrentes", "plantillas"]
 
 // Las herramientas de la barra lateral de escritorio: las funciones que no son
 // ya un destino de la barra (Estadisticas lo es) ni una accion de carga.
-export const HERRAMIENTAS_ESCRITORIO = ["metas", "deudas", "recurrentes", "plantillas"]
+export const HERRAMIENTAS_ESCRITORIO = [
+  "calendario",
+  "metas",
+  "deudas",
+  "recurrentes",
+  "plantillas",
+]
 
 const POR_ID = new Map(ACCESOS.map((a) => [a.id, a]))
 

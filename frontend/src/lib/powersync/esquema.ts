@@ -255,6 +255,53 @@ const recurring_rules = new Table({
   deleted_at: column.text,
 })
 
+// Calendario de pagos (1.5.0, ver 0030). Las fechas de los vencimientos no se
+// guardan: se calculan con la regla (lib/repeticion.ts). `alerts` es el JSON de
+// la lista de avisos.
+const reminders = new Table({
+  owner_id: column.text,
+  title: column.text,
+  notes: column.text,
+  template_id: column.text,
+  freq: column.text,
+  interval_count: column.integer,
+  weekdays: column.integer,
+  month_mode: column.text,
+  month_day: column.integer,
+  month_week: column.integer,
+  month_weekday: column.integer,
+  start_date: column.text,
+  until_date: column.text,
+  count: column.integer,
+  weekend_shift: column.text,
+  track_from: column.text,
+  alerts: column.text,
+  followup_days: column.integer,
+  created_at: column.text,
+  updated_at: column.text,
+  deleted_at: column.text,
+})
+
+// Un ciclo tiene fila solo cuando se responde (pagado u omitido). El id es
+// determinista: lib/repeticion.ts idCiclo(reminder_id, nominal_date).
+const reminder_cycles = new Table(
+  {
+    owner_id: column.text,
+    reminder_id: column.text,
+    nominal_date: column.text,
+    status: column.text,
+    answered_at: column.text,
+    answered_by: column.text,
+    transaction_id: column.text,
+    // "Más tarde" (etapa 2): hasta cuando calla el aviso de este vencimiento.
+    snoozed_until: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
+  },
+  { indexes: { por_recordatorio: ["reminder_id"] } },
+)
+
 // Cotizaciones. `rate` se guarda como TEXTO, no como real: es un NUMERIC(20,10)
 // y pasarlo por el float de SQLite le comeria digitos. Se convierte a numero
 // recien al multiplicar, y el resultado se redondea a centavos enteros.
@@ -286,6 +333,8 @@ const users = new Table({
   // Accesos del panel de Inicio, en orden (0024). JSONB en Postgres: baja como
   // texto con el JSON adentro, igual que fx_manual. NULL = los de fabrica.
   home_shortcuts: column.text,
+  // "Más tarde" desde el botón del aviso (0030): 1h, 3h o manana. NULL = 3 horas.
+  snooze_default: column.text,
 })
 
 // --- Proyecciones del grupo (0021) -------------------------------------------
@@ -482,6 +531,8 @@ export const AppSchema = new Schema({
   notifications,
   goals,
   debts,
+  reminders,
+  reminder_cycles,
   attachments,
   subidas_rechazadas,
 })

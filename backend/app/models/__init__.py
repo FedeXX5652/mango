@@ -8,6 +8,7 @@ from app.models.debt import Debt
 from app.models.fx import ExchangeRate
 from app.models.push import PushSubscription
 from app.models.recurring import RecurringRule, Template
+from app.models.reminder import Reminder, ReminderActionToken, ReminderCycle
 from app.models.tag import Tag, TransactionTag
 from app.models.transaction import Attachment, Transaction, TransactionSplit
 from app.models.user import Group, GroupMember, User
@@ -28,6 +29,9 @@ __all__ = [
     "PaymentMethodAccount",
     "PushSubscription",
     "RecurringRule",
+    "Reminder",
+    "ReminderActionToken",
+    "ReminderCycle",
     "Tag",
     "Template",
     "Transaction",

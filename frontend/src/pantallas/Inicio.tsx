@@ -4,11 +4,13 @@ import { useMemo } from "react"
 import { Link } from "react-router-dom"
 
 import { CobrosPorConfirmar } from "@/componentes/CobrosPorConfirmar"
+import { TarjetaProximosPagos } from "@/componentes/recordatorios/TarjetaProximosPagos"
 import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { Notificaciones } from "@/componentes/Notificaciones"
 import { PanelAccesos } from "@/componentes/PanelAccesos"
 import { Monto } from "@/componentes/Monto"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
+import { ENLACE_SECCION } from "@/componentes/ui/enlaceSeccion"
 import { TarjetaResumen } from "@/componentes/TarjetaResumen"
 import { TarjetaGrupos } from "@/componentes/grupo/TarjetaGrupos"
 import { Vacio } from "@/componentes/Vacio"
@@ -46,12 +48,6 @@ const DIR: Record<MovReciente["kind"], Direccion> = {
   income: "ingreso",
   transfer: "neutro",
 }
-
-// Salida de una seccion al listado completo. `enlace` y no `primary`: el
-// amarillo como texto no llega al contraste minimo. El margen negativo agranda
-// el area tocable a 44 px sin mover el titulo de la seccion.
-const ENLACE_SECCION =
-  "-my-3 inline-flex items-center gap-1 rounded-md py-3 text-sm font-medium text-enlace hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
 // Topes del resumen: el detalle completo esta a un toque ("Ver todos/todas").
 const MAX_RECIENTES = 5
@@ -150,6 +146,10 @@ export function Inicio() {
       </header>
 
       <CobrosPorConfirmar />
+
+      {/* Lo vencido y lo que vence en la semana (0030). No depende de tener
+          cuentas: va afuera del bloque que las necesita. */}
+      <TarjetaProximosPagos />
 
       {activas.length === 0 ? (
         <Vacio

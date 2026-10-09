@@ -49,6 +49,9 @@ CREATE TABLE users (
     -- cliente (frontend/src/componentes/accesos.ts). NULL = los de fabrica.
     -- Viaja con la sync, como el tema (ver 0024).
     home_shortcuts  JSONB,
+    -- Hasta cuando calla el boton "Mas tarde" del aviso push (0030): 1h, 3h o
+    -- manana (a las 9). NULL = 3 horas. En la app se elige cada vez.
+    snooze_default  TEXT CHECK (snooze_default IS NULL OR snooze_default IN ('1h','3h','manana')),
 
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -125,6 +128,8 @@ CREATE TABLE notifications (
     -- Cuando el planificador lo despacho por push (0029). NULL = pendiente. Lo
     -- que tiene mas de 48 h se marca sin mandar: queda solo en la bandeja.
     pushed_at       TIMESTAMPTZ,
+    -- De que vencimiento es un aviso de recordatorio (0030): {reminder_id, nominal}.
+    meta            JSONB,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at      TIMESTAMPTZ
@@ -149,6 +154,84 @@ CREATE TABLE push_subscriptions (
 );
 CREATE UNIQUE INDEX push_subscriptions_endpoint_uniq ON push_subscriptions (endpoint)
     WHERE deleted_at IS NULL;
+
+-- Calendario de pagos (1.5.0, ver 0030). Un recordatorio y su regla de
+-- repeticion, como en Samsung Reminder. Las fechas de los vencimientos NO se
+-- guardan: se calculan con la regla (backend/app/services/repeticion.py y
+-- frontend/src/lib/repeticion.ts, con casos compartidos).
+CREATE TABLE reminders (
+    id              UUID PRIMARY KEY,
+    owner_id        UUID NOT NULL REFERENCES users(id),
+    title           TEXT NOT NULL,
+    notes           TEXT,
+    -- Monto, cuenta y categoria del pago. Si se borra la plantilla, NULL.
+    template_id     UUID REFERENCES templates(id),
+    freq            TEXT NOT NULL,              -- once|daily|weekly|monthly|yearly
+    interval_count  SMALLINT NOT NULL DEFAULT 1,
+    weekdays        SMALLINT,                   -- semanal: lunes = 1 ... domingo = 64
+    month_mode      TEXT,                       -- mensual: day|weekday
+    month_day       SMALLINT,                   -- 1..31 (el mes corto: su ultimo dia)
+    month_week      SMALLINT,                   -- 1..4, -1 = el ultimo
+    month_weekday   SMALLINT,                   -- 0 = lunes .. 6 = domingo
+    start_date      DATE NOT NULL,
+    until_date      DATE,                       -- o count, no los dos
+    count           SMALLINT,
+    weekend_shift   TEXT NOT NULL,              -- none|next|previous (se elige al crear)
+    -- Desde cuando cuentan los vencimientos sin marcar; al cambiar la regla, hoy.
+    track_from      DATE NOT NULL,
+    -- [{"days_before": 0, "time": "09:00"}], entre las 08:00 y las 21:59.
+    alerts          JSONB NOT NULL DEFAULT '[{"days_before": 0, "time": "09:00"}]',
+    followup_days   SMALLINT,                   -- NULL = hasta que responda
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ,
+    CONSTRAINT reminders_freq_chk CHECK (freq IN ('once','daily','weekly','monthly','yearly')),
+    CONSTRAINT reminders_un_solo_fin_chk CHECK (count IS NULL OR until_date IS NULL),
+    CONSTRAINT reminders_weekend_shift_chk CHECK (weekend_shift IN ('none','next','previous'))
+    -- (mas los rangos de cada columna; la coherencia de la regla la valida el CRUD)
+);
+
+-- Lo que paso con un vencimiento: tiene fila solo cuando se responde. El id es
+-- determinista, UUID v5 de "reminder_id:nominal_date": dos dispositivos que lo
+-- marcan escriben la misma fila (el alta es un upsert).
+CREATE TABLE reminder_cycles (
+    id              UUID PRIMARY KEY,
+    owner_id        UUID NOT NULL REFERENCES users(id),  -- el del recordatorio (sync sin JOIN)
+    reminder_id     UUID NOT NULL REFERENCES reminders(id),
+    -- La fecha de la regla, no la corrida por el fin de semana.
+    nominal_date    DATE NOT NULL,
+    status          TEXT NOT NULL,              -- pending|paid|skipped
+    answered_at     TIMESTAMPTZ,                -- los pone el servidor
+    answered_by     UUID REFERENCES users(id),
+    transaction_id  UUID REFERENCES transactions(id),    -- "Cargar el pago"
+    -- Avisos (etapa 2): "Mas tarde" (nunca entre las 22 y las 8; responder lo
+    -- limpia) y lo que el servidor ya aviso, para no repetirlo (solo el servidor).
+    snoozed_until   TIMESTAMPTZ,
+    alerts_sent     JSONB,                      -- ["3@09:00", "0@09:00"]
+    followup_sent_on DATE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ,
+    CONSTRAINT reminder_cycles_status_chk CHECK (status IN ('pending','paid','skipped'))
+);
+CREATE UNIQUE INDEX reminder_cycles_reminder_nominal_uniq
+    ON reminder_cycles (reminder_id, nominal_date) WHERE deleted_at IS NULL;
+
+-- Permisos de un solo uso de los botones del aviso push ("Ya lo pague", "Mas
+-- tarde"; 0030): el service worker no tiene la sesion. Se guarda el SHA-256 del
+-- permiso, nunca el permiso. Vence en 7 dias. No se sincroniza.
+CREATE TABLE reminder_action_tokens (
+    id              UUID PRIMARY KEY,
+    token_hash      TEXT NOT NULL UNIQUE,
+    user_id         UUID NOT NULL REFERENCES users(id),
+    reminder_id     UUID NOT NULL REFERENCES reminders(id),
+    nominal_date    DATE NOT NULL,
+    expires_at      TIMESTAMPTZ NOT NULL,
+    used_at         TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ
+);
 
 -- ------------------------------------------------------------
 -- Cuentas: donde esta la plata

@@ -38,9 +38,10 @@ async def crear(
     title: str,
     body: str,
     link: str | None = None,
+    meta: dict | None = None,
 ) -> Notification:
     aviso = Notification(
-        id=uuid.uuid4(), user_id=user_id, type=tipo, title=title, body=body, link=link
+        id=uuid.uuid4(), user_id=user_id, type=tipo, title=title, body=body, link=link, meta=meta
     )
     session.add(aviso)
     # Cuando el aviso quede guardado, el planificador lo manda por push al toque

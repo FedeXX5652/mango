@@ -503,6 +503,42 @@ persona gana** sobre la automatica.
   **guardar lo que esta cargado como plantilla nueva** (ver DESIGN.md 7). Pueden
   estar parciales y completarse al aplicarlas.
 
+### 3.7.1 Calendario de pagos
+
+Ver 0030. Un **recordatorio** dice que hay que pagar algo, cuando vence y cada
+cuanto se repite, como en Samsung Reminder:
+
+- no se repite, o cada N dias, semanas (en ciertos dias), meses (el dia D, o el
+  primero/.../ultimo de un dia de la semana) o años;
+- para siempre, N veces o hasta una fecha;
+- si cae sabado o domingo, queda, pasa al lunes o se adelanta al viernes. Se
+  elige al crear, sin opcion preelegida, y solo se pregunta si puede caer en uno.
+  **Sin feriados.**
+
+A diferencia de un recurrente, **no genera nada solo**: avisa y pregunta. Cada
+vencimiento se responde con **"Cargar el pago"** (abre el alta con la plantilla
+del recordatorio y queda vinculado al movimiento), **"Ya lo pague"** u
+**"Omitir"**, y se puede deshacer. El monto vive en la plantilla; si se borra la
+plantilla, el recordatorio queda sin ella.
+
+Las fechas no se guardan: se calculan con la regla, con el mismo motor en el
+telefono y en el servidor. Un vencimiento tiene fila (`reminder_cycles`) solo
+cuando se responde, con id determinista, asi dos dispositivos que lo marcan sin
+conexion escriben la misma fila. Lo vencido sin responder cuenta desde que se
+creo el recordatorio o se cambio su regla.
+
+Cada recordatorio tiene sus **avisos** (por defecto el mismo dia a las 9:00;
+nunca entre las 22 y las 8) y un **seguimiento** si no se responde (3 dias por
+defecto, o hasta que se responda). Los manda el planificador del servidor (0029)
+por push y a la campanita; tocarlo abre ese vencimiento. Cada vencimiento se
+puede **posponer** ("Mas tarde": en 1 o 3 horas, mañana o el lunes a las 9, o
+cuando se elija). En Android el aviso trae los botones **"Ya lo pague"** y
+**"Mas tarde"**, que responden sin abrir la app (este ultimo usa la preferencia
+de Ajustes).
+
+Se ve en **Calendario de pagos** (vencidos sin marcar, hoy, proximos 30 dias y
+mas adelante) y en la tarjeta **Proximos pagos** del Inicio.
+
 ### 3.8 Visualizacion
 
 - Lista de movimientos con busqueda y filtros
@@ -1130,6 +1166,12 @@ dentro del backend**: corre cada minuto, y al instante cuando se confirma un avi
 nuevo. Con heimdall apagado no hay push: los avisos quedan en la bandeja, y lo de
 mas de 48 h no sale al volver. El mismo planificador pide la **cotizacion del dia**
 de cada usuario aunque nadie abra la app.
+
+**Calendario de pagos (1.5.0): etapas 1 y 2 HECHAS.** Ver 3.7.1 y 0030:
+recordatorios con repeticion estilo Samsung, vencidos sin marcar, "Cargar el
+pago" con la plantilla, la tarjeta "Proximos pagos" del Inicio, y los avisos
+(a su hora, seguimiento, "Mas tarde" y los botones de Android). Faltan los
+recordatorios de grupo, de tarjetas y de deudas (etapa 3, que sale como 1.6.0).
 
 Falta:
 

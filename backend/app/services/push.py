@@ -34,6 +34,8 @@ FAMILIA = {
     "pago_recibido": "grupos",
     "pago_deshecho": "grupos",
     "miembro_agregado": "grupos",
+    # Calendario de pagos (0030).
+    "recordatorio": "recordatorios",
 }
 
 # Respuestas del servicio de push que dicen que la suscripcion ya no sirve:

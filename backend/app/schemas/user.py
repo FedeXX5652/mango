@@ -28,6 +28,7 @@ class UserRead(BaseModel):
     fx_manual: list[str] | None
     # Accesos del panel de Inicio, en orden (0024). None = los de fabrica.
     home_shortcuts: list[str] | None
+    snooze_default: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -49,6 +50,8 @@ class UserUpdate(BaseModel):
     # El tope de la pantalla (4) lo pone el cliente; aca solo un techo holgado,
     # para no tener que aflojar una validacion si el panel crece (0012).
     home_shortcuts: list[IdAcceso] | None = Field(default=None, max_length=12)
+    # Hasta cuando calla el boton "Mas tarde" del aviso (0030). NULL = 3 horas.
+    snooze_default: Literal["1h", "3h", "manana"] | None = None
 
     @field_validator("fx_manual", "home_shortcuts", mode="before")
     @classmethod

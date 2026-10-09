@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 
 import { AvisosDispositivo } from "@/componentes/AvisosDispositivo"
+import { PreferenciaMasTarde } from "@/componentes/recordatorios/PreferenciaMasTarde"
 import { Button } from "@/componentes/ui/button"
 import { Interruptor } from "@/componentes/ui/interruptor"
 import { Campo } from "@/componentes/ui/campo"
@@ -183,6 +184,7 @@ export function Ajustes() {
 
       <Seccion titulo="Notificaciones">
         <AvisosDispositivo />
+        <PreferenciaMasTarde />
       </Seccion>
 
       <Seccion titulo="Seguridad">

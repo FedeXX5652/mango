@@ -1,0 +1,460 @@
+{
+  "_nota": "Casos compartidos por backend/tests/test_repeticion.py y frontend/src/lib/repeticion.test.ts (0030). Calculados a mano contra el calendario, no con el motor. Fechas AAAA-MM-DD; dias de la semana 0 = lunes; mascara semanal lunes = 1 ... domingo = 64. Cada ocurrencia es [nominal, vence].",
+  "ocurrencias": [
+    {
+      "nombre": "una vez, sabado pasado al lunes",
+      "regla": { "freq": "once", "start_date": "2026-10-10", "weekend_shift": "next" },
+      "desde": "2026-10-01",
+      "hasta": "2026-10-31",
+      "esperado": [["2026-10-10", "2026-10-12"]]
+    },
+    {
+      "nombre": "una vez, domingo adelantado al viernes",
+      "regla": { "freq": "once", "start_date": "2026-10-11", "weekend_shift": "previous" },
+      "desde": "2026-10-01",
+      "hasta": "2026-10-31",
+      "esperado": [["2026-10-11", "2026-10-09"]]
+    },
+    {
+      "nombre": "una vez, fuera del rango",
+      "regla": { "freq": "once", "start_date": "2026-10-10", "weekend_shift": "none" },
+      "desde": "2026-11-01",
+      "hasta": "2026-11-30",
+      "esperado": []
+    },
+    {
+      "nombre": "todos los dias, cruzando de mes",
+      "regla": { "freq": "daily", "start_date": "2026-10-28" },
+      "desde": "2026-10-30",
+      "hasta": "2026-11-02",
+      "esperado": [
+        ["2026-10-30", "2026-10-30"],
+        ["2026-10-31", "2026-10-31"],
+        ["2026-11-01", "2026-11-01"],
+        ["2026-11-02", "2026-11-02"]
+      ]
+    },
+    {
+      "nombre": "cada 3 dias",
+      "regla": { "freq": "daily", "interval_count": 3, "start_date": "2026-10-01" },
+      "desde": "2026-10-01",
+      "hasta": "2026-10-15",
+      "esperado": [
+        ["2026-10-01", "2026-10-01"],
+        ["2026-10-04", "2026-10-04"],
+        ["2026-10-07", "2026-10-07"],
+        ["2026-10-10", "2026-10-10"],
+        ["2026-10-13", "2026-10-13"]
+      ]
+    },
+    {
+      "nombre": "todas las semanas lunes y jueves, empezando un miercoles",
+      "regla": { "freq": "weekly", "weekdays": 9, "start_date": "2026-10-07" },
+      "desde": "2026-10-01",
+      "hasta": "2026-10-20",
+      "esperado": [
+        ["2026-10-08", "2026-10-08"],
+        ["2026-10-12", "2026-10-12"],
+        ["2026-10-15", "2026-10-15"],
+        ["2026-10-19", "2026-10-19"]
+      ]
+    },
+    {
+      "nombre": "cada 2 semanas los viernes",
+      "regla": {
+        "freq": "weekly",
+        "interval_count": 2,
+        "weekdays": 16,
+        "start_date": "2026-10-02"
+      },
+      "desde": "2026-10-01",
+      "hasta": "2026-11-15",
+      "esperado": [
+        ["2026-10-02", "2026-10-02"],
+        ["2026-10-16", "2026-10-16"],
+        ["2026-10-30", "2026-10-30"],
+        ["2026-11-13", "2026-11-13"]
+      ]
+    },
+    {
+      "nombre": "cada 2 semanas martes y sabado: las semanas cuentan desde la del inicio",
+      "regla": {
+        "freq": "weekly",
+        "interval_count": 2,
+        "weekdays": 34,
+        "start_date": "2026-10-08"
+      },
+      "desde": "2026-10-01",
+      "hasta": "2026-11-05",
+      "esperado": [
+        ["2026-10-10", "2026-10-10"],
+        ["2026-10-20", "2026-10-20"],
+        ["2026-10-24", "2026-10-24"],
+        ["2026-11-03", "2026-11-03"]
+      ]
+    },
+    {
+      "nombre": "todos los meses el 31: los meses cortos caen en su ultimo dia",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 31,
+        "start_date": "2026-01-31"
+      },
+      "desde": "2026-01-01",
+      "hasta": "2026-06-30",
+      "esperado": [
+        ["2026-01-31", "2026-01-31"],
+        ["2026-02-28", "2026-02-28"],
+        ["2026-03-31", "2026-03-31"],
+        ["2026-04-30", "2026-04-30"],
+        ["2026-05-31", "2026-05-31"],
+        ["2026-06-30", "2026-06-30"]
+      ]
+    },
+    {
+      "nombre": "todos los meses el 31 en anio bisiesto",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 31,
+        "start_date": "2028-01-31"
+      },
+      "desde": "2028-01-01",
+      "hasta": "2028-03-31",
+      "esperado": [
+        ["2028-01-31", "2028-01-31"],
+        ["2028-02-29", "2028-02-29"],
+        ["2028-03-31", "2028-03-31"]
+      ]
+    },
+    {
+      "nombre": "todos los meses el 10, empezando despues del 10",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 10,
+        "start_date": "2026-10-15"
+      },
+      "desde": "2026-10-01",
+      "hasta": "2026-12-31",
+      "esperado": [
+        ["2026-11-10", "2026-11-10"],
+        ["2026-12-10", "2026-12-10"]
+      ]
+    },
+    {
+      "nombre": "cada 2 meses el 15",
+      "regla": {
+        "freq": "monthly",
+        "interval_count": 2,
+        "month_mode": "day",
+        "month_day": 15,
+        "start_date": "2026-01-15"
+      },
+      "desde": "2026-01-01",
+      "hasta": "2026-08-31",
+      "esperado": [
+        ["2026-01-15", "2026-01-15"],
+        ["2026-03-15", "2026-03-15"],
+        ["2026-05-15", "2026-05-15"],
+        ["2026-07-15", "2026-07-15"]
+      ]
+    },
+    {
+      "nombre": "el segundo martes de cada mes",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "weekday",
+        "month_week": 2,
+        "month_weekday": 1,
+        "start_date": "2026-10-01"
+      },
+      "desde": "2026-10-01",
+      "hasta": "2026-12-31",
+      "esperado": [
+        ["2026-10-13", "2026-10-13"],
+        ["2026-11-10", "2026-11-10"],
+        ["2026-12-08", "2026-12-08"]
+      ]
+    },
+    {
+      "nombre": "el ultimo viernes de cada mes",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "weekday",
+        "month_week": -1,
+        "month_weekday": 4,
+        "start_date": "2026-10-01"
+      },
+      "desde": "2026-10-01",
+      "hasta": "2027-01-31",
+      "esperado": [
+        ["2026-10-30", "2026-10-30"],
+        ["2026-11-27", "2026-11-27"],
+        ["2026-12-25", "2026-12-25"],
+        ["2027-01-29", "2027-01-29"]
+      ]
+    },
+    {
+      "nombre": "el primer lunes, empezando despues del de ese mes",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "weekday",
+        "month_week": 1,
+        "month_weekday": 0,
+        "start_date": "2026-10-06"
+      },
+      "desde": "2026-10-01",
+      "hasta": "2026-12-31",
+      "esperado": [
+        ["2026-11-02", "2026-11-02"],
+        ["2026-12-07", "2026-12-07"]
+      ]
+    },
+    {
+      "nombre": "el ultimo dia del mes, fines de semana al viernes",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 31,
+        "start_date": "2026-01-31",
+        "weekend_shift": "previous"
+      },
+      "desde": "2026-01-01",
+      "hasta": "2026-06-30",
+      "esperado": [
+        ["2026-01-31", "2026-01-30"],
+        ["2026-02-28", "2026-02-27"],
+        ["2026-03-31", "2026-03-31"],
+        ["2026-04-30", "2026-04-30"],
+        ["2026-05-31", "2026-05-29"],
+        ["2026-06-30", "2026-06-30"]
+      ]
+    },
+    {
+      "nombre": "el 10 de cada mes, fines de semana al lunes",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 10,
+        "start_date": "2026-01-10",
+        "weekend_shift": "next"
+      },
+      "desde": "2026-01-01",
+      "hasta": "2026-05-31",
+      "esperado": [
+        ["2026-01-10", "2026-01-12"],
+        ["2026-02-10", "2026-02-10"],
+        ["2026-03-10", "2026-03-10"],
+        ["2026-04-10", "2026-04-10"],
+        ["2026-05-10", "2026-05-11"]
+      ]
+    },
+    {
+      "nombre": "el rango mira el vencimiento: una nominal anterior corrida adentro entra",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 10,
+        "start_date": "2026-01-10",
+        "weekend_shift": "next"
+      },
+      "desde": "2026-01-11",
+      "hasta": "2026-01-31",
+      "esperado": [["2026-01-10", "2026-01-12"]]
+    },
+    {
+      "nombre": "el rango mira el vencimiento: una nominal adentro corrida afuera no entra",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 10,
+        "start_date": "2026-01-10",
+        "weekend_shift": "next"
+      },
+      "desde": "2026-01-01",
+      "hasta": "2026-01-11",
+      "esperado": []
+    },
+    {
+      "nombre": "adelantar al viernes puede caer en el mes anterior",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 1,
+        "start_date": "2026-08-01",
+        "weekend_shift": "previous"
+      },
+      "desde": "2026-07-01",
+      "hasta": "2026-08-31",
+      "esperado": [["2026-08-01", "2026-07-31"]]
+    },
+    {
+      "nombre": "todos los anios el 29 de febrero",
+      "regla": { "freq": "yearly", "start_date": "2024-02-29" },
+      "desde": "2025-01-01",
+      "hasta": "2028-12-31",
+      "esperado": [
+        ["2025-02-28", "2025-02-28"],
+        ["2026-02-28", "2026-02-28"],
+        ["2027-02-28", "2027-02-28"],
+        ["2028-02-29", "2028-02-29"]
+      ]
+    },
+    {
+      "nombre": "cada 2 anios",
+      "regla": { "freq": "yearly", "interval_count": 2, "start_date": "2026-10-04" },
+      "desde": "2026-01-01",
+      "hasta": "2031-12-31",
+      "esperado": [
+        ["2026-10-04", "2026-10-04"],
+        ["2028-10-04", "2028-10-04"],
+        ["2030-10-04", "2030-10-04"]
+      ]
+    },
+    {
+      "nombre": "3 veces",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 5,
+        "start_date": "2026-10-05",
+        "count": 3
+      },
+      "desde": "2026-10-01",
+      "hasta": "2027-06-30",
+      "esperado": [
+        ["2026-10-05", "2026-10-05"],
+        ["2026-11-05", "2026-11-05"],
+        ["2026-12-05", "2026-12-05"]
+      ]
+    },
+    {
+      "nombre": "hasta una fecha, inclusive",
+      "regla": {
+        "freq": "weekly",
+        "weekdays": 16,
+        "start_date": "2026-10-02",
+        "until_date": "2026-10-23"
+      },
+      "desde": "2026-10-01",
+      "hasta": "2026-12-31",
+      "esperado": [
+        ["2026-10-02", "2026-10-02"],
+        ["2026-10-09", "2026-10-09"],
+        ["2026-10-16", "2026-10-16"],
+        ["2026-10-23", "2026-10-23"]
+      ]
+    },
+    {
+      "nombre": "las veces cuentan desde el inicio, no desde el rango",
+      "regla": { "freq": "daily", "start_date": "2026-10-01", "count": 5 },
+      "desde": "2026-10-04",
+      "hasta": "2026-10-31",
+      "esperado": [
+        ["2026-10-04", "2026-10-04"],
+        ["2026-10-05", "2026-10-05"]
+      ]
+    },
+    {
+      "nombre": "la fecha de fin mira la nominal, no el vencimiento corrido",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 31,
+        "start_date": "2026-01-31",
+        "until_date": "2026-05-31",
+        "weekend_shift": "next"
+      },
+      "desde": "2026-01-01",
+      "hasta": "2026-06-30",
+      "esperado": [
+        ["2026-01-31", "2026-02-02"],
+        ["2026-02-28", "2026-03-02"],
+        ["2026-03-31", "2026-03-31"],
+        ["2026-04-30", "2026-04-30"],
+        ["2026-05-31", "2026-06-01"]
+      ]
+    }
+  ],
+  "siguiente": [
+    {
+      "nombre": "el proximo, corrido al lunes",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 10,
+        "start_date": "2026-01-10",
+        "weekend_shift": "next"
+      },
+      "desde": "2026-05-01",
+      "esperado": ["2026-05-10", "2026-05-11"]
+    },
+    {
+      "nombre": "vence justo ese dia",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 10,
+        "start_date": "2026-01-10",
+        "weekend_shift": "next"
+      },
+      "desde": "2026-05-11",
+      "esperado": ["2026-05-10", "2026-05-11"]
+    },
+    {
+      "nombre": "pasado ese, el del mes siguiente",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 10,
+        "start_date": "2026-01-10",
+        "weekend_shift": "next"
+      },
+      "desde": "2026-05-12",
+      "esperado": ["2026-06-10", "2026-06-10"]
+    },
+    {
+      "nombre": "una vez, ya paso",
+      "regla": { "freq": "once", "start_date": "2026-10-10" },
+      "desde": "2026-10-13",
+      "esperado": null
+    },
+    {
+      "nombre": "se terminaron las veces",
+      "regla": {
+        "freq": "monthly",
+        "month_mode": "day",
+        "month_day": 5,
+        "start_date": "2026-10-05",
+        "count": 3
+      },
+      "desde": "2026-12-06",
+      "esperado": null
+    },
+    {
+      "nombre": "cada 2 anios salta al otro",
+      "regla": { "freq": "yearly", "interval_count": 2, "start_date": "2026-10-04" },
+      "desde": "2026-10-05",
+      "esperado": ["2028-10-04", "2028-10-04"]
+    }
+  ],
+  "ids": [
+    {
+      "reminder_id": "0000a5a0-0000-4000-8000-0000000000aa",
+      "nominal": "2026-10-10",
+      "id": "a3de59b3-c5fb-5dc9-b26d-b0965c084c16"
+    },
+    {
+      "reminder_id": "0000a5a0-0000-4000-8000-0000000000aa",
+      "nominal": "2026-11-10",
+      "id": "0e78b57e-70c7-5fc8-8680-7cd8433bf08b"
+    },
+    {
+      "reminder_id": "7F3C9E2A-1B4D-4E8F-A6C2-9D0E5F1A2B3C",
+      "nominal": "2028-02-29",
+      "id": "bc21f932-42f8-5292-88f8-07071aa994e2"
+    }
+  ]
+}

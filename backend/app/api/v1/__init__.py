@@ -14,6 +14,9 @@ from app.api.v1.notifications import router as notifications_router
 from app.api.v1.payment_methods import router as payment_methods_router
 from app.api.v1.push import router as push_router
 from app.api.v1.recurring import router as recurring_router
+from app.api.v1.reminders import router as reminders_router
+from app.api.v1.reminders import router_acciones as reminder_actions_router
+from app.api.v1.reminders import router_ciclos as reminder_cycles_router
 from app.api.v1.settlements import router as settlements_router
 from app.api.v1.sync import router as sync_router
 from app.api.v1.tags import router as tags_router
@@ -41,6 +44,9 @@ api_router.include_router(settlements_router)
 api_router.include_router(notifications_router)
 api_router.include_router(templates_router)
 api_router.include_router(recurring_router)
+api_router.include_router(reminders_router)
+api_router.include_router(reminder_cycles_router)
+api_router.include_router(reminder_actions_router)
 api_router.include_router(goals_router)
 api_router.include_router(debts_router)
 api_router.include_router(attachments_router)

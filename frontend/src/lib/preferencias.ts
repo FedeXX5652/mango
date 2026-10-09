@@ -104,6 +104,8 @@ type Campos = Partial<Pick<Preferencias, "display_name" | "base_currency" | "the
   fx_manual?: string[]
   // null = volver a los de fabrica.
   home_shortcuts?: string[] | null
+  // "Más tarde" desde el botón del aviso (0030). null = 3 horas.
+  snooze_default?: "1h" | "3h" | "manana" | null
 }
 
 // Escribe local; la sync lo sube despues. Sin fila todavia no hace nada: crear

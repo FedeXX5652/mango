@@ -9,6 +9,7 @@ import { EspacioDelMovimiento } from "@/componentes/EspacioDelMovimiento"
 import { HojaPlantillas, type PlantillaLocal } from "@/componentes/HojaPlantillas"
 import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
 import { SelectorMoneda } from "@/componentes/SelectorMoneda"
+import { type PagoDeCiclo } from "@/componentes/recordatorios/Vencimiento"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
@@ -23,7 +24,9 @@ import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
 import { tipoDesdeParametro, type TipoMovimiento } from "@/lib/atajos"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { PERSONAL, rutaEspacio } from "@/lib/espacios"
+import { formatearFechaCorta } from "@/lib/fecha"
 import { ordenarMonedas } from "@/lib/monedas"
+import { responderCiclo } from "@/lib/recordatorios"
 import { leerReparto } from "@/lib/reparto"
 import { usuarioActualId } from "@/lib/sesion"
 import { uuidv4 } from "@/lib/uuid"
@@ -68,9 +71,13 @@ export function FormularioMovimiento({
   grupoInicial = "",
   cuentaInicial = "",
   destinoInicial = "",
+  ciclo,
   onGuardado,
 }: {
   plantillaId?: string
+  // "Cargar el pago" de un recordatorio (0030): al guardar, ese vencimiento
+  // queda pagado con este movimiento.
+  ciclo?: Pick<PagoDeCiclo, "reminderId" | "nominal">
   // Con que tipo abre: lo fija el atajo del icono (`/nuevo?tipo=ingreso`, 0023).
   tipoInicial?: TipoMovimiento
   // El espacio desde el que se toco el "+" (0026): "" es Personal.
@@ -337,6 +344,7 @@ export function FormularioMovimiento({
           )
         }
       }
+      if (ciclo) await responderCiclo(db, ciclo.reminderId, ciclo.nominal, "paid", idTx)
       // Una transferencia que toca la conjunta de un grupo (poner o sacar plata)
       // es del grupo para quien la mira: se vuelve a ese grupo.
       const grupoDeLaConjunta =
@@ -579,7 +587,13 @@ export function Alta() {
   const navigate = useNavigate()
   const location = useLocation()
   const [params] = useSearchParams()
-  const plantillaId = (location.state as { plantillaId?: string } | null)?.plantillaId
+  const estado = location.state as {
+    plantillaId?: string
+    ciclo?: PagoDeCiclo
+    volverA?: string
+  } | null
+  const plantillaId = estado?.plantillaId
+  const ciclo = estado?.ciclo
   const tipoInicial = tipoDesdeParametro(params.get("tipo"))
   // `/grupos/<grupo>/nuevo`: el "+" tocado dentro de un grupo (0026).
   const { grupo = "" } = useParams()
@@ -593,11 +607,17 @@ export function Alta() {
   return (
     <main className="mx-auto max-w-md space-y-4 p-4 pb-4 motion-safe:animate-subir">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Nuevo movimiento</h1>
+        <h1 className="text-2xl font-semibold">{ciclo ? "Cargar el pago" : "Nuevo movimiento"}</h1>
         <Button variant="ghost" size="icon" onClick={cerrar} aria-label="Cerrar">
           <X className="h-5 w-5" />
         </Button>
       </header>
+      {ciclo && (
+        <p className="rounded-md bg-muted px-3 py-2 text-sm">
+          {ciclo.titulo}, que vence el {formatearFechaCorta(ciclo.vence)}. Al guardar queda marcado
+          como pagado.
+        </p>
+      )}
       <FormularioMovimiento
         // Otro `tipo` en la URL con la pantalla abierta (otro atajo) remonta el
         // formulario: arranca limpio en el tipo nuevo.
@@ -607,11 +627,16 @@ export function Alta() {
         grupoInicial={grupo}
         cuentaInicial={desde}
         destinoInicial={hacia}
-        // A los Movimientos del espacio donde quedo, no del que se partio.
+        ciclo={ciclo}
+        // A los Movimientos del espacio donde quedo, no del que se partio. Un
+        // pago de un recordatorio vuelve al calendario, donde ya se ve pagado.
         onGuardado={(g) =>
-          navigate(rutaEspacio(g ? { tipo: "grupo", id: g } : PERSONAL, "movimientos"), {
-            replace: true,
-          })
+          navigate(
+            ciclo
+              ? (estado?.volverA ?? "/calendario")
+              : rutaEspacio(g ? { tipo: "grupo", id: g } : PERSONAL, "movimientos"),
+            { replace: true },
+          )
         }
       />
     </main>

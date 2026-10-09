@@ -54,8 +54,16 @@ class User(Base, IdMixin, TimestampMixin):
     # los dispositivos.
     home_shortcuts: Mapped[list[str] | None] = mapped_column(JSONB(none_as_null=True))
 
+    # "Mas tarde" desde el boton del aviso en Android (0030, R2): hasta cuando
+    # calla. Ahi no se puede elegir (es un boton); en la app si. NULL = 3 horas.
+    snooze_default: Mapped[str | None] = mapped_column(Text)
+
     __table_args__ = (
         CheckConstraint("color_scheme IN ('light','dark','system')", name="users_color_scheme_chk"),
+        CheckConstraint(
+            "snooze_default IS NULL OR snooze_default IN ('1h','3h','manana')",
+            name="users_snooze_default_chk",
+        ),
     )
 
 
@@ -149,3 +157,6 @@ class Notification(Base, IdMixin, TimestampMixin):
     # Cuando salio por push (1.4.0). NULL = todavia no: lo despacha el
     # planificador. Tambien se marca si no habia a donde mandarlo.
     pushed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+    # Datos del evento que el push necesita (0030): de que vencimiento es un
+    # aviso de recordatorio, para los botones "Ya lo pagué" y "Más tarde".
+    meta: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))

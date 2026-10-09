@@ -481,6 +481,11 @@ Tres controles, y cual va depende de **que** se elige, no de cuantos hay:
 
 - **Hasta 4 opciones fijas de una palabra** (Gasto/Ingreso/Transferencia,
   Dia/Semana/Mes/Año): `Segmentado`. Se ven todas sin abrir nada.
+- **Pocas opciones fijas que son frases** ("Pasa al lunes", "Todos los meses, el
+  día 10"): **`OpcionesRadio`**, radios nativos en una lista agrupada. Es tambien
+  el que va cuando **no tiene que haber nada elegido de entrada**: `Segmentado`
+  siempre pinta una opcion, y hay elecciones que tiene que hacer la persona (que
+  pasa si un vencimiento cae en fin de semana, 0030).
 - **Entidades** —cuentas, categorias, medios, etiquetas, monedas, plantillas—:
   **`SelectorEntidad`**, una lista en una `Hoja`. Las creas vos, la lista crece, y
   cada opcion lleva mas que un nombre: la cuenta su moneda, la categoria su icono
@@ -840,6 +845,36 @@ primeros) y en la lista de saltos de escritorio (hasta 10). iOS no los muestra.
   con el glifo en `primary-foreground`. El significado esta tambien en el nombre:
   el color solo no dice nada.
 - PNG de 96 y 192 px, fuentes SVG en `public/icons/atajos/`.
+
+### Calendario de pagos
+
+Pantalla `/calendario` y tarjeta "Próximos pagos" del Inicio (0030).
+
+- **Cada vencimiento lleva un chip con la fecha** (dia y mes, "12 OCT"). La linea
+  de abajo no la repite: dice el dia de la semana y cuanto falta ("Lunes, en 8
+  días"), o el estado. Corta a proposito, porque en el movil comparte la fila con
+  el monto.
+- **Vencido**: chip y linea en `destructive`. **Hoy**: chip en `primary`.
+- **Lo ya respondido** (pagado u omitido) se apaga con el **color del texto**
+  (`muted-foreground`, que cumple AA), mas un icono (check u omitido). **No con
+  opacidad**: el texto secundario a 70% bajaba de 4,5:1.
+- **La repeticion se elige como en Samsung Reminder**: atajos que salen de la
+  fecha ("Todas las semanas, los sábados") en `OpcionesRadio`, y "Personalizar"
+  (cada N + unidad en `Segmentado`, los dias como botones de alternar, el dia del
+  mes y el fin). El disparador muestra la regla en palabras, y su nombre
+  accesible es la etiqueta **mas** el valor ("Repetir, Todos los meses, el día
+  10"), no solo "Repetir".
+- **Lo que no aplica no se pregunta**: "Si cae sábado o domingo" aparece solo si
+  la regla puede caer en uno, sin opcion elegida, y no deja guardar sin
+  responder.
+- **Las acciones de un vencimiento van en una `Hoja`**. La principal es "Cargar
+  el pago"; despues vienen "Ya lo pagué", "Más tarde" y "Omitir". Lo respondido
+  ofrece "Deshacer".
+- **"Más tarde" dice a que hora queda cada atajo** ("En 3 horas · hoy a las
+  17:09"), en una lista donde la fila entera es el boton. La fecha y hora a
+  eleccion avisa si cae de noche ("De noche no avisa: queda para mañana a las
+  08:00"). Lo pospuesto se ve en la fila ("Pospuesto hasta hoy a las 15:08") y en
+  la hoja, con "Quitar".
 
 ### Avisos del sistema (push)
 

@@ -7,10 +7,11 @@ manual (source='template').
 
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.recurring import Template
+from app.models.reminder import Reminder
 from app.schemas.template import TemplateCreate, TemplateUpdate
 
 
@@ -47,4 +48,10 @@ async def update_template(
 
 async def soft_delete_template(session: AsyncSession, template: Template) -> None:
     template.deleted_at = func.now()
+    # Los recordatorios que la usaban quedan, sin plantilla (0030, C8).
+    await session.execute(
+        update(Reminder)
+        .where(Reminder.template_id == template.id)
+        .values(template_id=None, updated_at=func.now())
+    )
     await session.commit()
