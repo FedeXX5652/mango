@@ -72,6 +72,11 @@ La 1.5.0 suma los recordatorios del calendario de pagos.
     `recordatorios`; NULL = todas). Queda listo para preferencias por
     dispositivo. Un tipo de aviso que no está en `FAMILIA` es su propia
     familia: le llega a quien acepta todo, nunca a quien eligió otras.
+- **Todo aviso sale con urgencia alta** (`Urgency: high`, RFC 8030; desde la
+  1.6.1). Con la normal, un Android en reposo (Doze) retenía el push hasta su
+  próxima ventana de actividad, minutos u horas después, y el aviso de un
+  vencimiento llegaba "cuando quería". FCM reserva la prioridad alta para lo que
+  se muestra en la barra, que es todo lo que manda Mango.
 - **Cuándo se da de baja una suscripción** (borrado lógico): cuando el servicio
   de push responde **404 o 410** (el dispositivo ya no existe) o **401 o 403**
   (no acepta las claves del servidor). Otros errores (413, 429, 5xx) son

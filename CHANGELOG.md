@@ -4,6 +4,14 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.6.1] - 2026-10-12
+
+### Corregido
+
+- **Los avisos llegan a horario.** Salían con prioridad normal, y un Android en
+  reposo los podía retener minutos u horas. Ahora salen con urgencia alta, la
+  que se usa para lo que tiene hora.
+
 ## [1.6.0] - 2026-10-09
 
 ### Agregado

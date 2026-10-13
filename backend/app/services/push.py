@@ -84,6 +84,13 @@ def mensaje_de(aviso: Notification) -> dict:
     }
 
 
+# Urgencia alta (RFC 8030): un aviso con hora no puede esperar. Con la normal,
+# un Android en reposo (Doze) lo retenia hasta su proxima ventana de actividad,
+# minutos u horas despues (1.6.1). Todos los avisos de Mango se muestran en la
+# barra, que es para lo que FCM reserva la prioridad alta.
+CABECERAS = {"Urgency": "high"}
+
+
 @lru_cache(maxsize=1)
 def _vapid(privada: str) -> Vapid02:
     return Vapid02.from_raw(privada.encode())
@@ -98,6 +105,7 @@ async def _enviar_real(info: dict, data: str) -> int:
             vapid_private_key=clave,
             vapid_claims={"sub": settings.vapid_subject},
             ttl=24 * 3600,
+            headers=CABECERAS,
             timeout=10,
         )
     except WebPushException as exc:

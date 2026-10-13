@@ -328,3 +328,23 @@ async def test_un_tipo_sin_familia_no_salta_el_filtro(api: SimpleNamespace, push
     await _aviso(api, tipo="tipo_nuevo")
     await planificador.despachar_avisos(api.session)
     assert [info["endpoint"] for info, _ in push_activo.enviados] == [todo["endpoint"]]
+
+
+async def test_sale_con_urgencia_alta(monkeypatch) -> None:
+    """Un aviso con hora no puede esperar a que Android salga del reposo (1.6.1):
+    con la urgencia normal, FCM lo retenia minutos u horas."""
+    pedido: dict = {}
+
+    class Respuesta:
+        status = 201
+
+    async def falso(info, **kwargs):
+        pedido.update(kwargs)
+        return Respuesta()
+
+    monkeypatch.setattr(servicio_push, "webpush_async", falso)
+    monkeypatch.setattr(servicio_push, "_vapid", lambda privada: object())
+    estado = await servicio_push._enviar_real({"endpoint": "https://push.example/x"}, "{}")
+    assert estado == 201
+    assert pedido["headers"] == {"Urgency": "high"}
+    assert pedido["ttl"] == 24 * 3600
