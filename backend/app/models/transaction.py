@@ -72,6 +72,15 @@ class Transaction(Base, IdMixin, TimestampMixin):
     # permite borrarlo si se deshace el pago (mientras siga pendiente).
     settlement_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("settlements.id"))
 
+    # Pagos en conjunto (0032). En un gasto compartido que pagaron varios,
+    # `amount` sigue siendo el TOTAL y esto es lo que puso quien lo cargo (lo que
+    # sale de su cuenta). NULL = lo pago entero. 0 = lo pagaron otros: sin cuenta.
+    amount_owner: Mapped[int | None] = mapped_column(BigInteger)
+    # El pago de un miembro en un gasto que cargo otro: este movimiento es suyo y
+    # apunta al gasto compartido. Lo crea el servidor (mismo id que su fila de
+    # `transaction_payers`) y queda 'pending' hasta que elige la cuenta.
+    paid_for_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("transactions.id"))
+
     __table_args__ = (
         CheckConstraint("kind IN ('expense','income','transfer')", name="tx_kind_chk"),
         CheckConstraint("status IN ('confirmed','pending','rejected')", name="tx_status_chk"),
@@ -96,7 +105,16 @@ class Transaction(Base, IdMixin, TimestampMixin):
             name="tx_transfer_chk",
         ),
         # Una transaccion confirmada necesita cuenta
-        CheckConstraint("status <> 'confirmed' OR account_id IS NOT NULL", name="tx_confirmed_chk"),
+        # Una transaccion confirmada necesita cuenta, salvo un gasto compartido
+        # que pagaron otros enteros (0032): de la cuenta de quien lo cargo no sale
+        # nada.
+        CheckConstraint(
+            "status <> 'confirmed' OR account_id IS NOT NULL OR amount_owner = 0",
+            name="tx_confirmed_chk",
+        ),
+        CheckConstraint(
+            "amount_owner IS NULL OR amount_owner BETWEEN 0 AND amount", name="tx_amount_owner_chk"
+        ),
         # El monto es magnitud positiva; la direccion la da `kind` (ver 0001)
         CheckConstraint("amount >= 0", name="tx_amount_chk"),
         # Una transferencia mueve plata entre cuentas propias: no se categoriza.
@@ -155,3 +173,56 @@ class Attachment(Base, IdMixin, TimestampMixin):
     mime_type: Mapped[str] = mapped_column(Text, nullable=False)
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class TransactionPayer(Base, IdMixin, TimestampMixin):
+    """Otro que puso plata en un gasto compartido (0032): un miembro o la cuenta
+    conjunta. Lo carga quien cargo el gasto; `status` lo mantiene el servidor,
+    espejo del movimiento de ese miembro (la conjunta nace confirmada)."""
+
+    __tablename__ = "transaction_payers"
+
+    transaction_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("transactions.id"), nullable=False)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    # La cuenta conjunta del grupo, cuando la que puso es ella.
+    account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    amount: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pending'"))
+
+    __table_args__ = (
+        CheckConstraint("(user_id IS NULL) <> (account_id IS NULL)", name="payer_quien_chk"),
+        CheckConstraint("amount >= 0", name="payer_amount_chk"),
+        CheckConstraint("status IN ('pending','confirmed','rejected')", name="payer_status_chk"),
+        Index(
+            "payer_miembro_uniq",
+            "transaction_id",
+            "user_id",
+            unique=True,
+            postgresql_where=text("user_id IS NOT NULL AND deleted_at IS NULL"),
+        ),
+        # Las consultas de un gasto (borrar, seguir, el balance) van por gasto.
+        Index("payer_tx_idx", "transaction_id", postgresql_where=text("deleted_at IS NULL")),
+        Index(
+            "payer_conjunta_uniq",
+            "transaction_id",
+            unique=True,
+            postgresql_where=text("account_id IS NOT NULL AND deleted_at IS NULL"),
+        ),
+    )
+
+
+class PaymentActionToken(Base, IdMixin, TimestampMixin):
+    """Permiso de un solo uso para el boton del aviso de un pago a confirmar
+    ("Pagada con Efectivo", 0032), como el de los recordatorios (0030). El
+    service worker no tiene la sesion: responde con esto. Se guarda el hash. No
+    se sincroniza."""
+
+    __tablename__ = "payment_action_tokens"
+
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # El pago a confirmar (el movimiento de quien pago) y la cuenta que propone.
+    transaction_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("transactions.id"), nullable=False)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id"), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))

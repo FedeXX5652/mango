@@ -66,6 +66,11 @@ evento, asi el aviso y el hecho se guardan juntos (o ninguno).
   categoria **en la moneda del tope** (0005), en el mes de Argentina. Solo el mes
   en curso: un gasto cargado tarde en un mes que ya paso no avisa.
 
+En la 1.8.0 (0032) suman `pago_por_confirmar`, `pago_cambiado` y `pago_borrado`
+(a quien puso plata en un gasto que cargo otro) y `pago_rechazado` (a quien lo
+cargo, 30 segundos despues de un "no la pague" que sigue en pie, por el
+planificador).
+
 **Los dos ultimos no salen en el evento: los arma el planificador** (tarea
 `grupos`, cada minuto, 0029). Un gasto compartido sube por la cola de sync antes
 que sus partes, en otros pedidos: en el alta todavia no se sabe a quien le toca

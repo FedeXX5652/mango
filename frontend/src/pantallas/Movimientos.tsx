@@ -255,7 +255,9 @@ export function Movimientos() {
       p.push(`%${texto.trim()}%`, `%${texto.trim()}%`)
     }
     return {
-      sql: `SELECT t.id, t.kind, t.amount, t.currency, t.occurred_at, t.payee, t.status,
+      // En un gasto que pagaron varios, lo mio es lo que puse (0032).
+      sql: `SELECT t.id, t.kind, COALESCE(t.amount_owner, t.amount) AS amount, t.currency,
+                   t.occurred_at, t.payee, t.status,
                    c.name AS categoria, c.icon AS categoria_icon, a.name AS cuenta,
                    g.name AS grupo_nombre, g.color AS grupo_color
             FROM transactions t

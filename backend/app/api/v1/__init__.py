@@ -23,6 +23,8 @@ from app.api.v1.sync import router as sync_router
 from app.api.v1.tags import router as tags_router
 from app.api.v1.tags import router_tt as transaction_tags_router
 from app.api.v1.templates import router as templates_router
+from app.api.v1.transaction_payers import router as transaction_payers_router
+from app.api.v1.transaction_payers import router_acciones as payment_actions_router
 from app.api.v1.transaction_splits import router as transaction_splits_router
 from app.api.v1.transactions import router as transactions_router
 from app.api.v1.users import router as users_router
@@ -42,6 +44,8 @@ api_router.include_router(groups_router)
 api_router.include_router(tags_router)
 api_router.include_router(transaction_tags_router)
 api_router.include_router(transaction_splits_router)
+api_router.include_router(transaction_payers_router)
+api_router.include_router(payment_actions_router)
 api_router.include_router(settlements_router)
 api_router.include_router(notifications_router)
 api_router.include_router(templates_router)

@@ -3,7 +3,9 @@
 // divergian.
 //
 // Del lado `account_id` sale lo debitado (`amount_account` si la compra fue en
-// otra moneda; si no, `amount`). Del lado `transfer_account_id` entra `amount`,
+// otra moneda; si no, `amount`). En un gasto que pagaron varios sale solo lo que
+// puso quien lo cargo (`amount_owner`), y lo que puso la cuenta conjunta sale de
+// ella (`transaction_payers`, 0032). Del lado `transfer_account_id` entra `amount`,
 // que ya esta en la moneda de la cuenta que recibe. Los pagos REALES de deudas
 // (0017) salen de la cuenta del que paga: esa cuenta es privada y llega aparte,
 // a `settlement_accounts`; mientras un pago mio no subio, esta en la propia fila
@@ -19,8 +21,10 @@ export function saldoCuenta(fuente = "transactions"): string {
   return `a.opening_balance
     + COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM ${fuente}
         WHERE account_id = a.id AND kind = 'income' AND status = 'confirmed' AND deleted_at IS NULL), 0)
-    - COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM ${fuente}
+    - COALESCE((SELECT SUM(COALESCE(amount_account, amount_owner, amount)) FROM ${fuente}
         WHERE account_id = a.id AND kind = 'expense' AND status = 'confirmed' AND deleted_at IS NULL), 0)
+    - COALESCE((SELECT SUM(p.amount) FROM transaction_payers p
+        WHERE p.account_id = a.id AND p.deleted_at IS NULL), 0)
     + COALESCE((SELECT SUM(amount) FROM ${fuente}
         WHERE transfer_account_id = a.id AND kind = 'transfer' AND status = 'confirmed' AND deleted_at IS NULL), 0)
     - COALESCE((SELECT SUM(COALESCE(amount_account, amount)) FROM ${fuente}

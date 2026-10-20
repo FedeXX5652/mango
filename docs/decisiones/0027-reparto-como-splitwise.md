@@ -69,8 +69,8 @@ iguales.
 
 Cargar un gasto que **pagó otro miembro** ("Beto pagó la luz") cambia el modelo:
 hoy el gasto es de quien lo carga, y su cuenta es privada (0021). Necesita una
-decisión propia (quién lo puede editar, de qué cuenta salió). Queda en el
-BACKLOG.
+decisión propia (quién lo puede editar, de qué cuenta salió). **Hecho en la
+1.8.0: ver 0032** (pagos en conjunto).
 
 ## Consecuencias
 

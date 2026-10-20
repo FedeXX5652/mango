@@ -4,6 +4,32 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.8.0] - 2026-10-19
+
+### Agregado
+
+- **Pagos en conjunto** (0032): un gasto del grupo ahora dice **quién pagó**.
+  - "Lo pagué yo", como siempre, o **"Entre varios"**: cuánto pusiste vos, cada
+    miembro y la cuenta conjunta. Sirve también para cargar un gasto que pagó
+    otro (tengo el ticket, no puse nada).
+  - A cada uno que puso plata le llega un **"Pago por confirmar"**: en el Inicio,
+    en la campanita y en el teléfono. Elige de qué cuenta salió, con la última
+    que usó ya elegida; en Android, con el botón "Pagada con Efectivo" del aviso.
+  - **"No la pagué"** va abajo, se puede deshacer durante 30 segundos, y recién
+    después le avisa a quien lo cargó. El gasto queda "en revisión", y la
+    respuesta se cambia cuando quieras desde el gasto.
+  - El balance del grupo lo cuenta desde que se carga. Lo que puso la conjunta
+    no es deuda de nadie.
+  - Lo edita quien lo cargó. Si cambia lo que puso otro, se le vuelve a pedir
+    que lo confirme; si lo borra, se borran los pagos de los demás, con aviso.
+  - En lo personal (la lista, el Inicio, las estadísticas) cada uno ve lo que
+    puso, no el total.
+
+### Corregido
+
+- **Las cotizaciones se traen apenas arranca el servidor.** Con heimdall recién
+  prendido, la tarea de cada hora esperaba una hora para la primera vuelta.
+
 ## [1.7.0] - 2026-10-12
 
 ### Agregado

@@ -7,6 +7,7 @@ import {
   type MiembroGrupo,
   type PagoHistoria,
   type ResumenMoneda,
+  type PayerRow,
   type SplitRow,
   type TxGrupo,
   historiaGrupo,
@@ -60,7 +61,7 @@ export function useGrupo(groupId: string) {
 
   const { data: gastos, isLoading: cargandoGastos } = useQuery<GastoGrupo>(
     `SELECT t.id, t.owner_id, t.amount, t.currency, t.category_id, t.kind, t.paid_from_group,
-            t.occurred_at, t.payee
+            t.amount_owner, t.occurred_at, t.payee
      FROM ${TX_GRUPO} t
      WHERE t.group_id = ? AND t.visibility = 'shared' AND t.deleted_at IS NULL AND t.kind = 'expense'
      ORDER BY t.occurred_at DESC`,
@@ -70,6 +71,13 @@ export function useGrupo(groupId: string) {
     `SELECT s.transaction_id, s.user_id, s.amount
      FROM transaction_splits s JOIN ${TX_GRUPO} t ON t.id = s.transaction_id
      WHERE t.group_id = ? AND t.visibility = 'shared' AND t.deleted_at IS NULL AND s.deleted_at IS NULL`,
+    [groupId],
+  )
+  // Quien mas puso en cada gasto (0032).
+  const { data: pagadores } = useQuery<PayerRow>(
+    `SELECT p.id, p.transaction_id, p.user_id, p.account_id, p.amount, p.status
+     FROM transaction_payers p JOIN ${TX_GRUPO} t ON t.id = p.transaction_id
+     WHERE t.group_id = ? AND t.visibility = 'shared' AND t.deleted_at IS NULL AND p.deleted_at IS NULL`,
     [groupId],
   )
   // `pago_real` dice si fue un pago con plata (0017) sin decir de que cuenta.
@@ -114,9 +122,15 @@ export function useGrupo(groupId: string) {
     return m
   }, [splits])
 
+  const pagadoresDe = useMemo(() => {
+    const m = new Map<string, PayerRow[]>()
+    for (const p of pagadores) m.set(p.transaction_id, [...(m.get(p.transaction_id) ?? []), p])
+    return m
+  }, [pagadores])
+
   const balance: ResumenMoneda[] = useMemo(
-    () => resumenGrupo(gastos, miembros, { splits, settlements: pagos }),
-    [gastos, miembros, splits, pagos],
+    () => resumenGrupo(gastos, miembros, { splits, settlements: pagos, payers: pagadores }),
+    [gastos, miembros, splits, pagos, pagadores],
   )
 
   // "Vos" para mi; el nombre para los demas; un respaldo si alguien dejo el grupo.
@@ -127,6 +141,7 @@ export function useGrupo(groupId: string) {
     miId,
     gastos,
     splitsDe,
+    pagadoresDe,
     pagos,
     aportes,
     miembros,

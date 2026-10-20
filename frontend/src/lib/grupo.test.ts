@@ -306,3 +306,61 @@ describe("como quede yo (una linea)", () => {
     )
   })
 })
+
+describe("pagos en conjunto (0032)", () => {
+  const miembros = [
+    { user_id: "a", nombre: "Ana" },
+    { user_id: "b", nombre: "Beto" },
+  ]
+  // $100 en partes iguales; Ana lo cargo y puso $40, Beto puso $60.
+  const tx = {
+    id: "t",
+    owner_id: "a",
+    amount: 10000,
+    amount_owner: 4000,
+    currency: "ARS",
+    category_id: null,
+    kind: "expense",
+  }
+
+  it("cada uno puso lo suyo: el balance es lo que puso menos lo que le toca", () => {
+    const [r] = resumenGrupo([tx], miembros, {
+      payers: [{ transaction_id: "t", user_id: "b", account_id: null, amount: 6000 }],
+    })
+    expect(r.balances.map((b) => [b.user_id, b.puso, b.parte, b.neto])).toEqual([
+      ["a", 4000, 5000, -1000],
+      ["b", 6000, 5000, 1000],
+    ])
+    expect(r.liquidaciones).toEqual([{ de: "a", a: "b", monto: 1000 }])
+    // El total del grupo sigue siendo el gasto entero.
+    expect(r.total).toBe(10000)
+  })
+
+  it("lo que puso la conjunta no es deuda: se reparte el resto", () => {
+    // Ana puso $40 y la conjunta $60: de los $40 restantes toca $20 a cada uno.
+    const [r] = resumenGrupo([tx], miembros, {
+      payers: [{ transaction_id: "t", user_id: null, account_id: "c", amount: 6000 }],
+    })
+    expect(r.balances.map((b) => [b.user_id, b.puso, b.parte, b.neto])).toEqual([
+      ["a", 4000, 2000, 2000],
+      ["b", 0, 2000, -2000],
+    ])
+    expect(
+      parteEnGasto(tx, [], miembros, "b", [
+        { transaction_id: "t", user_id: null, account_id: "c", amount: 6000 },
+      ]),
+    ).toBe(2000)
+  })
+
+  it("con reparto desigual, la conjunta lo achica en proporcion", () => {
+    const splits = [
+      { transaction_id: "t", user_id: "a", amount: 7000 },
+      { transaction_id: "t", user_id: "b", amount: 3000 },
+    ]
+    const [r] = resumenGrupo([{ ...tx, amount_owner: 5000 }], miembros, {
+      splits,
+      payers: [{ transaction_id: "t", user_id: null, account_id: "c", amount: 5000 }],
+    })
+    expect(r.balances.map((b) => b.parte)).toEqual([3500, 1500])
+  })
+})

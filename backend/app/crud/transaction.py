@@ -16,6 +16,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
+from app.crud import payer as pagadores
 from app.crud._borrado import vivo
 from app.crud.category import es_categoria_de_grupo
 from app.crud.group import membresia
@@ -25,6 +26,17 @@ from app.models.transaction import Transaction
 from app.models.user import GroupMember
 from app.schemas.transaction import TransactionCreate, TransactionUpdate
 from app.services import conversion
+
+# Lo que quien pago puede tocar de su pago a confirmar (0032, G2): de que cuenta
+# salio y su respuesta. El resto lo define quien cargo el gasto.
+_DE_QUIEN_PAGO = {
+    "status",
+    "account_id",
+    "amount_account",
+    "exchange_rate",
+    "payment_method_id",
+    "notes",
+}
 
 
 async def _cuenta_accesible(
@@ -137,11 +149,14 @@ async def _validate_invariants(
     transfer_account_id: uuid.UUID | None,
     category_id: uuid.UUID | None,
     payment_method_id: uuid.UUID | None,
+    sin_cuenta: bool = False,
 ) -> None:
-    # Una transaccion confirmada siempre tiene cuenta (tx_confirmed_chk).
+    # Una transaccion confirmada siempre tiene cuenta (tx_confirmed_chk), salvo
+    # un gasto compartido que pagaron otros enteros (0032).
     if account_id is None:
-        raise DomainError("La cuenta es obligatoria")
-    if not await _account_owned(session, owner_id, account_id):
+        if not sin_cuenta:
+            raise DomainError("La cuenta es obligatoria")
+    elif not await _account_owned(session, owner_id, account_id):
         raise DomainError("La cuenta no existe")
 
     if payment_method_id is not None and not await _pm_owned(session, owner_id, payment_method_id):
@@ -201,6 +216,21 @@ async def _validar_compartir(
     return None
 
 
+def _validar_lo_mio(
+    kind: str, visibility: str, amount: int, amount_owner: int | None, conjunta: bool
+) -> None:
+    """`amount_owner` (0032): solo en un gasto compartido, y no mas que el total.
+    Lo que puso la conjunta va como uno de los que pagaron, no como lo mio."""
+    if amount_owner is None:
+        return
+    if kind != "expense" or visibility != "shared":
+        raise DomainError("Lo que puso cada uno es de un gasto compartido")
+    if amount_owner > amount:
+        raise DomainError("Lo que pusiste no puede ser mas que el total")
+    if conjunta:
+        raise DomainError("Lo que puso la cuenta conjunta va entre los que pagaron")
+
+
 async def create_transaction(
     session: AsyncSession,
     owner_id: uuid.UUID,
@@ -217,6 +247,7 @@ async def create_transaction(
         transfer_account_id=data.transfer_account_id,
         category_id=data.category_id,
         payment_method_id=data.payment_method_id,
+        sin_cuenta=data.amount_owner == 0,
     )
     campos = data.model_dump()
     campos["group_id"] = await _validar_compartir(
@@ -228,15 +259,22 @@ async def create_transaction(
     )
     # Pagado desde una cuenta conjunta: plata del grupo, no genera deuda (0016).
     campos["paid_from_group"] = await _cuenta_es_de_grupo(session, owner_id, data.account_id)
-    campos["amount_account"], campos["exchange_rate"] = await _completar_conversion(
-        session,
-        owner_id,
-        amount=data.amount,
-        currency=data.currency,
-        account_id=data.account_id,
-        amount_account=data.amount_account,
-        exchange_rate=data.exchange_rate,
+    _validar_lo_mio(
+        data.kind, data.visibility, data.amount, data.amount_owner, campos["paid_from_group"]
     )
+    if data.account_id is None:
+        campos["amount_account"], campos["exchange_rate"] = None, None
+    else:
+        # Lo que sale de la cuenta es lo que puso quien lo carga (0032).
+        campos["amount_account"], campos["exchange_rate"] = await _completar_conversion(
+            session,
+            owner_id,
+            amount=data.amount if data.amount_owner is None else data.amount_owner,
+            currency=data.currency,
+            account_id=data.account_id,
+            amount_account=data.amount_account,
+            exchange_rate=data.exchange_rate,
+        )
     tx = Transaction(
         owner_id=owner_id,
         status="confirmed",
@@ -296,10 +334,23 @@ async def update_transaction(
     session: AsyncSession, owner_id: uuid.UUID, tx: Transaction, data: TransactionUpdate
 ) -> Transaction:
     values = data.model_dump(exclude_unset=True)
+    estado_antes = tx.status
 
     # Valido sobre el resultado de aplicar los cambios (valor nuevo o el actual).
     def eff(field: str):
         return values.get(field, getattr(tx, field))
+
+    # El pago de un miembro en un gasto que cargo otro (0032): solo elige la
+    # cuenta y responde; el resto es del gasto.
+    if tx.paid_for_id is not None:
+        if set(values) - _DE_QUIEN_PAGO:
+            raise DomainError("De tu parte de un gasto solo se elige la cuenta y si la pagaste")
+        # 'pending' es solo deshacer un "no la pague" (0032). Desde confirmado,
+        # le sacaria el debito a la cuenta y el balance lo seguiria contando.
+        if values.get("status") == "pending" and estado_antes != "rejected":
+            raise DomainError("Solo se puede deshacer un 'no la pagué'")
+    elif values.get("status") in ("rejected", "pending"):
+        raise DomainError("Solo se responde asi tu parte de un gasto que cargo otro")
 
     await _validate_invariants(
         session,
@@ -309,6 +360,8 @@ async def update_transaction(
         transfer_account_id=eff("transfer_account_id"),
         category_id=eff("category_id"),
         payment_method_id=eff("payment_method_id"),
+        # Sin cuenta: lo pagaron otros enteros, o es un pago que no se confirmo.
+        sin_cuenta=eff("amount_owner") == 0 or eff("status") != "confirmed",
     )
 
     # Compartir: si se toca la visibilidad o el grupo, se revalida y se fija el
@@ -325,15 +378,27 @@ async def update_transaction(
     # Si cambio la cuenta, se recalcula si el gasto sale de una cuenta conjunta.
     if "account_id" in values:
         values["paid_from_group"] = await _cuenta_es_de_grupo(session, owner_id, eff("account_id"))
+    _validar_lo_mio(
+        eff("kind"), eff("visibility"), eff("amount"), eff("amount_owner"), eff("paid_from_group")
+    )
+    if eff("visibility") != "shared" and await pagadores.tiene_pagadores(session, tx.id):
+        raise DomainError("Lo pusieron entre varios: no puede dejar de ser compartido")
 
     # La conversion se recalcula si cambio cualquiera de sus insumos. Regla:
     # si vino `amount_account` manda el; si no y cambio el monto, se recalcula
     # la cotizacion sobre el monto debitado que ya estaba (es el dato del
     # banco, no se toca); si vino solo la cotizacion, se deduce el monto.
-    toca_conversion = {"amount", "currency", "account_id", "amount_account", "exchange_rate"} & set(
-        values
-    )
-    if toca_conversion:
+    toca_conversion = {
+        "amount",
+        "currency",
+        "account_id",
+        "amount_account",
+        "exchange_rate",
+        "amount_owner",
+    } & set(values)
+    if toca_conversion and eff("account_id") is None:
+        values["amount_account"], values["exchange_rate"] = None, None
+    elif toca_conversion:
         if "amount_account" in values:
             monto, rate = values["amount_account"], None
         elif "exchange_rate" in values:
@@ -345,20 +410,31 @@ async def update_transaction(
         values["amount_account"], values["exchange_rate"] = await _completar_conversion(
             session,
             owner_id,
-            amount=eff("amount"),
+            # Lo que sale de la cuenta es lo que puso quien lo carga (0032).
+            amount=eff("amount") if eff("amount_owner") is None else eff("amount_owner"),
             currency=eff("currency"),
             account_id=eff("account_id"),
             amount_account=monto,
             exchange_rate=rate,
         )
 
+    moneda_antes = tx.currency
     for field, value in values.items():
         setattr(tx, field, value)
+    if tx.paid_for_id is not None and tx.status != estado_antes:
+        await pagadores.responder(session, tx)
+    elif {"occurred_at", "category_id", "payee", "currency"} & set(values):
+        await pagadores.seguir_gasto(session, tx, otra_moneda=tx.currency != moneda_antes)
     await session.commit()
     await session.refresh(tx)
     return tx
 
 
 async def soft_delete_transaction(session: AsyncSession, tx: Transaction) -> None:
+    if tx.paid_for_id is not None:
+        # Es la parte de un gasto que cargo otro: se responde, no se borra.
+        raise DomainError("Es tu parte de un gasto: decí si la pagaste o no")
     tx.deleted_at = func.now()
+    # Q2: con el gasto se van los que pagaron y sus pagos.
+    await pagadores.borrar_del_gasto(session, tx)
     await session.commit()

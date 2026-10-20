@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom"
 
 import { BotonSalir } from "@/componentes/BotonSalir"
 import { Monto } from "@/componentes/Monto"
+import { type PagoMio, SQL_PAGOS_MIOS, TuParte } from "@/componentes/PagosPorConfirmar"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { useGrupo } from "@/hooks/useGrupo"
 import { usePanel } from "@/hooks/usePanel"
@@ -24,6 +25,8 @@ interface FilaGasto {
   payee: string | null
   occurred_at: string
   paid_from_group?: number
+  // Lo que puso quien lo cargo, si pusieron otros (0032).
+  amount_owner: number | null
   kind: "expense" | "income" | "transfer"
   // Si es un aporte a (o retiro de) la conjunta: su nombre y hacia donde fue.
   cuenta_conjunta: string | null
@@ -46,7 +49,7 @@ export function DetalleGastoGrupo() {
   const Titulo = panel ? "h2" : "h1"
   const { data, isLoading } = useQuery<FilaGasto>(
     `SELECT t.id, t.owner_id, t.kind, t.amount, t.currency, t.category_id, t.payee, t.occurred_at,
-            t.paid_from_group, c.name AS cuenta_conjunta,
+            t.paid_from_group, t.amount_owner, c.name AS cuenta_conjunta,
             CASE WHEN c.id = t.transfer_account_id THEN 'entra' ELSE 'sale' END AS sentido
      FROM ${TX_GRUPO} t
      LEFT JOIN accounts c ON c.group_id = ? AND t.kind = 'transfer'
@@ -55,6 +58,15 @@ export function DetalleGastoGrupo() {
     [id, txId, id],
   )
   const tx = data[0]
+  // Quien mas puso (0032) y, si soy uno, mi parte (mi movimiento, mismo id).
+  const pagadores = tx ? (datos.pagadoresDe.get(tx.id) ?? []) : []
+  const mio = pagadores.find((p) => p.user_id === datos.miId)
+  const { data: mias } = useQuery<PagoMio>(`${SQL_PAGOS_MIOS} AND t.id = ?`, [mio?.id ?? ""])
+  const { data: conjuntas } = useQuery<{ name: string }>(
+    "SELECT name FROM accounts WHERE group_id = ? AND deleted_at IS NULL LIMIT 1",
+    [id],
+  )
+  const conjunta = conjuntas[0]
 
   if (cargando || isLoading) return <CargandoGrupo />
   if (!grupo) return <GrupoNoEncontrado />
@@ -87,12 +99,61 @@ export function DetalleGastoGrupo() {
           />
           <ListaInset>
             <Dato etiqueta="Pagó">
-              {tx.paid_from_group ? "La cuenta conjunta" : datos.nombre(tx.owner_id)}
+              {tx.paid_from_group
+                ? "La cuenta conjunta"
+                : pagadores.length > 0
+                  ? "Entre varios"
+                  : datos.nombre(tx.owner_id)}
             </Dato>
             <Dato etiqueta="Fecha">{formatearFechaCorta(tx.occurred_at)}</Dato>
             <Dato etiqueta="Categoría">{cat?.name ?? "Sin categoría"}</Dato>
             {tx.payee && <Dato etiqueta="Comercio">{tx.payee}</Dato>}
           </ListaInset>
+
+          {mias[0] && (
+            <section className="space-y-1">
+              <h2 className="px-1 text-xs font-medium text-muted-foreground">Tu parte</h2>
+              <ListaInset>
+                <FilaInset>
+                  <TuParte pago={mias[0]} />
+                </FilaInset>
+              </ListaInset>
+            </section>
+          )}
+
+          {pagadores.length > 0 && (
+            <section className="space-y-1">
+              <h2 className="px-1 text-xs font-medium text-muted-foreground">Quién pagó</h2>
+              <ListaInset>
+                <Dato etiqueta={datos.nombre(tx.owner_id)}>
+                  {formatearMonto(tx.amount_owner ?? tx.amount, { moneda: tx.currency })}
+                </Dato>
+                {pagadores.map((p) => (
+                  <Dato
+                    key={p.transaction_id + (p.user_id ?? p.account_id)}
+                    etiqueta={
+                      p.user_id
+                        ? `${datos.nombre(p.user_id)}${
+                            p.status === "rejected"
+                              ? " · dice que no pagó"
+                              : p.status === "pending"
+                                ? " · falta que confirme"
+                                : ""
+                          }`
+                        : (conjunta?.name ?? "La cuenta conjunta")
+                    }
+                  >
+                    {formatearMonto(p.amount, { moneda: tx.currency })}
+                  </Dato>
+                ))}
+              </ListaInset>
+              {pagadores.some((p) => p.status === "rejected") && (
+                <p className="px-1 text-xs text-destructive">
+                  En revisión: alguien dice que no pagó su parte. Lo corrige quien lo cargó.
+                </p>
+              )}
+            </section>
+          )}
 
           {!tx.paid_from_group && (
             <section className="space-y-1">
@@ -102,9 +163,10 @@ export function DetalleGastoGrupo() {
               <ListaInset>
                 {datos.miembros.map((m) => (
                   <Dato key={m.user_id} etiqueta={datos.nombre(m.user_id)}>
-                    {formatearMonto(parteEnGasto(tx, splits, datos.miembros, m.user_id) ?? 0, {
-                      moneda: tx.currency,
-                    })}
+                    {formatearMonto(
+                      parteEnGasto(tx, splits, datos.miembros, m.user_id, pagadores) ?? 0,
+                      { moneda: tx.currency },
+                    )}
                   </Dato>
                 ))}
               </ListaInset>

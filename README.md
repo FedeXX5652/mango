@@ -20,8 +20,8 @@ decide compartir**, con reparto de gastos estilo Splitwise incluido.
 ![PowerSync](https://img.shields.io/badge/PowerSync-offline--first-1c1c1c)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalable-5A0FC8?logo=pwa&logoColor=white)
-![Versión](https://img.shields.io/badge/versión-1.7.0-FDBE02)
-![Tests](https://img.shields.io/badge/tests-833%20verdes-2EA043)
+![Versión](https://img.shields.io/badge/versión-1.8.0-FDBE02)
+![Tests](https://img.shields.io/badge/tests-856%20verdes-2EA043)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED?logo=docker&logoColor=white)
 
 </div>
@@ -91,6 +91,9 @@ de un hogar, con tres convicciones:
   **partes** ("2 a 1"), y un **reparto por defecto** por grupo (Casa 60/40) con
   el que arranca cada gasto; **balance** de quién puso qué y **quién le debe a
   quién**.
+- **Pagos en conjunto**: un gasto que pagaron entre varios (o la conjunta y yo)
+  dice cuánto puso cada uno; a cada miembro le llega para confirmar de qué cuenta
+  salió, con un botón en el aviso de Android.
 - **Historia del grupo**: gastos, pagos entre miembros y aportes a la conjunta
   intercalados, con tu parte en cada gasto y filtros por quién pagó y categoría.
 - **Cada grupo, de un vistazo**: en tu Inicio, una tarjeta por grupo con cómo
@@ -194,7 +197,7 @@ por **una sola puerta** (nginx), así que se expone un único puerto.
   cliente una versión atrás.
 - **Decisiones de arquitectura documentadas** (29 ADRs en
   [`docs/decisiones/`](docs/decisiones)) — nada importante se decide dos veces.
-- **Incrementos chicos con pruebas**: **833** pruebas (backend + frontend) en
+- **Incrementos chicos con pruebas**: **856** pruebas (backend + frontend) en
   verde, más un banco de compatibilidad para detectar regresiones de esquema.
 - **Deploy por imágenes**: el servidor no tiene el código; baja imágenes
   publicadas, y la base migra sola al arrancar.
@@ -356,7 +359,7 @@ Uso personal y compartido: **funcionando**. Resumen del roadmap (detalle en
 | Multimoneda (base del modelo) | ✅ |
 | Autenticación (usuario + contraseña) | ✅ |
 | Grupos y compartido (taxonomía, colores, notificaciones) | ✅ |
-| Reparto estilo Splitwise (splits, saldos, pagos, cuenta conjunta) | ✅ |
+| Reparto estilo Splitwise (splits, saldos, pagos, cuenta conjunta, pagos en conjunto) | ✅ |
 | Extras (metas, deudas, adjuntos, fechas de tarjeta) | ✅ |
 | Notificaciones push + planificador en el servidor | ✅ |
 | Calendario de pagos con avisos (personal, de grupo, tarjetas y deudas) | ✅ |

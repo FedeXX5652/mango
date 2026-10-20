@@ -27,6 +27,8 @@ const RUTA: Record<string, string> = {
   tags: "/tags",
   transaction_tags: "/transaction-tags",
   transaction_splits: "/transaction-splits",
+  // Quien mas puso en un gasto compartido (0032).
+  transaction_payers: "/transaction-payers",
   settlements: "/settlements",
   templates: "/templates",
   recurring_rules: "/recurring",

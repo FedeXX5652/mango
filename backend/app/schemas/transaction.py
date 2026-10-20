@@ -19,7 +19,9 @@ class TransactionCreate(BaseModel):
     # Monto: magnitud positiva en centavos. La direccion la da `kind` (ver 0001).
     amount: int = Field(ge=0)
     currency: Currency
-    account_id: uuid.UUID
+    # Obligatoria, salvo en un gasto compartido que pagaron otros enteros
+    # (`amount_owner` 0, 0032): de la cuenta de quien lo cargo no sale nada.
+    account_id: uuid.UUID | None = None
     transfer_account_id: uuid.UUID | None = None
     payment_method_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
@@ -42,13 +44,18 @@ class TransactionCreate(BaseModel):
     # del banco. Con la misma moneda los dos quedan en NULL.
     amount_account: int | None = Field(default=None, gt=0)
     exchange_rate: Decimal | None = Field(default=None, gt=0, max_digits=20, decimal_places=10)
+    # Pagos en conjunto (0032): en un gasto compartido que pagaron varios, lo que
+    # puso quien lo carga (`amount` es el total). NULL = lo pago entero.
+    amount_owner: int | None = Field(default=None, ge=0)
 
 
 class TransactionUpdate(BaseModel):
     kind: TransactionKind | None = None
-    # Solo se permite CONFIRMAR un pendiente (ej: confirmar un cobro, 0018). No se
-    # puede pasar a 'pending' desde el cliente (regla 4): por eso el unico valor.
-    status: Literal["confirmed"] | None = None
+    # CONFIRMAR un pendiente (un cobro, 0018; un pago a confirmar, 0032).
+    # 'rejected' ("no la pague") y 'pending' (deshacer esa respuesta) solo en el
+    # pago a confirmar de quien pago (0032): una carga manual nunca queda
+    # pendiente (regla 4).
+    status: Literal["confirmed", "rejected", "pending"] | None = None
     occurred_at: datetime | None = None
     amount: int | None = Field(default=None, ge=0)
     currency: Currency | None = None
@@ -67,6 +74,7 @@ class TransactionUpdate(BaseModel):
     # se recalcula la cotizacion. Ver `services.conversion`.
     amount_account: int | None = Field(default=None, gt=0)
     exchange_rate: Decimal | None = Field(default=None, gt=0, max_digits=20, decimal_places=10)
+    amount_owner: int | None = Field(default=None, ge=0)
 
 
 class TransactionRead(BaseModel):
@@ -88,5 +96,7 @@ class TransactionRead(BaseModel):
     notes: str | None
     source: str
     visibility: str
+    amount_owner: int | None = None
+    paid_for_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime

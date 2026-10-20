@@ -6,7 +6,9 @@ import { useParams } from "react-router-dom"
 import { Adjuntos } from "@/componentes/Adjuntos"
 import { BotonSalir } from "@/componentes/BotonSalir"
 import { EspacioDelMovimiento } from "@/componentes/EspacioDelMovimiento"
+import { EditorPagadores } from "@/componentes/EditorPagadores"
 import { EditorSplit, type ParteSplit, type ValorSplit } from "@/componentes/EditorSplit"
+import { type PagoMio, SQL_PAGOS_MIOS, TuParte } from "@/componentes/PagosPorConfirmar"
 import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
 import { Button } from "@/componentes/ui/button"
@@ -22,6 +24,13 @@ import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
 import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { rutaEspacio } from "@/lib/espacios"
+import {
+  LO_PAGUE_YO,
+  type PagadorGuardado,
+  type ValorPagadores,
+  guardarPagadores,
+} from "@/lib/pagadores"
+import { usuarioActualId } from "@/lib/sesion"
 import { uuidv4 } from "@/lib/uuid"
 
 interface Tx {
@@ -38,6 +47,10 @@ interface Tx {
   payee: string | null
   notes: string | null
   group_id: string | null
+  // Pagos en conjunto (0032): lo que puse si pusieron otros, y si esto es mi
+  // parte de un gasto que cargo otro.
+  amount_owner: number | null
+  paid_for_id: string | null
 }
 interface Opcion {
   id: string
@@ -73,7 +86,7 @@ export function DetalleMovimiento() {
   const tx = filas[0]
 
   const { data: cuentas } = useQuery<Opcion>(
-    "SELECT id, name, currency FROM accounts WHERE deleted_at IS NULL ORDER BY name",
+    "SELECT id, name, currency, group_id FROM accounts WHERE deleted_at IS NULL ORDER BY name",
   )
   const { data: categorias } = useQuery<Opcion>(
     "SELECT id, name, kind, parent_id, icon, group_id FROM categories WHERE deleted_at IS NULL AND archived = 0",
@@ -127,6 +140,14 @@ export function DetalleMovimiento() {
   const [cuando, setCuando] = useState("")
   const [grupoId, setGrupoId] = useState("")
   const [split, setSplit] = useState<ValorSplit>({ splits: null, valido: true })
+  // Quien mas puso (0032): lo guardado y lo que se esta editando.
+  const { data: pagadoresActuales, isLoading: cargandoPagadores } = useQuery<PagadorGuardado>(
+    "SELECT id, user_id, account_id, amount, status FROM transaction_payers WHERE transaction_id = ? AND deleted_at IS NULL",
+    [id ?? ""],
+  )
+  const [pagadores, setPagadores] = useState<ValorPagadores>(LO_PAGUE_YO)
+  // Si esto es mi parte de un gasto que cargo otro, se responde, no se edita.
+  const { data: mias } = useQuery<PagoMio>(`${SQL_PAGOS_MIOS} AND t.id = ?`, [id ?? ""])
   const [error, setError] = useState("")
 
   // Prefill cuando llega la transaccion (una vez por id).
@@ -173,6 +194,24 @@ export function DetalleMovimiento() {
     return <div className="p-6 text-sm text-muted-foreground">Cargando…</div>
   }
 
+  // Mi parte de un gasto que cargo otro (0032): elijo la cuenta o digo que no la
+  // pague; el gasto lo edita quien lo cargo.
+  if (tx.paid_for_id) {
+    return (
+      <div className="mx-auto max-w-md space-y-4 p-4">
+        <header className="flex items-center gap-2">
+          <BotonSalir volver={volver} />
+          <Titulo className="text-2xl font-semibold">Tu parte de un gasto</Titulo>
+        </header>
+        {mias[0] && <TuParte pago={mias[0]} conEnlace />}
+        <p className="text-sm text-muted-foreground">
+          El gasto lo edita quien lo cargó. Acá elegís de qué cuenta salió lo tuyo, o decís que no
+          lo pusiste.
+        </p>
+      </div>
+    )
+  }
+
   const categoriasDelTipo = ordenarJerarquico(categorias).filter(
     (c) =>
       c.kind === (tx.kind === "income" ? "income" : "expense") &&
@@ -196,7 +235,16 @@ export function DetalleMovimiento() {
     setError("")
     const centavos = aCentavos(monto, tx!.currency)
     if (!centavos || centavos <= 0) return setError("Monto inválido")
-    if (!cuentaId) return setError("Elegí una cuenta")
+    // Entre varios (0032): si no puse nada, de mi cuenta no sale nada.
+    const entreVarios = tx!.kind === "expense" && Boolean(grupoId) && pagadores.mio !== null
+    const sinCuenta = entreVarios && pagadores.mio === 0
+    if (!sinCuenta && !cuentaId) return setError("Elegí una cuenta")
+    if (entreVarios && !pagadores.valido)
+      return setError("Lo que puso cada uno no cierra con el total")
+    if (entreVarios && !sinCuenta && cuentas.find((c) => c.id === cuentaId)?.group_id)
+      return setError("Lo que puso la conjunta va en su línea, no como tu cuenta")
+    if (!grupoId && pagadoresActuales.length > 0)
+      return setError("Lo pusieron entre varios: para dejar de compartirlo, sacá a los demás")
     // Fuera de ambito cuenta como no elegida (0014).
     if (tx!.kind !== "transfer" && !categoriasDelTipo.some((c) => c.id === categoriaId))
       return setError("Elegí una categoría")
@@ -209,7 +257,9 @@ export function DetalleMovimiento() {
     // La conversion se recalcula desde el monto debitado, que es lo que figura
     // en el resumen del banco. Si las monedas coinciden, los dos quedan NULL.
     const monedaCuenta = cuentas.find((c) => c.id === cuentaId)?.currency ?? tx!.currency
-    const difieren = tx!.currency !== monedaCuenta
+    const difieren = !sinCuenta && tx!.currency !== monedaCuenta
+    if (entreVarios && difieren)
+      return setError("Entre varios va con una cuenta en la moneda del gasto")
     const centavosDebitado = debitado.trim() ? (aCentavos(debitado, monedaCuenta) ?? 0) : 0
     const cotizacion =
       difieren && centavosDebitado > 0
@@ -219,10 +269,11 @@ export function DetalleMovimiento() {
     await db.execute(
       `UPDATE transactions SET amount = ?, account_id = ?, transfer_account_id = ?,
          category_id = ?, payee = ?, notes = ?, occurred_at = ?,
-         amount_account = ?, exchange_rate = ?, visibility = ?, group_id = ? WHERE id = ?`,
+         amount_account = ?, exchange_rate = ?, visibility = ?, group_id = ?,
+         amount_owner = ? WHERE id = ?`,
       [
         centavos,
-        cuentaId,
+        sinCuenta ? null : cuentaId,
         tx!.kind === "transfer" ? destinoId : null,
         tx!.kind === "transfer" ? null : categoriaId,
         payee || null,
@@ -232,6 +283,8 @@ export function DetalleMovimiento() {
         difieren && cotizacion ? cotizacion : null,
         grupoId ? "shared" : "private",
         grupoId || null,
+        // Lo que puse yo, si pusieron otros (0032). NULL = lo pague entero.
+        entreVarios ? pagadores.mio : null,
         tx!.id,
       ],
     )
@@ -263,6 +316,11 @@ export function DetalleMovimiento() {
           )
         }
       }
+    }
+    // Quien mas puso (0032): crea, cambia o saca lo que corresponda. Pasar a
+    // "lo pague yo" saca a todos (y sus pagos se borran, con aviso).
+    if (tx!.kind === "expense" && grupoId) {
+      await guardarPagadores(db, tx!.id, entreVarios ? pagadores.otros : [], pagadoresActuales)
     }
     volver()
   }
@@ -362,6 +420,29 @@ export function DetalleMovimiento() {
           miembros={miembros}
           inicial={splitsActuales}
           onCambio={setSplit}
+        />
+      )}
+
+      {tx.kind === "expense" && grupoId && (aCentavos(monto) ?? 0) > 0 && !cargandoPagadores && (
+        <EditorPagadores
+          total={aCentavos(monto, tx.currency) ?? 0}
+          moneda={tx.currency}
+          yoId={usuarioActualId() ?? ""}
+          miembros={miembros}
+          conjunta={
+            cuentas
+              .filter((c) => c.group_id === grupoId)
+              .map((c) => ({ id: c.id, nombre: c.name }))[0] ?? null
+          }
+          inicial={
+            tx.amount_owner !== null
+              ? { mio: tx.amount_owner, otros: pagadoresActuales, valido: true }
+              : LO_PAGUE_YO
+          }
+          estados={Object.fromEntries(
+            pagadoresActuales.filter((p) => p.user_id).map((p) => [p.user_id, p.status]),
+          )}
+          onCambio={setPagadores}
         />
       )}
 

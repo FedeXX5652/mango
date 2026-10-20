@@ -32,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db import SessionLocal, engine
 from app.models.user import Notification
-from app.services import aviso_grupos, aviso_recordatorios, push
+from app.services import aviso_grupos, aviso_pagos, aviso_recordatorios, push
 from app.services import fx as servicio_fx
 
 log = logging.getLogger(__name__)
@@ -69,7 +69,12 @@ async def despachar_avisos(session: AsyncSession) -> int:
     )
     for aviso in pendientes:
         # Los de un vencimiento llevan los botones "Ya lo pague" y "Mas tarde".
-        mensaje = push.mensaje_de(aviso) | await aviso_recordatorios.acciones_de(session, aviso)
+        mensaje = (
+            push.mensaje_de(aviso)
+            | await aviso_recordatorios.acciones_de(session, aviso)
+            # El de un pago a confirmar, "Pagada con <cuenta>" (0032).
+            | await aviso_pagos.acciones_de(session, aviso)
+        )
         # El permiso de los botones queda en la base ANTES de mandarlo: si la base
         # falla aca, no sale un permiso que no existe.
         await session.flush()
@@ -131,7 +136,9 @@ async def correr_tarea(tarea: Tarea) -> None:
 
 async def correr() -> None:
     """El loop. Corre hasta que la app se apaga (la tarea se cancela)."""
-    ultima: dict[str, float] = {t.nombre: 0.0 for t in TAREAS}
+    # -inf y no 0: `monotonic` cuenta desde que arranco el equipo. Con heimdall
+    # recien prendido, 0 hacia esperar una hora a la tarea de cada hora (1.8.0).
+    ultima: dict[str, float] = {t.nombre: float("-inf") for t in TAREAS}
     despertado = False
     while True:
         ahora = time.monotonic()

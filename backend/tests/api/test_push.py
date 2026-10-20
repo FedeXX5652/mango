@@ -394,3 +394,25 @@ async def test_sale_con_urgencia_alta(monkeypatch) -> None:
     assert estado == 201
     assert pedido["headers"] == {"Urgency": "high"}
     assert pedido["ttl"] == 24 * 3600
+
+
+async def test_al_arrancar_corre_todas_las_tareas(monkeypatch) -> None:
+    """Con el equipo recien prendido (`monotonic` chico), la tarea de cada hora
+    tambien corre en la primera vuelta (1.8.0): antes esperaba una hora."""
+    import asyncio
+
+    corridas: list[str] = []
+
+    async def anotar(tarea) -> None:
+        corridas.append(tarea.nombre)
+
+    async def cortar(espera, *_a, **_k):
+        espera.close()  # la espera del despertador no llega a correr
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(planificador.time, "monotonic", lambda: 10.0)
+    monkeypatch.setattr(planificador, "correr_tarea", anotar)
+    monkeypatch.setattr(planificador.asyncio, "wait_for", cortar)
+    with pytest.raises(asyncio.CancelledError):
+        await planificador.correr()
+    assert corridas == [t.nombre for t in planificador.TAREAS]

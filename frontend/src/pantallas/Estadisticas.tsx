@@ -89,7 +89,10 @@ type Vista = "global" | "moneda"
 // Columnas que necesita la conversion. `moneda_cuenta` sale del join con la
 // cuenta debitada: si esta justo en la moneda que se lee, `amount_account` es el
 // monto real del resumen y no hace falta ninguna cotizacion.
-const COLS = "t.amount, t.currency, t.occurred_at, t.amount_account, a.currency AS moneda_cuenta"
+// En un gasto que pagaron varios, lo mio es lo que puse (0032).
+const COLS =
+  "COALESCE(t.amount_owner, t.amount) AS amount, t.currency, t.occurred_at, t.amount_account," +
+  " a.currency AS moneda_cuenta"
 const JOIN = "LEFT JOIN accounts a ON a.id = t.account_id"
 
 // Movimientos de un mes, los dos tipos. De aca salen el gasto por categoria y

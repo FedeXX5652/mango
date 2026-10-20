@@ -39,6 +39,11 @@ beforeEach(() => {
     CREATE TABLE settlements (id, group_id, from_user_id, to_user_id, amount, currency, occurred_at,
                               account_id, pago_real, deleted_at);
     CREATE TABLE settlement_accounts (id, account_id, payment_method_id, deleted_at);
+    -- Pagos en conjunto (0032): al final, para no correr las columnas de arriba.
+    ALTER TABLE transactions ADD COLUMN amount_owner;
+    ALTER TABLE group_transactions ADD COLUMN amount_owner;
+    CREATE TABLE transaction_payers (id, transaction_id, user_id, account_id, amount, status,
+                                     deleted_at);
   `)
   db.prepare("INSERT INTO accounts VALUES (?, ?, ?, ?, NULL)").run(EFECTIVO, YO, null, 100000)
   db.prepare("INSERT INTO accounts VALUES (?, ?, ?, ?, NULL)").run(CONJUNTA, null, CASA, 0)
@@ -222,5 +227,23 @@ describe("saldo de una cuenta (saldoCuenta)", () => {
       })
 
     expect(saldo(CONJUNTA, TX_GRUPO)).toBe(20000 + 15000 - 18000 - 6000 - 2500)
+  })
+
+  it("pagos en conjunto: de mi cuenta sale lo que puse, y de la conjunta lo suyo (0032)", () => {
+    // $100 compartidos: yo puse $40 con Efectivo y la conjunta $60.
+    insertar("transactions", {
+      id: "pc",
+      owner_id: YO,
+      amount: 10000,
+      group_id: CASA,
+      visibility: "shared",
+      account_id: EFECTIVO,
+    })
+    db.prepare("UPDATE transactions SET amount_owner = 4000 WHERE id = 'pc'").run()
+    db.prepare(
+      "INSERT INTO transaction_payers VALUES ('p1', 'pc', NULL, ?, 6000, 'confirmed', NULL)",
+    ).run(CONJUNTA)
+    expect(saldo(EFECTIVO)).toBe(100000 - 4000)
+    expect(saldo(CONJUNTA, TX_GRUPO)).toBe(-6000)
   })
 })

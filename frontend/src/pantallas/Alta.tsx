@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { Calculadora } from "@/componentes/Calculadora"
+import { EditorPagadores } from "@/componentes/EditorPagadores"
 import { EditorSplit, type ValorSplit } from "@/componentes/EditorSplit"
 import { EspacioDelMovimiento } from "@/componentes/EspacioDelMovimiento"
 import { HojaPlantillas, type PlantillaLocal } from "@/componentes/HojaPlantillas"
@@ -27,6 +28,7 @@ import { PERSONAL, rutaEspacio } from "@/lib/espacios"
 import { formatearFechaCorta } from "@/lib/fecha"
 import { ordenarMonedas } from "@/lib/monedas"
 import { responderCiclo } from "@/lib/recordatorios"
+import { LO_PAGUE_YO, type ValorPagadores, guardarPagadores } from "@/lib/pagadores"
 import { leerReparto } from "@/lib/reparto"
 import { usuarioActualId } from "@/lib/sesion"
 import { uuidv4 } from "@/lib/uuid"
@@ -129,6 +131,8 @@ export function FormularioMovimiento({
     tipo === "transfer" || !misGrupos.some((g) => g.id === grupoElegido) ? "" : grupoElegido
   // Reparto del gasto compartido (fase 3b.3). null = igual entre todos.
   const [split, setSplit] = useState<ValorSplit>({ splits: null, valido: true })
+  // Quien pago (0032). Por defecto, yo entero.
+  const [pagadores, setPagadores] = useState<ValorPagadores>(LO_PAGUE_YO)
   // Miembros del grupo elegido, para repartir el gasto (fase 3b.3).
   const { data: miembrosRows } = useQuery<{ user_id: string; display_name: string | null }>(
     `SELECT gm.user_id, u.display_name FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
@@ -287,7 +291,18 @@ export function FormularioMovimiento({
     if (centavos <= 0) return setError("Ingresá un monto")
     // Que exista, no solo que haya algo: una cuenta que llego por la direccion
     // puede no ser (o ya no ser) una de las mias.
-    if (!cuentasDelEspacio.some((c) => c.id === cuentaId)) return setError("Elegí una cuenta")
+    // Entre varios (0032): solo en un gasto del grupo. Si yo no puse nada, de mi
+    // cuenta no sale nada y no hace falta elegirla.
+    const entreVarios = tipo === "expense" && Boolean(grupoId) && pagadores.mio !== null
+    const sinCuenta = entreVarios && pagadores.mio === 0
+    if (!sinCuenta && !cuentasDelEspacio.some((c) => c.id === cuentaId))
+      return setError("Elegí una cuenta")
+    if (entreVarios && !pagadores.valido)
+      return setError("Lo que puso cada uno no cierra con el total")
+    if (entreVarios && !sinCuenta && difieren)
+      return setError("Entre varios va con una cuenta en la moneda del gasto")
+    if (entreVarios && cuentas.find((c) => c.id === cuentaId)?.group_id)
+      return setError("Lo que puso la conjunta va en su línea, no como tu cuenta")
     // Fuera de ambito cuenta como no elegida: nunca se guarda una categoria
     // personal en un gasto compartido ni al reves (0014).
     if (tipo !== "transfer" && !categoriasDelTipo.some((c) => c.id === categoriaId))
@@ -311,8 +326,8 @@ export function FormularioMovimiento({
         `INSERT INTO transactions
            (id, owner_id, kind, occurred_at, amount, currency, account_id, transfer_account_id,
             category_id, payment_method_id, payee, notes, amount_account, exchange_rate,
-            visibility, group_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            visibility, group_id, amount_owner)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           idTx,
           usuarioActualId(),
@@ -320,7 +335,7 @@ export function FormularioMovimiento({
           new Date(cuando).toISOString(),
           centavos,
           moneda,
-          cuentaId,
+          sinCuenta ? null : cuentaId,
           tipo === "transfer" ? cuentaDestinoId : null,
           tipo === "transfer" ? null : categoriaId,
           medioId || null,
@@ -332,6 +347,8 @@ export function FormularioMovimiento({
           difieren && cotizacion ? cotizacion : null,
           grupoId ? "shared" : "private",
           grupoId || null,
+          // Lo que puse yo, si pusieron otros (0032). NULL = lo pague entero.
+          entreVarios ? pagadores.mio : null,
         ],
       )
       // Una fila por etiqueta elegida (ver 3.5.1).
@@ -351,6 +368,8 @@ export function FormularioMovimiento({
           )
         }
       }
+      // Los demas que pusieron (0032): a cada miembro le llega para confirmar.
+      if (entreVarios) await guardarPagadores(db, idTx, pagadores.otros)
       if (ciclo) await responderCiclo(db, ciclo.reminderId, ciclo.nominal, "paid", idTx)
       // Una transferencia que toca la conjunta de un grupo (poner o sacar plata)
       // es del grupo para quien la mira: se vuelve a ese grupo.
@@ -526,6 +545,21 @@ export function FormularioMovimiento({
               miembros={miembros}
               partesIniciales={repartoDelGrupo}
               onCambio={setSplit}
+            />
+          )}
+          {tipo === "expense" && grupoId && centavos > 0 && (
+            <EditorPagadores
+              key={`pagadores-${grupoId}`}
+              total={centavos}
+              moneda={moneda}
+              yoId={usuarioActualId() ?? ""}
+              miembros={miembros}
+              conjunta={
+                cuentas
+                  .filter((c) => c.group_id === grupoId)
+                  .map((c) => ({ id: c.id, nombre: c.name }))[0] ?? null
+              }
+              onCambio={setPagadores}
             />
           )}
 

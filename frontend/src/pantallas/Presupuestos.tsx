@@ -105,7 +105,7 @@ export function Presupuestos() {
     [moneda],
   )
   const { data: gastoRows } = useQuery<GastoRow>(
-    `SELECT category_id, amount, occurred_at FROM transactions
+    `SELECT category_id, COALESCE(amount_owner, amount) AS amount, occurred_at FROM transactions
      WHERE kind='expense' AND status='confirmed' AND deleted_at IS NULL AND currency = ?`,
     [moneda],
   )
@@ -125,7 +125,7 @@ export function Presupuestos() {
        (SELECT COALESCE(SUM(opening_balance),0) FROM accounts
           WHERE COALESCE(off_budget,0)=0 AND owner_id IS NOT NULL AND deleted_at IS NULL AND currency = ?)
        + COALESCE((SELECT SUM(CASE WHEN t.kind='income' THEN COALESCE(t.amount_account, t.amount)
-                                   WHEN t.kind='expense' THEN -COALESCE(t.amount_account, t.amount) ELSE 0 END)
+                                   WHEN t.kind='expense' THEN -COALESCE(t.amount_account, t.amount_owner, t.amount) ELSE 0 END)
             FROM transactions t JOIN accounts a ON a.id=t.account_id
             WHERE COALESCE(a.off_budget,0)=0 AND a.owner_id IS NOT NULL AND a.deleted_at IS NULL AND a.currency = ?
               AND t.status='confirmed' AND t.deleted_at IS NULL AND t.occurred_at < ?),0)

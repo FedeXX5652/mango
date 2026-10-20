@@ -186,6 +186,10 @@ async def test_quien_no_es_del_grupo_no_lo_toca(api: SimpleNamespace) -> None:
 
 
 # --- Los avisos --------------------------------------------------------------------
+#
+# La base de desarrollo tiene otros recordatorios (y un backend local los puede
+# estar avisando a la vez): se miran los avisos de ESTE recordatorio, no cuantos
+# creo la vuelta.
 
 
 async def test_avisa_a_cada_miembro_con_el_nombre_del_grupo(api: SimpleNamespace) -> None:
@@ -194,15 +198,17 @@ async def test_avisa_a_cada_miembro_con_el_nombre_del_grupo(api: SimpleNamespace
     # Ana se va del grupo: no le llega.
     assert (await api.client.delete(f"/api/v1/groups/{gid}/members/{ana}")).status_code == 204
     rid = await _recordatorio(api, gid)
-    assert await servicio.avisar(api.session, _local(12, 9)) == 2
+    await servicio.avisar(api.session, _local(12, 9))
     avisos = await _avisos(api, rid)
+    assert len(avisos) == 2
     assert {str(a.user_id) for a in avisos} == {str(api.owner_id), beto}
     assert {a.title for a in avisos} == {"Casa · Expensas"}
     assert avisos[0].link == f"/grupos/{gid}/calendario?r={rid}&n=2026-10-12"
     ciclo = await _fila_ciclo(api, rid)
     assert ciclo["group_id"] == gid and ciclo["alerts_sent"] == ["0@09:00"]
     # Una sola vez.
-    assert await servicio.avisar(api.session, _local(12, 10)) == 0
+    await servicio.avisar(api.session, _local(12, 10))
+    assert len(await _avisos(api, rid)) == 2
 
 
 async def test_cualquiera_lo_marca_y_se_frena_para_todos(api: SimpleNamespace) -> None:
@@ -214,7 +220,8 @@ async def test_cualquiera_lo_marca_y_se_frena_para_todos(api: SimpleNamespace) -
     ciclo = await _fila_ciclo(api, rid)
     assert ciclo["status"] == "paid"
     assert ciclo["answered_by"] == beto and ciclo["group_id"] == gid
-    assert await servicio.avisar(api.session, _local(12, 9)) == 0
+    await servicio.avisar(api.session, _local(12, 9))
+    assert await _avisos(api, rid) == []
 
 
 # --- "Más tarde" es de cada uno (G3) -----------------------------------------------
@@ -233,15 +240,18 @@ async def test_mas_tarde_calla_solo_a_quien_lo_pidio(api: SimpleNamespace) -> No
     assert ciclo["snoozed_until"] is None
     assert list(ciclo["snoozes"]) == [beto]
     # A las 9 le avisa al resto; a Beto no.
-    assert await servicio.avisar(api.session, _local(12, 9)) == 1
+    await servicio.avisar(api.session, _local(12, 9))
     assert [str(a.user_id) for a in await _avisos(api, rid)] == [str(api.owner_id)]
     # A las 15 se le cumple a Beto: un "Te lo recuerdo" solo para el.
-    assert await servicio.avisar(api.session, _local(12, 15)) == 1
-    ultimo = (await _avisos(api, rid))[-1]
+    await servicio.avisar(api.session, _local(12, 15))
+    assert len(await _avisos(api, rid)) == 2
+    # Por el texto y no por orden: en la prueba todos los avisos tienen la misma
+    # hora (la de la transaccion), y "el ultimo" salia al azar.
+    [ultimo] = [a for a in await _avisos(api, rid) if a.body.startswith("Te lo recuerdo")]
     assert str(ultimo.user_id) == beto
-    assert ultimo.body.startswith("Te lo recuerdo")
     assert (await _fila_ciclo(api, rid))["snoozes"] == {}
-    assert await servicio.avisar(api.session, _local(12, 16)) == 0
+    await servicio.avisar(api.session, _local(12, 16))
+    assert len(await _avisos(api, rid)) == 2
 
 
 async def test_dos_miembros_posponen_sin_pisarse(api: SimpleNamespace) -> None:

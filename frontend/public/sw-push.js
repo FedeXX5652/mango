@@ -23,7 +23,7 @@ self.addEventListener("push", (event) => {
     icon: d.icono || "/icons/png/mango-512.png",
     badge: d.insignia || "/icons/png/mango-mono-96.png",
     tag: d.tag,
-    data: { link: d.link || "/", token: d.token || null },
+    data: { link: d.link || "/", token: d.token || null, accionUrl: d.accion_url || null },
     lang: "es-AR",
   }
   if (Array.isArray(d.acciones) && d.acciones.length > 0 && d.token) {
@@ -64,9 +64,14 @@ async function abrir(link) {
 // tiene la sesion). La API esta en el mismo origen (nginx, 0020). Si no se pudo
 // (sin conexion, el permiso ya se uso o vencio), se abre el vencimiento en la app
 // para responderlo ahi. Devuelve si quedo respondido.
-async function responderAccion(token, accion) {
+//
+// Cada aviso dice a donde va su boton (1.8.0: el de un pago a confirmar va a
+// /api/v1/payment-actions); sin eso, los de un vencimiento. Solo rutas de la API.
+async function responderAccion(token, accion, url) {
+  const destino =
+    typeof url === "string" && /^\/api\/v1\/[a-z-]+$/.test(url) ? url : "/api/v1/reminder-actions"
   try {
-    const r = await fetch("/api/v1/reminder-actions", {
+    const r = await fetch(destino, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token, accion }),
@@ -85,7 +90,7 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil(
     (async () => {
       if (event.action && datos.token) {
-        if (await responderAccion(datos.token, event.action)) return
+        if (await responderAccion(datos.token, event.action, datos.accionUrl)) return
       }
       await abrir(link)
     })(),

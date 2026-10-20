@@ -95,4 +95,9 @@ async def delete_transaction(
     # "Rechazados". Lo ajeno sigue en 404.
     if tx.deleted_at is not None:
         return
-    await crud.soft_delete_transaction(session, tx)
+    try:
+        await crud.soft_delete_transaction(session, tx)
+    except DomainError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc

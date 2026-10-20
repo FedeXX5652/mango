@@ -1201,8 +1201,16 @@ Estadisticas y el Resumen los muestran aparte de los ingresos (etapa 3).
 porcentaje se suma **por partes** ("2 a 1"), y cada grupo puede tener un
 **reparto por defecto** (`groups.default_split`, en partes) con el que arranca
 cada gasto nuevo. Porcentajes y partes se resuelven en enteros, con el metodo del
-mayor resto. Cargar un gasto que **pago otro miembro** queda para una decision
-propia.
+mayor resto.
+
+**Pagos en conjunto (0032, 1.8.0): HECHO.** Un gasto compartido es el total,
+**cuanto puso cada uno** y cuanto le toca a cada uno. Quien lo carga dice quien
+pago ("Lo pague yo" o "Entre varios": yo, otros miembros, la conjunta). A cada
+miembro que puso plata le llega un **pago por confirmar**: elige de que cuenta
+salio (en Android, con un boton en el aviso) o dice que no la pago, y se puede
+deshacer o cambiar despues. El balance lo cuenta desde que se carga; lo que puso
+la conjunta no es deuda de nadie. Lo edita quien lo cargo; cada uno que pago,
+solo su respuesta.
 
 **Avisos push y planificador (1.4.0): HECHO.** Ver 0029. Los avisos de la bandeja
 tambien llegan **con la app cerrada**, por Web Push con VAPID, a los dispositivos

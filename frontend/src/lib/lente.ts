@@ -12,7 +12,8 @@
 
 const COLUMNAS =
   "id, owner_id, group_id, visibility, kind, status, occurred_at, category_id, amount," +
-  " currency, payee, paid_from_group, account_id, amount_account, transfer_account_id, deleted_at"
+  " currency, payee, paid_from_group, amount_owner, account_id, amount_account, transfer_account_id," +
+  " deleted_at"
 
 export const TX_GRUPO = `(SELECT ${COLUMNAS} FROM transactions
   UNION ALL

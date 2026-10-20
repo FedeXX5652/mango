@@ -108,6 +108,11 @@ const transactions = new Table(
     // Cobro de un pago de deuda (0018): este ingreso pendiente vino de un pago
     // que me hizo otro miembro; al confirmarlo elijo la cuenta.
     settlement_id: column.text,
+    // Pagos en conjunto (0032): en un gasto compartido que pagaron varios,
+    // `amount` es el total y esto lo que puse yo (NULL = todo). Y mi parte de un
+    // gasto que cargo otro apunta al gasto con `paid_for_id`.
+    amount_owner: column.integer,
+    paid_for_id: column.text,
     created_at: column.text,
     updated_at: column.text,
     deleted_at: column.text,
@@ -167,6 +172,23 @@ const transaction_tags = new Table(
     deleted_at: column.text,
   },
   { indexes: { por_movimiento: ["transaction_id"], por_etiqueta: ["tag_id"] } },
+)
+
+// Quien mas puso plata en un gasto compartido (0032): un miembro o la cuenta
+// conjunta, con el estado de su confirmacion. Bajan por el stream `grupo`; las
+// escribe quien cargo el gasto.
+const transaction_payers = new Table(
+  {
+    transaction_id: column.text,
+    user_id: column.text,
+    account_id: column.text,
+    amount: column.integer,
+    status: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
+  },
+  { indexes: { por_movimiento: ["transaction_id"] } },
 )
 
 // Partes de un gasto compartido: cuanto le toca a cada miembro (reparto tipo
@@ -377,6 +399,7 @@ const group_transactions = new Table(
     payee: column.text,
     source: column.text,
     paid_from_group: column.integer,
+    amount_owner: column.integer,
     account_id: column.text,
     amount_account: column.integer,
     transfer_account_id: column.text,
@@ -535,6 +558,7 @@ export const AppSchema = new Schema({
   tags,
   transaction_tags,
   transaction_splits,
+  transaction_payers,
   settlements,
   templates,
   recurring_rules,

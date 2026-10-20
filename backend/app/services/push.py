@@ -37,6 +37,12 @@ FAMILIA = {
     # 1.7.0 (0019): te sacaron de un grupo; el grupo paso un tope del mes.
     "miembro_quitado": "grupos",
     "presupuesto_excedido": "grupos",
+    # Pagos en conjunto (1.8.0, 0032): lo que pusiste en un gasto de otro, y que
+    # alguien dijo que no pago. Son pagos, como los de una deuda.
+    "pago_por_confirmar": "grupos",
+    "pago_cambiado": "grupos",
+    "pago_borrado": "grupos",
+    "pago_rechazado": "grupos",
     # Un gasto compartido nuevo en el que tenes parte (1.7.0): su propia familia,
     # porque es el que mas se repite y cada dispositivo puede no quererlo.
     "gasto_compartido": "gastos",

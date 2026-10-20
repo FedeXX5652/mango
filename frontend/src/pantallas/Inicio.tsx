@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import { Link } from "react-router-dom"
 
 import { CobrosPorConfirmar } from "@/componentes/CobrosPorConfirmar"
+import { PagosPorConfirmar } from "@/componentes/PagosPorConfirmar"
 import { TarjetaProximosPagos } from "@/componentes/recordatorios/TarjetaProximosPagos"
 import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { Notificaciones } from "@/componentes/Notificaciones"
@@ -66,7 +67,8 @@ const SQL_SALDOS = `
 `
 
 const SQL_RECIENTES = `
-  SELECT t.id, t.kind, t.amount, t.currency, t.occurred_at, t.payee, c.name AS categoria,
+  SELECT t.id, t.kind, COALESCE(t.amount_owner, t.amount) AS amount, t.currency, t.occurred_at,
+         t.payee, c.name AS categoria,
          g.name AS grupo_nombre, g.color AS grupo_color
   FROM transactions t
   LEFT JOIN categories c ON c.id = t.category_id
@@ -143,6 +145,8 @@ export function Inicio() {
       </header>
 
       <CobrosPorConfirmar />
+      {/* Lo que puse en gastos que cargaron otros (0032). */}
+      <PagosPorConfirmar />
 
       {/* Lo vencido y lo que vence en la semana (0030). No depende de tener
           cuentas: va afuera del bloque que las necesita. */}

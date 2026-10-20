@@ -37,6 +37,7 @@ RUTA = {
     "tags": "/tags",
     "transaction_tags": "/transaction-tags",
     "transaction_splits": "/transaction-splits",
+    "transaction_payers": "/transaction-payers",
     "settlements": "/settlements",
     "templates": "/templates",
     "recurring_rules": "/recurring",

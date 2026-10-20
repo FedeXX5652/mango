@@ -10,6 +10,7 @@
 // arma un resumen por cada moneda que aparezca en los gastos compartidos.
 
 import { formatearMonto } from "@/lib/dinero"
+import { repartirPorPesos } from "@/lib/reparto"
 
 export interface TxGrupo {
   id: string
@@ -21,6 +22,19 @@ export interface TxGrupo {
   // Pagado desde la cuenta conjunta (0016): suma al total del grupo pero no
   // genera deuda entre personas (nadie puso de lo suyo). 1/true = conjunta.
   paid_from_group?: number | boolean
+  // Lo que puso quien lo cargo, si pusieron otros (0032). `amount` es el total.
+  amount_owner?: number | null
+}
+
+// Otro que puso plata en un gasto (0032): un miembro o la cuenta conjunta.
+export interface PayerRow {
+  // Es tambien el id del movimiento de ese miembro (0032).
+  id?: string
+  transaction_id: string
+  user_id: string | null
+  account_id: string | null
+  amount: number
+  status?: string
 }
 
 export interface MiembroGrupo {
@@ -110,12 +124,48 @@ function nombreDe(miembros: MiembroGrupo[], userId: string): string {
   return miembros.find((m) => m.user_id === userId)?.nombre ?? userId.slice(0, 8)
 }
 
+// Lo que puso la cuenta conjunta en un gasto (0032): no es deuda de nadie.
+function deLaConjunta(pagadores: PayerRow[]): number {
+  return pagadores.filter((p) => p.account_id !== null).reduce((s, p) => s + p.amount, 0)
+}
+
+// La parte de cada uno en UN gasto. Con splits, la de cada split; si no, partes
+// iguales entre todos (0015). Lo que puso la conjunta no es deuda (0016): las
+// partes se calculan sobre el resto, achicadas en proporcion (mayor resto, sin
+// perder un centavo).
+function partesDelGasto(
+  t: Pick<TxGrupo, "amount">,
+  splitsDelTx: SplitRow[],
+  ordenados: MiembroGrupo[],
+  pagadores: PayerRow[],
+): Map<string, number> {
+  const base = t.amount - deLaConjunta(pagadores)
+  const salida = new Map<string, number>()
+  if (splitsDelTx.length > 0) {
+    const montos =
+      base === t.amount
+        ? splitsDelTx.map((s) => s.amount)
+        : repartirPorPesos(
+            base,
+            splitsDelTx.map((s) => s.amount),
+          )
+    splitsDelTx.forEach((s, i) => salida.set(s.user_id, (salida.get(s.user_id) ?? 0) + montos[i]))
+  } else {
+    const partes = partesIguales(base, ordenados.length)
+    ordenados.forEach((m, i) => salida.set(m.user_id, partes[i] ?? 0))
+  }
+  return salida
+}
+
 export function resumenGrupo(
   txs: TxGrupo[],
   miembros: MiembroGrupo[],
-  extra: { splits?: SplitRow[]; settlements?: SettlementRow[] } = {},
+  extra: { splits?: SplitRow[]; settlements?: SettlementRow[]; payers?: PayerRow[] } = {},
 ): ResumenMoneda[] {
-  const { splits = [], settlements = [] } = extra
+  const { splits = [], settlements = [], payers = [] } = extra
+  const payersPorTx = new Map<string, PayerRow[]>()
+  for (const p of payers)
+    payersPorTx.set(p.transaction_id, [...(payersPorTx.get(p.transaction_id) ?? []), p])
   // Solo gastos: "cuanto gasto el grupo" y quien puso plata (regla del payador).
   const gastos = txs.filter((t) => t.kind === "expense")
   const monedas = [...new Set(gastos.map((t) => t.currency))].sort()
@@ -146,23 +196,27 @@ export function resumenGrupo(
     // conjunta ya es plata de todos, no genera deuda (0016).
     const conDeuda = delaMoneda.filter((t) => !t.paid_from_group)
 
-    // Cuanto puso cada miembro de lo suyo (0 si no puso nada este periodo).
+    // Cuanto puso cada miembro de lo suyo (0 si no puso nada este periodo):
+    // quien lo cargo, lo suyo; y cada uno de los que tambien pusieron (0032),
+    // confirmado o no (G1: cuenta desde que se carga).
     const puestoPor = new Map<string, number>()
-    for (const t of conDeuda) puestoPor.set(t.owner_id, (puestoPor.get(t.owner_id) ?? 0) + t.amount)
-
-    // La parte de cada uno, gasto por gasto: si el gasto tiene splits, sale de
-    // ahi; si no, se reparte en partes iguales entre todos los miembros.
-    const parteDe = new Map<string, number>()
-    const sumar = (userId: string, monto: number) =>
-      parteDe.set(userId, (parteDe.get(userId) ?? 0) + monto)
+    const poner = (userId: string, monto: number) =>
+      puestoPor.set(userId, (puestoPor.get(userId) ?? 0) + monto)
     for (const t of conDeuda) {
-      const s = splitsPorTx.get(t.id)
-      if (s && s.length > 0) {
-        for (const split of s) sumar(split.user_id, split.amount)
-      } else {
-        const partes = partesIguales(t.amount, ordenados.length)
-        ordenados.forEach((m, idx) => sumar(m.user_id, partes[idx] ?? 0))
-      }
+      poner(t.owner_id, t.amount_owner ?? t.amount)
+      for (const p of payersPorTx.get(t.id) ?? []) if (p.user_id) poner(p.user_id, p.amount)
+    }
+
+    // La parte de cada uno, gasto por gasto (ver `partesDelGasto`).
+    const parteDe = new Map<string, number>()
+    for (const t of conDeuda) {
+      const partes = partesDelGasto(
+        t,
+        splitsPorTx.get(t.id) ?? [],
+        ordenados,
+        payersPorTx.get(t.id) ?? [],
+      )
+      for (const [userId, monto] of partes) parteDe.set(userId, (parteDe.get(userId) ?? 0) + monto)
     }
 
     const balances: BalanceMiembro[] = ordenados.map((m) => {
@@ -208,13 +262,11 @@ export function parteEnGasto(
   splitsDelTx: SplitRow[],
   miembros: MiembroGrupo[],
   userId: string,
+  pagadores: PayerRow[] = [],
 ): number | null {
   if (tx.paid_from_group) return null
-  if (splitsDelTx.length > 0) return splitsDelTx.find((s) => s.user_id === userId)?.amount ?? 0
   const ordenados = [...miembros].sort((a, b) => a.user_id.localeCompare(b.user_id))
-  const i = ordenados.findIndex((m) => m.user_id === userId)
-  if (i < 0) return 0
-  return partesIguales(tx.amount, ordenados.length)[i] ?? 0
+  return partesDelGasto(tx, splitsDelTx, ordenados, pagadores).get(userId) ?? 0
 }
 
 export interface GastoHistoria {

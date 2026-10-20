@@ -54,7 +54,7 @@ interface FlujoRow {
 const SQL_FLUJOS = `
   SELECT currency,
          CASE WHEN kind = 'income' AND settlement_id IS NOT NULL THEN 'reintegro' ELSE kind END AS tipo,
-         SUM(amount) AS total
+         SUM(COALESCE(amount_owner, amount)) AS total
   FROM transactions
   WHERE kind IN ('income','expense') AND status = 'confirmed' AND deleted_at IS NULL
     AND occurred_at >= ? AND occurred_at < ?

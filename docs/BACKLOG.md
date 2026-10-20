@@ -65,12 +65,13 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   base no obliga a regenerar nada) y grafico en Cotizaciones. Con los cabos
   sueltos: borrado idempotente, etiquetas de grupo, rechazados editables, avisos
   por familia y tres avisos nuevos, CSV con fecha local, `users.email` afuera.
-- **1.8.0 - Pagos en conjunto.** Un gasto compartido = total + cuanto puso cada
+- **1.8.0 - Pagos en conjunto: HECHA** (2026-10-19, 0032). Un gasto compartido = total + cuanto puso cada
   uno + cuanto le toca a cada uno. Lo que puso otro le llega como "pago por
   confirmar" (de que cuenta salio); cuenta en el balance desde que se carga; lo
   edita quien lo cargo y cada pagador solo su parte. Rechazar es reversible:
   deshacer al instante, sin boton negativo en la notificacion, y "Cambiar" desde
-  el gasto. Necesita su propia decision.
+  el gasto. Queda para despues: entre varios con una cuenta en otra moneda que la
+  del gasto (hoy se pide una en la misma moneda).
 
 ## PWA: ideas que salieron con los atajos (0023)
 

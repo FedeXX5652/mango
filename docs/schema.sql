@@ -446,6 +446,15 @@ CREATE TABLE transactions (
     -- el servidor le crea al acreedor; al confirmarlo, este le asigna la cuenta.
     settlement_id       UUID REFERENCES settlements(id),
 
+    -- Pagos en conjunto (0032). En un gasto compartido que pagaron varios,
+    -- amount es el TOTAL y esto lo que puso quien lo cargo (lo que sale de su
+    -- cuenta). NULL = lo pago entero; 0 = lo pagaron otros (sin cuenta).
+    amount_owner        BIGINT CONSTRAINT tx_amount_owner_chk
+                            CHECK (amount_owner IS NULL OR amount_owner BETWEEN 0 AND amount),
+    -- El pago de un miembro en un gasto que cargo otro: apunta al gasto. Lo crea
+    -- el servidor, pendiente hasta que elige la cuenta.
+    paid_for_id         UUID REFERENCES transactions(id),
+
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at          TIMESTAMPTZ,
@@ -468,9 +477,10 @@ CREATE TABLE transactions (
     CONSTRAINT tx_transfer_chk CHECK (
         kind <> 'transfer' OR (account_id IS NOT NULL AND transfer_account_id IS NOT NULL)
     ),
-    -- Una transaccion confirmada necesita cuenta
+    -- Una transaccion confirmada necesita cuenta, salvo un gasto compartido que
+    -- pagaron otros enteros (amount_owner 0, ver 0032)
     CONSTRAINT tx_confirmed_chk CHECK (
-        status <> 'confirmed' OR account_id IS NOT NULL
+        status <> 'confirmed' OR account_id IS NOT NULL OR amount_owner = 0
     ),
     -- El monto es magnitud positiva; la direccion la da `kind` (ver 0001)
     CONSTRAINT tx_amount_chk CHECK (amount >= 0),
@@ -510,6 +520,42 @@ CREATE TABLE transaction_splits (
     user_id         UUID REFERENCES users(id),
     amount          BIGINT NOT NULL,
     notes           TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ
+);
+
+-- Quien mas puso plata en un gasto compartido (0032): un miembro o la cuenta
+-- conjunta. Lo carga quien cargo el gasto; `status` lo mantiene el servidor,
+-- espejo del pago de ese miembro (mismo id). La conjunta nace confirmada.
+CREATE TABLE transaction_payers (
+    id              UUID PRIMARY KEY,
+    transaction_id  UUID NOT NULL REFERENCES transactions(id),
+    user_id         UUID REFERENCES users(id),
+    account_id      UUID REFERENCES accounts(id),
+    amount          BIGINT NOT NULL CONSTRAINT payer_amount_chk CHECK (amount >= 0),
+    status          TEXT NOT NULL DEFAULT 'pending'
+                        CONSTRAINT payer_status_chk CHECK (status IN ('pending','confirmed','rejected')),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ,
+    CONSTRAINT payer_quien_chk CHECK ((user_id IS NULL) <> (account_id IS NULL))
+);
+CREATE UNIQUE INDEX payer_miembro_uniq ON transaction_payers (transaction_id, user_id)
+    WHERE user_id IS NOT NULL AND deleted_at IS NULL;
+CREATE UNIQUE INDEX payer_conjunta_uniq ON transaction_payers (transaction_id)
+    WHERE account_id IS NOT NULL AND deleted_at IS NULL;
+
+-- El boton del aviso de un pago a confirmar ("Pagada con Efectivo", 0032): un
+-- permiso de un solo uso, como reminder_action_tokens. No se sincroniza.
+CREATE TABLE payment_action_tokens (
+    id              UUID PRIMARY KEY,
+    token_hash      TEXT NOT NULL UNIQUE,
+    user_id         UUID NOT NULL REFERENCES users(id),
+    transaction_id  UUID NOT NULL REFERENCES transactions(id),
+    account_id      UUID NOT NULL REFERENCES accounts(id),
+    expires_at      TIMESTAMPTZ NOT NULL,
+    used_at         TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at      TIMESTAMPTZ
