@@ -1,15 +1,15 @@
 import { useQuery } from "@powersync/react"
-import { ArrowLeft, CalendarClock, Plus } from "lucide-react"
+import { CalendarClock } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 
+import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { Monto } from "@/componentes/Monto"
 import { Vacio } from "@/componentes/Vacio"
 import { FilaRecurrente } from "@/componentes/recordatorios/FilaRecurrente"
 import { FormularioRecordatorio } from "@/componentes/recordatorios/FormularioRecordatorio"
 import { AccionesVencimiento, FilaVencimiento } from "@/componentes/recordatorios/Vencimiento"
-import { Button } from "@/componentes/ui/button"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { Hoja } from "@/componentes/ui/hoja"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
@@ -131,20 +131,13 @@ export function CalendarioPagos({
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
-      <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold">Calendario de pagos</h1>
-          {grupo && <EtiquetaGrupo nombre={grupo.nombre} color={grupo.color} variante="punto" />}
-        </div>
-      </header>
-
-      <Button className="w-full" onClick={() => setEditando("nuevo")}>
-        <Plus className="h-4 w-4" />
-        Nuevo recordatorio
-      </Button>
+      <EncabezadoPantalla
+        titulo="Calendario de pagos"
+        volver={volver}
+        acciones={<BotonNuevo etiqueta="Nuevo recordatorio" onClick={() => setEditando("nuevo")} />}
+      >
+        {grupo && <EtiquetaGrupo nombre={grupo.nombre} color={grupo.color} variante="punto" />}
+      </EncabezadoPantalla>
 
       {isLoading ? (
         <Cargando
@@ -164,6 +157,7 @@ export function CalendarioPagos({
               ? "Anotá lo que paga el grupo (expensas, servicios) y Mango les avisa a todos cuando vence."
               : "Anotá lo que tenés que pagar (alquiler, tarjeta, expensas) y Mango te avisa cuando vence."
           }
+          accion={{ onClick: () => setEditando("nuevo"), etiqueta: "Nuevo recordatorio" }}
         />
       ) : (
         <>

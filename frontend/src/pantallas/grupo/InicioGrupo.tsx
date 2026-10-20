@@ -93,7 +93,7 @@ function MesGrupo({ groupId, moneda }: { groupId: string; moneda: string }) {
   const espacio = { tipo: "grupo" as const, id: groupId }
 
   return (
-    <section className="space-y-3 rounded-xl bg-card p-4">
+    <section className="space-y-3 rounded-xl bg-card p-4 shadow-tarjeta">
       <h2 className="text-sm font-medium text-muted-foreground">Gasto del grupo en {nombreMes}</h2>
       <p className="text-2xl font-semibold">
         <Monto centavos={gastado} moneda={moneda} />
@@ -138,7 +138,7 @@ function UltimosGrupo({ groupId }: { groupId: string }) {
         )}
       </div>
       {items.length === 0 ? (
-        <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+        <p className="rounded-xl bg-card shadow-tarjeta p-4 text-sm text-muted-foreground">
           Cuando alguien cargue un gasto compartido con el grupo, aparece acá.
         </p>
       ) : (

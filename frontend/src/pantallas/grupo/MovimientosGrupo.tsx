@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, Receipt } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 
-import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
+import { CabeceraPestana } from "@/componentes/SelectorEspacio"
 import { Vacio } from "@/componentes/Vacio"
 import { ConPanel } from "@/componentes/ConPanel"
 import { FilaHistoria, HojaPago } from "@/componentes/grupo/Historia"
@@ -93,8 +93,7 @@ export function MovimientosGrupo() {
   return (
     <ConPanel etiqueta="Detalle del movimiento">
       <div className="mx-auto max-w-2xl space-y-3 p-4">
-        <EncabezadoEspacio />
-        <h1 className="text-2xl font-semibold">Movimientos</h1>
+        <CabeceraPestana titulo="Movimientos" />
 
         <div className="flex items-center justify-center gap-1">
           <Button

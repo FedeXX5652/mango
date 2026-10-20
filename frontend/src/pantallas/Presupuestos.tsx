@@ -18,10 +18,11 @@ import { Button } from "@/componentes/ui/button"
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
+import { Desplegable } from "@/componentes/ui/desplegable"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Interruptor } from "@/componentes/ui/interruptor"
-import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
+import { CabeceraPestana } from "@/componentes/SelectorEspacio"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { aCentavos, aTextoEditable, formatearCentavos, formatearMonto } from "@/lib/dinero"
@@ -288,7 +289,7 @@ export function Presupuestos() {
   if (cargando) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 p-4">
-        <EncabezadoEspacio />
+        <CabeceraPestana titulo="Presupuesto" />
         <Cargando visible={mostrarEsqueleto} className="space-y-4" etiqueta="Cargando presupuesto">
           <Esqueleto className="h-40 w-full rounded-xl" />
           <Esqueleto className="mx-auto h-6 w-40" />
@@ -302,19 +303,12 @@ export function Presupuestos() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
-      <EncabezadoEspacio />
       {/* Cada moneda tiene su propio presupuesto y su propio "por asignar"
           (ver 0005). Con una sola no hay nada que elegir. */}
-      {/* Con una sola moneda no hay fila de moneda, pero la pantalla sigue
-          necesitando su titulo (para lectores de pantalla). */}
-      {monedas.length <= 1 && <h1 className="sr-only">Presupuesto</h1>}
-      {monedas.length > 1 && (
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-sm font-semibold text-muted-foreground">Presupuesto en {moneda}</h1>
-          <SelectorMoneda monedas={monedas} valor={moneda} onCambio={setMonedaElegida} />
-        </div>
-      )}
-      <div className="rounded-xl bg-card p-4">
+      <CabeceraPestana titulo="Presupuesto">
+        <SelectorMoneda suelto monedas={monedas} valor={moneda} onCambio={setMonedaElegida} />
+      </CabeceraPestana>
+      <div className="rounded-xl bg-card p-4 shadow-tarjeta">
         <div className="flex items-center gap-4">
           {/* Tamano fijo: los radios son fijos y el ciclo de medicion del
               ResponsiveContainer dejaba el anillo vacio al entrar (ver 0008). */}
@@ -401,7 +395,7 @@ export function Presupuestos() {
       </div>
 
       <Button
-        variant="outline"
+        variant="secondary"
         className="w-full"
         onClick={() => setAgregando(true)}
         disabled={noSobres.length === 0}
@@ -458,35 +452,38 @@ export function Presupuestos() {
                     gast.
                   </span>
                 </div>
-                {rootEsSobre && rootCat && (
-                  <FilaSobre
-                    cat={rootCat}
-                    nombre={`${rootCat.name} (directo)`}
-                    saldo={saldoPorId.get(rootId)}
-                    asignadoSel={asignadoSel(rootId)}
-                    autoOn={reglaPorCat.get(rootId)?.active === 1}
-                    moneda={moneda}
-                    onAsignar={asignar}
-                    onQuitar={quitarSobre}
-                    onAhorro={toggleAhorro}
-                    onToggleAuto={toggleAuto}
-                  />
-                )}
-                {hijos.map((h) => (
-                  <FilaSobre
-                    key={h.id}
-                    cat={h}
-                    sangria
-                    saldo={saldoPorId.get(h.id)}
-                    asignadoSel={asignadoSel(h.id)}
-                    autoOn={reglaPorCat.get(h.id)?.active === 1}
-                    moneda={moneda}
-                    onAsignar={asignar}
-                    onQuitar={quitarSobre}
-                    onAhorro={toggleAhorro}
-                    onToggleAuto={toggleAuto}
-                  />
-                ))}
+                <div className="divide-y divide-border overflow-hidden rounded-xl bg-card shadow-tarjeta">
+                  {rootEsSobre && rootCat && (
+                    <FilaSobre
+                      enGrupo
+                      cat={rootCat}
+                      nombre={`${rootCat.name} (directo)`}
+                      saldo={saldoPorId.get(rootId)}
+                      asignadoSel={asignadoSel(rootId)}
+                      autoOn={reglaPorCat.get(rootId)?.active === 1}
+                      moneda={moneda}
+                      onAsignar={asignar}
+                      onQuitar={quitarSobre}
+                      onAhorro={toggleAhorro}
+                      onToggleAuto={toggleAuto}
+                    />
+                  )}
+                  {hijos.map((h) => (
+                    <FilaSobre
+                      key={h.id}
+                      cat={h}
+                      enGrupo
+                      saldo={saldoPorId.get(h.id)}
+                      asignadoSel={asignadoSel(h.id)}
+                      autoOn={reglaPorCat.get(h.id)?.active === 1}
+                      moneda={moneda}
+                      onAsignar={asignar}
+                      onQuitar={quitarSobre}
+                      onAhorro={toggleAhorro}
+                      onToggleAuto={toggleAuto}
+                    />
+                  ))}
+                </div>
               </div>
             )
           })}
@@ -509,7 +506,7 @@ function FilaSobre({
   saldo,
   asignadoSel,
   autoOn,
-  sangria,
+  enGrupo,
   moneda,
   onAsignar,
   onQuitar,
@@ -521,7 +518,8 @@ function FilaSobre({
   saldo: SaldoSobre | undefined
   asignadoSel: number
   autoOn: boolean
-  sangria?: boolean
+  // Va dentro de la tarjeta de su categoria: sin tarjeta propia.
+  enGrupo?: boolean
   moneda: string
   onAsignar: (catId: string, centavos: number) => void
   onQuitar: (catId: string) => void
@@ -545,7 +543,7 @@ function FilaSobre({
   const excedido = gastado > asignadoSel
 
   return (
-    <div className={cn("rounded-lg border border-border bg-card p-3", sangria && "ml-4")}>
+    <div className={cn("p-3", !enGrupo && "rounded-xl bg-card shadow-tarjeta")}>
       <button
         // Toda la cabecera abre el sobre: 44 px de alto en el movil.
         className="flex min-h-11 w-full items-center gap-1 text-left lg:min-h-6"
@@ -622,49 +620,42 @@ function FilaSobre({
         />
       </div>
 
-      {/* Acordeon: grid-rows 0fr->1fr anima el alto sin medir (DESIGN.md 8). */}
-      <div
-        className={cn(
-          "grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-salida",
-          abierto ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-        )}
-      >
-        <div className="overflow-hidden">
-          <div className="mt-2 space-y-2 border-t border-border pt-2 text-sm">
-            <div className="flex min-h-11 items-center justify-between gap-3">
-              <span className="flex items-center gap-3">
-                <Interruptor
-                  encendido={cat.rollover === 1}
-                  onCambio={(v) => onAhorro(cat.id, v)}
-                  etiqueta="Ahorro (acumula)"
-                />
-                Ahorro (acumula)
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-expense"
-                onClick={() => setConfirmarQuitar(true)}
-              >
-                <Trash2 className="h-4 w-4" /> Quitar
-              </Button>
-            </div>
-            <div className="flex min-h-11 items-center gap-3">
+      {/* Acordeon (DESIGN.md 8); cerrado, sus controles no reciben el foco. */}
+      <Desplegable abierto={abierto}>
+        <div className="mt-2 space-y-2 border-t border-border pt-2 text-sm">
+          <div className="flex min-h-11 items-center justify-between gap-3">
+            <span className="flex items-center gap-3">
               <Interruptor
-                encendido={autoOn}
-                onCambio={(v) => onToggleAuto(cat.id, v)}
-                etiqueta="Asignar automáticamente cada mes"
+                encendido={cat.rollover === 1}
+                onCambio={(v) => onAhorro(cat.id, v)}
+                etiqueta="Ahorro (acumula)"
               />
-              Asignar automáticamente cada mes
-            </div>
-            {autoOn && (
-              <p className="text-xs text-muted-foreground">
-                Cada mes se asigna solo el monto de arriba (editalo y la regla se actualiza).
-              </p>
-            )}
+              Ahorro (acumula)
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-expense"
+              onClick={() => setConfirmarQuitar(true)}
+            >
+              <Trash2 className="h-4 w-4" /> Quitar
+            </Button>
           </div>
+          <div className="flex min-h-11 items-center gap-3">
+            <Interruptor
+              encendido={autoOn}
+              onCambio={(v) => onToggleAuto(cat.id, v)}
+              etiqueta="Asignar automáticamente cada mes"
+            />
+            Asignar automáticamente cada mes
+          </div>
+          {autoOn && (
+            <p className="text-xs text-muted-foreground">
+              Cada mes se asigna solo el monto de arriba (editalo y la regla se actualiza).
+            </p>
+          )}
         </div>
-      </div>
+      </Desplegable>
 
       <Confirmar
         destructivo
@@ -737,7 +728,7 @@ function FormAgregar({
         >
           Agregar
         </Button>
-        <Button variant="outline" onClick={onCerrar}>
+        <Button variant="secondary" onClick={onCerrar}>
           Cancelar
         </Button>
       </div>

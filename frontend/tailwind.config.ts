@@ -1,5 +1,18 @@
 import type { Config } from "tailwindcss"
 
+// Un token como color de Tailwind. Sin opacidad es la variable tal cual; con
+// opacidad (`bg-primary/10`), la mezcla con transparente. Tailwind 3 no puede
+// aplicar opacidad a `var(--x)`: hasta la 1.9.0 esas clases no se generaban y
+// no hacian nada. `color-mix` solo aparece en las clases con opacidad.
+function token(nombre: string) {
+  return ({ opacityValue }: { opacityValue?: string | number }) => {
+    const alfa = opacityValue === undefined ? "" : String(opacityValue)
+    return alfa === "" || alfa.startsWith("var(")
+      ? `var(--${nombre})`
+      : `color-mix(in srgb, var(--${nombre}) calc(${alfa} * 100%), transparent)`
+  }
+}
+
 // Los componentes usan nombres de token (bg-primary, text-muted-foreground...),
 // nunca colores literales. Cada token es una variable CSS que resuelve el tema
 // activo (ver src/styles/tema-mango.css). El modo oscuro se activa por clase.
@@ -13,32 +26,36 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-        card: { DEFAULT: "var(--card)", foreground: "var(--card-foreground)" },
-        popover: { DEFAULT: "var(--popover)", foreground: "var(--popover-foreground)" },
-        muted: { DEFAULT: "var(--muted)", foreground: "var(--muted-foreground)" },
-        secondary: { DEFAULT: "var(--secondary)", foreground: "var(--secondary-foreground)" },
-        primary: { DEFAULT: "var(--primary)", foreground: "var(--primary-foreground)" },
-        accent: { DEFAULT: "var(--accent)", foreground: "var(--accent-foreground)" },
+        background: token("background"),
+        foreground: token("foreground"),
+        card: { DEFAULT: token("card"), foreground: token("card-foreground") },
+        popover: { DEFAULT: token("popover"), foreground: token("popover-foreground") },
+        muted: { DEFAULT: token("muted"), foreground: token("muted-foreground") },
+        secondary: { DEFAULT: token("secondary"), foreground: token("secondary-foreground") },
+        primary: { DEFAULT: token("primary"), foreground: token("primary-foreground") },
+        accent: { DEFAULT: token("accent"), foreground: token("accent-foreground") },
         destructive: {
-          DEFAULT: "var(--destructive)",
-          foreground: "var(--destructive-foreground)",
+          DEFAULT: token("destructive"),
+          foreground: token("destructive-foreground"),
         },
-        border: "var(--border)",
-        input: "var(--input)",
-        ring: "var(--ring)",
+        border: token("border"),
+        input: token("input"),
+        ring: token("ring"),
         // Tokens propios del dominio financiero (DESIGN.md 3).
-        expense: "var(--expense)",
-        income: "var(--income)",
-        transfer: "var(--transfer)",
-        pending: "var(--pending)",
-        rejected: "var(--rejected)",
+        expense: token("expense"),
+        income: token("income"),
+        transfer: token("transfer"),
+        pending: token("pending"),
+        rejected: token("rejected"),
         // Texto de enlaces y acciones de texto. Es un ALIAS de accent-foreground,
         // no un color nuevo: ese token ya es oscuro sobre claro y claro sobre
         // oscuro en los tres temas (9:1 a 13:1). `text-primary` como texto NO:
         // el amarillo de marca sobre blanco da 1,7:1 (DESIGN.md 3).
-        enlace: "var(--accent-foreground)",
+        enlace: token("accent-foreground"),
+      },
+      // Elevacion de una tarjeta (1.9.0): sombra en claro, luminosidad en oscuro.
+      boxShadow: {
+        tarjeta: "var(--sombra-tarjeta)",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -109,6 +126,16 @@ export default {
           from: { opacity: "0", transform: "scale(0.3)" },
           to: { opacity: "1", transform: "none" },
         },
+        // Una pantalla que se abre desde otra (1.9.0): sube poco, sin escala.
+        entrar: {
+          from: { opacity: "0", transform: "translateY(12px)" },
+          to: { opacity: "1", transform: "none" },
+        },
+        // El movimiento recien cargado, en la lista: el fondo acento se apaga.
+        resaltar: {
+          from: { backgroundColor: "var(--accent)" },
+          to: { backgroundColor: "transparent" },
+        },
         // Espera indeterminada: el unico bucle de la app. No comunica un
         // cambio de estado sino "seguimos trabajando", asi que va lento y
         // suave para no llamar la atencion (ver DESIGN.md 8).
@@ -122,6 +149,8 @@ export default {
         aparecer: "aparecer 200ms cubic-bezier(0.23, 1, 0.32, 1)",
         fundir: "fundir 200ms cubic-bezier(0.23, 1, 0.32, 1)",
         punto: "punto 150ms cubic-bezier(0.23, 1, 0.32, 1)",
+        entrar: "entrar 200ms cubic-bezier(0.23, 1, 0.32, 1)",
+        resaltar: "resaltar 800ms ease-in",
         latido: "latido 1200ms ease-in-out infinite",
       },
     },

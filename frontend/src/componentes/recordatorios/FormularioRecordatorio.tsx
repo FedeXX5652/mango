@@ -298,7 +298,7 @@ export function FormularioRecordatorio({
           </div>
         ))}
         {avisos.length < 10 && (
-          <Button variant="outline" size="sm" onClick={agregarAviso}>
+          <Button variant="secondary" size="sm" onClick={agregarAviso}>
             <Plus className="h-4 w-4" />
             Agregar aviso
           </Button>
@@ -328,7 +328,7 @@ export function FormularioRecordatorio({
         <Button className="flex-1" disabled={guardando} onClick={guardar}>
           Guardar
         </Button>
-        <Button variant="outline" onClick={onCerrar}>
+        <Button variant="secondary" onClick={onCerrar}>
           Cancelar
         </Button>
       </div>

@@ -44,7 +44,9 @@ export function Interruptor({
         className={cn(
           "relative inline-flex h-6 w-10 items-center rounded-full transition-colors",
           "group-focus-visible:ring-2 group-focus-visible:ring-ring group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-card",
-          encendido ? "bg-primary" : "bg-muted",
+          // Apagado, el gris de los botones secundarios: el de `muted` casi no
+          // se veia sobre una tarjeta blanca (1.9.0).
+          encendido ? "bg-primary" : "bg-secondary",
         )}
       >
         <span

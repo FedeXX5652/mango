@@ -17,12 +17,12 @@ import {
 
 import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { Monto } from "@/componentes/Monto"
-import { SelectorMoneda } from "@/componentes/SelectorMoneda"
 import { Button } from "@/componentes/ui/button"
 import { Hoja } from "@/componentes/ui/hoja"
+import { OpcionesRadio } from "@/componentes/ui/opcionesRadio"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { Segmentado } from "@/componentes/ui/segmentado"
-import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
+import { CabeceraPestana } from "@/componentes/SelectorEspacio"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { useRefrescoCotizaciones } from "@/hooks/refrescoCotizaciones"
@@ -238,8 +238,10 @@ function BarraMes({
   moneda: string
 }) {
   const pct = Math.min((valor / tope) * 100, 100)
+  // Una fila de la tarjeta de ingresos y egresos (separadores, no una tarjeta
+  // por barra: 1.9.0).
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="p-4">
       <div className="mb-2 flex items-center justify-between text-sm">
         <span className="text-muted-foreground">{etiqueta}</span>
         <Monto centavos={valor} moneda={moneda} className={cn("font-semibold", texto)} />
@@ -575,8 +577,7 @@ export function Estadisticas() {
   if (cargando) {
     return (
       <div className="mx-auto max-w-2xl space-y-8 p-4">
-        <EncabezadoEspacio />
-        <h1 className="text-2xl font-semibold">Estadísticas</h1>
+        <CabeceraPestana titulo="Estadísticas" />
         <Cargando visible={mostrarEsqueleto} className="space-y-8" etiqueta="Cargando estadísticas">
           {/* Los esqueletos tienen el tamano de lo que viene, asi el contenido
               no empuja nada al llegar. */}
@@ -597,22 +598,18 @@ export function Estadisticas() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 p-4">
-      <EncabezadoEspacio />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Estadísticas</h1>
-        {/* Con una sola moneda no hay nada que unificar. */}
+      <CabeceraPestana titulo="Estadísticas">
+        {/* Con una sola moneda no hay nada que elegir ni que unificar. */}
         {!unaSola && (
-          <Segmentado
-            etiqueta="Cómo ver las monedas"
-            opciones={[
-              { valor: "global", etiqueta: "Global" },
-              { valor: "moneda", etiqueta: "Por moneda" },
-            ]}
-            valor={vista}
-            onCambio={cambiarVista}
+          <SelectorMonedas
+            monedas={monedas}
+            moneda={moneda}
+            onMoneda={setMonedaElegida}
+            vista={vista}
+            onVista={cambiarVista}
           />
         )}
-      </div>
+      </CabeceraPestana>
       {/* El modo ya lo dicen los chips y la moneda el selector: no hace falta
           explicarlo abajo (DESIGN.md 7). Solo se avisa lo que quedo afuera. */}
       <div className="-mt-6 space-y-2">
@@ -627,7 +624,6 @@ export function Estadisticas() {
           valor={tipo}
           onCambio={cambiarTipo}
         />
-        <SelectorMoneda monedas={monedas} valor={moneda} onCambio={setMonedaElegida} />
         {faltantes.length > 0 && (
           <p className="text-xs text-muted-foreground">
             No incluye {faltantes.join(", ")}: falta su cotización.{" "}
@@ -691,7 +687,9 @@ export function Estadisticas() {
                   nameKey="name"
                   innerRadius={68}
                   outerRadius={92}
-                  paddingAngle={2}
+                  // Con una sola categoria, la separacion dejaba una muesca en
+                  // el anillo entero.
+                  paddingAngle={torta.length > 1 ? 2 : 0}
                   cornerRadius={5}
                   stroke="none"
                 >
@@ -710,7 +708,7 @@ export function Estadisticas() {
               {torta.slice(0, MAX_CATEGORIAS).map((t, i) => filaCategoria(t, i))}
             </ul>
             {torta.length > MAX_CATEGORIAS && (
-              <Button variant="outline" className="w-full" onClick={() => setVerTodas(true)}>
+              <Button variant="secondary" className="w-full" onClick={() => setVerTodas(true)}>
                 Ver todas ({torta.length})
               </Button>
             )}
@@ -737,21 +735,21 @@ export function Estadisticas() {
           </div>
 
           {porEtiqueta.length === 0 ? (
-            <p className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+            <p className="rounded-xl bg-card shadow-tarjeta p-8 text-center text-sm text-muted-foreground">
               {alcanceEtiquetas === "mes"
                 ? "Sin gastos etiquetados en este período."
                 : "Sin gastos etiquetados todavía."}
             </p>
           ) : (
             <>
-              <ul className="space-y-3 rounded-xl border border-border bg-card p-4">
+              <ul className="space-y-3 rounded-xl bg-card shadow-tarjeta p-4">
                 {porEtiqueta.slice(0, MAX_ETIQUETAS).map((e) => (
                   <FilaEtiqueta key={e.id} e={e} tope={topeEtiquetas} moneda={moneda} />
                 ))}
               </ul>
               {porEtiqueta.length > MAX_ETIQUETAS && (
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   className="w-full"
                   onClick={() => setVerTodasEtiquetas(true)}
                 >
@@ -780,39 +778,41 @@ export function Estadisticas() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">Ingresos y egresos</h2>
-        <BarraMes
-          etiqueta="Ingresos"
-          valor={ingresosMes}
-          tope={topeMes}
-          barra="bg-income"
-          texto="text-income"
-          moneda={moneda}
-        />
-        {reintegrosMes !== 0 && (
+        <div className="divide-y divide-border overflow-hidden rounded-xl bg-card shadow-tarjeta">
           <BarraMes
-            etiqueta="Reintegros de grupo"
-            valor={reintegrosMes}
+            etiqueta="Ingresos"
+            valor={ingresosMes}
             tope={topeMes}
             barra="bg-income"
             texto="text-income"
             moneda={moneda}
           />
-        )}
-        <BarraMes
-          etiqueta="Egresos"
-          valor={egresosMes}
-          tope={topeMes}
-          barra="bg-expense"
-          texto="text-expense"
-          moneda={moneda}
-        />
-        <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm">
-          <span className="text-muted-foreground">Resultado</span>
-          <Monto
-            centavos={resultadoMes}
+          {reintegrosMes !== 0 && (
+            <BarraMes
+              etiqueta="Reintegros de grupo"
+              valor={reintegrosMes}
+              tope={topeMes}
+              barra="bg-income"
+              texto="text-income"
+              moneda={moneda}
+            />
+          )}
+          <BarraMes
+            etiqueta="Egresos"
+            valor={egresosMes}
+            tope={topeMes}
+            barra="bg-expense"
+            texto="text-expense"
             moneda={moneda}
-            className={cn("font-semibold", resultadoMes < 0 ? "text-expense" : "text-income")}
           />
+          <div className="flex items-center justify-between px-4 py-3 text-sm">
+            <span className="text-muted-foreground">Resultado</span>
+            <Monto
+              centavos={resultadoMes}
+              moneda={moneda}
+              className={cn("font-semibold", resultadoMes < 0 ? "text-expense" : "text-income")}
+            />
+          </div>
         </div>
       </section>
 
@@ -893,5 +893,68 @@ export function Estadisticas() {
         </div>
       </section>
     </div>
+  )
+}
+
+// Moneda y modo, en un solo control junto al titulo (1.9.0). Antes eran dos
+// controles mas, apilados con el del periodo: tres seguidos. Abre una hoja con
+// las dos elecciones, que se aplican al tocarlas.
+function SelectorMonedas({
+  monedas,
+  moneda,
+  onMoneda,
+  vista,
+  onVista,
+}: {
+  monedas: string[]
+  moneda: string
+  onMoneda: (m: string) => void
+  vista: Vista
+  onVista: (v: Vista) => void
+}) {
+  const [abierta, setAbierta] = useState(false)
+  return (
+    <>
+      <Button variant="secondary" size="sm" className="shrink-0" onClick={() => setAbierta(true)}>
+        <span className="sr-only">Monedas: </span>
+        <span className="tabular">{moneda}</span>
+        <span className="text-muted-foreground">
+          · {vista === "global" ? "Global" : "Por moneda"}
+        </span>
+        <ChevronDown className="h-4 w-4" aria-hidden />
+      </Button>
+      <Hoja abierta={abierta} onOpenChange={setAbierta} titulo="Monedas">
+        <div className="space-y-4">
+          <OpcionesRadio
+            nombre="estadisticas-moneda"
+            etiqueta="Ver en"
+            opciones={monedas.map((m) => ({ valor: m, etiqueta: m }))}
+            valor={moneda}
+            onCambio={onMoneda}
+          />
+          <OpcionesRadio
+            nombre="estadisticas-vista"
+            etiqueta="Qué se cuenta"
+            opciones={[
+              {
+                valor: "global",
+                etiqueta: `Todo, convertido a ${moneda}`,
+                detalle: "Global: con la cotización de cada día.",
+              },
+              {
+                valor: "moneda",
+                etiqueta: `Solo lo cargado en ${moneda}`,
+                detalle: "Por moneda.",
+              },
+            ]}
+            valor={vista}
+            onCambio={onVista}
+          />
+          <Button className="w-full" onClick={() => setAbierta(false)}>
+            Listo
+          </Button>
+        </div>
+      </Hoja>
+    </>
   )
 }

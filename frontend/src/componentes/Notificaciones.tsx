@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom"
 
 import { Button } from "@/componentes/ui/button"
 import { Hoja } from "@/componentes/ui/hoja"
+import { Insignia } from "@/componentes/ui/insignia"
 import { Vacio } from "@/componentes/Vacio"
 import { formatearFechaCorta } from "@/lib/fecha"
 import { cn } from "@/lib/utils"
@@ -64,11 +65,8 @@ export function Notificaciones() {
         <Bell className="h-5 w-5" aria-hidden />
         {sinLeer > 0 && (
           // aria-hidden: la cantidad ya esta en el nombre del boton.
-          <span
-            aria-hidden
-            className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold leading-none text-primary-foreground"
-          >
-            {sinLeer > 9 ? "9+" : sinLeer}
+          <span aria-hidden className="absolute right-1 top-1">
+            <Insignia n={sinLeer} />
           </span>
         )}
       </button>

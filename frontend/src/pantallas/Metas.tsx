@@ -1,7 +1,9 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft, Target, Trash2 } from "lucide-react"
+import { ChevronRight, Target } from "lucide-react"
 import { useMemo, useState } from "react"
 
+import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
+import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Vacio } from "@/componentes/Vacio"
 import { Button } from "@/componentes/ui/button"
@@ -10,7 +12,7 @@ import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { useVolver } from "@/hooks/useVolver"
-import { aCentavos, formatearMonto } from "@/lib/dinero"
+import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { formatearFechaCorta } from "@/lib/fecha"
 import { saldoCuenta } from "@/lib/saldos"
 import { uuidv4 } from "@/lib/uuid"
@@ -49,6 +51,10 @@ export function Metas() {
   const saldoDe = useMemo(() => new Map(cuentas.map((c) => [c.id, c.balance])), [cuentas])
 
   const [form, setForm] = useState(false)
+  // Tocar una meta la edita (eliminar, al pie). Se cierra sola si la meta ya no
+  // esta (se elimino desde ahi).
+  const [editando, setEditando] = useState<Meta | null>(null)
+  const editandoVigente = editando !== null && metas.some((m) => m.id === editando.id)
   const [aBorrar, setABorrar] = useState<Meta | null>(null)
 
   async function borrar(m: Meta) {
@@ -58,18 +64,29 @@ export function Metas() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
-      <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl font-semibold">Metas de ahorro</h1>
-      </header>
+      <EncabezadoPantalla
+        titulo="Metas de ahorro"
+        volver={volver}
+        acciones={<BotonNuevo etiqueta="Nueva meta" onClick={() => setForm(true)} />}
+      />
 
-      <Button className="w-full" onClick={() => setForm(true)}>
-        Nueva meta
-      </Button>
       <Hoja abierta={form} onOpenChange={setForm} titulo="Nueva meta">
         <FormularioMeta cuentas={cuentas} onCerrar={() => setForm(false)} />
+      </Hoja>
+      <Hoja
+        abierta={editandoVigente}
+        onOpenChange={(v) => !v && setEditando(null)}
+        titulo="Editar meta"
+      >
+        {editando && (
+          <FormularioMeta
+            key={editando.id}
+            cuentas={cuentas}
+            inicial={editando}
+            onCerrar={() => setEditando(null)}
+          />
+        )}
+        {editando && <AccionesEdicion onEliminar={() => setABorrar(editando)} />}
       </Hoja>
 
       {metas.length === 0 ? (
@@ -77,6 +94,7 @@ export function Metas() {
           icono={Target}
           titulo="Sin metas"
           detalle="Poné un objetivo de ahorro y seguí el progreso contra una cuenta."
+          accion={{ onClick: () => setForm(true), etiqueta: "Nueva meta" }}
         />
       ) : (
         <div className="space-y-3">
@@ -85,37 +103,47 @@ export function Metas() {
             const pct =
               m.target_amount > 0 ? Math.min(100, Math.round((usado / m.target_amount) * 100)) : 0
             const listo = usado >= m.target_amount && m.target_amount > 0
+            // La tarjeta entera abre la edicion. En escritorio, eliminar
+            // aparece tambien arriba a la derecha con el mouse o el teclado
+            // (como las acciones de una fila, FilaInset).
             return (
-              <section key={m.id} className="rounded-xl border border-border bg-card p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{m.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatearMonto(usado, { moneda: m.currency })} de{" "}
-                      {formatearMonto(m.target_amount, { moneda: m.currency })}
-                      {m.target_date ? ` · para el ${formatearFechaCorta(m.target_date)}` : ""}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-expense"
-                    aria-label="Eliminar"
-                    onClick={() => setABorrar(m)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+              <div key={m.id} className="group/fila relative">
+                <button
+                  type="button"
+                  onClick={() => setEditando(m)}
+                  className="block w-full rounded-xl bg-card p-4 text-left shadow-tarjeta transition-colors duration-100 ease-salida hover:bg-muted/50 active:bg-muted/50"
+                >
+                  <span className="flex items-start justify-between gap-2">
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{m.name}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {formatearMonto(usado, { moneda: m.currency })} de{" "}
+                        {formatearMonto(m.target_amount, { moneda: m.currency })}
+                        {m.target_date ? ` · para el ${formatearFechaCorta(m.target_date)}` : ""}
+                      </span>
+                    </span>
+                    <ChevronRight
+                      className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50"
+                      aria-hidden
+                    />
+                  </span>
+                  <span className="mt-2 block h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <span
+                      className={cn(
+                        "block h-full rounded-full",
+                        listo ? "bg-income" : "bg-primary",
+                      )}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </span>
+                  <span className="mt-1 block text-right text-xs text-muted-foreground">
+                    {listo ? "¡Meta cumplida!" : `${pct}%`}
+                  </span>
+                </button>
+                <div className="absolute right-2 top-2 hidden rounded-lg bg-card lg:pointer-events-none lg:flex lg:opacity-0 lg:transition-opacity lg:duration-100 lg:ease-salida lg:group-hover/fila:pointer-events-auto lg:group-hover/fila:opacity-100 lg:group-has-[:focus-visible]/fila:pointer-events-auto lg:group-has-[:focus-visible]/fila:opacity-100">
+                  <AccionesFila nombre={m.name} onEliminar={() => setABorrar(m)} />
                 </div>
-                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={cn("h-full rounded-full", listo ? "bg-income" : "bg-primary")}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <p className="mt-1 text-right text-xs text-muted-foreground">
-                  {listo ? "¡Meta cumplida!" : `${pct}%`}
-                </p>
-              </section>
+              </div>
             )
           })}
         </div>
@@ -130,37 +158,55 @@ export function Metas() {
         }
         etiqueta="Eliminar"
         destructivo
-        onConfirmar={() => aBorrar && borrar(aBorrar)}
+        onConfirmar={() => {
+          if (aBorrar) void borrar(aBorrar)
+          setEditando(null)
+        }}
       />
     </div>
   )
 }
 
+// Alta o edicion (`inicial`) de una meta. La moneda la fija la cuenta al
+// crearla y despues no cambia (el servidor no la deja cambiar): al editar se
+// elige entre las cuentas de esa moneda.
 function FormularioMeta({
   cuentas,
+  inicial,
   onCerrar,
 }: {
   cuentas: { id: string; name: string; currency: string }[]
+  inicial?: Meta
   onCerrar: () => void
 }) {
   const db = usePowerSync()
-  const [name, setName] = useState("")
-  const [monto, setMonto] = useState("")
-  const [cuentaId, setCuentaId] = useState("")
-  const [fecha, setFecha] = useState("")
+  const [name, setName] = useState(inicial?.name ?? "")
+  const [monto, setMonto] = useState(
+    inicial ? aTextoEditable(inicial.target_amount, inicial.currency) : "",
+  )
+  const [cuentaId, setCuentaId] = useState(inicial?.account_id ?? "")
+  const [fecha, setFecha] = useState(inicial?.target_date ?? "")
   const [error, setError] = useState("")
 
-  const moneda = cuentas.find((c) => c.id === cuentaId)?.currency ?? "ARS"
+  const moneda = inicial?.currency ?? cuentas.find((c) => c.id === cuentaId)?.currency ?? "ARS"
+  const elegibles = inicial ? cuentas.filter((c) => c.currency === inicial.currency) : cuentas
 
   async function guardar() {
     if (!name.trim()) return setError("Poné un nombre")
     const centavos = aCentavos(monto, moneda) ?? 0
     if (centavos <= 0) return setError("Poné un monto objetivo")
     try {
-      await db.execute(
-        "INSERT INTO goals (id, name, target_amount, currency, target_date, account_id, archived) VALUES (?, ?, ?, ?, ?, ?, 0)",
-        [uuidv4(), name.trim(), centavos, moneda, fecha || null, cuentaId || null],
-      )
+      if (inicial) {
+        await db.execute(
+          "UPDATE goals SET name = ?, target_amount = ?, target_date = ?, account_id = ? WHERE id = ?",
+          [name.trim(), centavos, fecha || null, cuentaId || null, inicial.id],
+        )
+      } else {
+        await db.execute(
+          "INSERT INTO goals (id, name, target_amount, currency, target_date, account_id, archived) VALUES (?, ?, ?, ?, ?, ?, 0)",
+          [uuidv4(), name.trim(), centavos, moneda, fecha || null, cuentaId || null],
+        )
+      }
       onCerrar()
     } catch {
       setError("No se pudo guardar")
@@ -176,7 +222,7 @@ function FormularioMeta({
         <SelectorEntidad
           titulo="Cuenta"
           placeholder="Elegí una cuenta"
-          opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency }))}
+          opciones={elegibles.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency }))}
           valor={cuentaId}
           onCambio={setCuentaId}
         />
@@ -200,7 +246,7 @@ function FormularioMeta({
         <Button className="flex-1" onClick={guardar}>
           Guardar
         </Button>
-        <Button variant="outline" onClick={onCerrar}>
+        <Button variant="secondary" onClick={onCerrar}>
           Cancelar
         </Button>
       </div>

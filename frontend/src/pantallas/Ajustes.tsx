@@ -1,7 +1,6 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { AlertTriangle, Check, Download } from "lucide-react"
+import { AlertTriangle, Check, Download, Fingerprint, Lock } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-import { Link } from "react-router-dom"
 
 import { AvisosDispositivo } from "@/componentes/AvisosDispositivo"
 import { PreferenciaMasTarde } from "@/componentes/recordatorios/PreferenciaMasTarde"
@@ -11,6 +10,8 @@ import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
+import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
+import { Mosaico } from "@/componentes/ui/mosaico"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { Select } from "@/componentes/ui/select"
 import { TEMAS } from "@/config/temas"
@@ -73,71 +74,68 @@ export function Ajustes() {
     }
   }
 
+  // Como los Ajustes de iOS (1.9.0): cada seccion es una lista agrupada y cada
+  // fila lleva su icono en un cuadrado chico, el nombre y ›.
   return (
-    <div className="mx-auto max-w-xl space-y-8 p-6">
+    <div className="mx-auto max-w-xl space-y-6 p-4">
       <h1 className="text-2xl font-semibold">Ajustes</h1>
 
       {/* Solo lo que se CONFIGURA (0024). Lo que se usa —metas, deudas,
           recurrentes, plantillas— esta en los accesos de Inicio y, en
           escritorio, en la barra lateral. */}
       <Seccion titulo="Configuración">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <ListaInset>
           {ACCESOS.filter((a) => a.grupo === "configuracion").map((a) => (
-            <Link
-              key={a.id}
-              to={a.to}
-              className="flex flex-col items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-accent-foreground">
-                <a.icono className="h-5 w-5" aria-hidden />
+            <FilaInset key={a.id} to={a.to} chevron>
+              <span className="flex min-w-0 items-center gap-3">
+                <Mosaico icono={a.icono} />
+                <span className="truncate text-sm font-medium">{a.etiqueta}</span>
               </span>
-              <span className="text-sm font-medium">{a.etiqueta}</span>
-            </Link>
+            </FilaInset>
           ))}
-        </div>
+        </ListaInset>
       </Seccion>
 
       {nRechazadas > 0 && (
         <Seccion titulo="Sincronización">
-          <Link
-            to="/rechazados"
-            className="flex w-full items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-left transition-colors hover:bg-destructive/10"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/15 text-destructive">
-              <AlertTriangle className="h-5 w-5" />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-medium">
-                {nRechazadas} cambio{nRechazadas === 1 ? "" : "s"} sin guardar
+          <ListaInset>
+            <FilaInset to="/rechazados" chevron>
+              <span className="flex min-w-0 items-center gap-3">
+                <Mosaico icono={AlertTriangle} alerta />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium">
+                    {nRechazadas} cambio{nRechazadas === 1 ? "" : "s"} sin guardar
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    El servidor los rechazó. Tocá para reintentar o descartar.
+                  </span>
+                </span>
               </span>
-              <span className="block text-xs text-muted-foreground">
-                El servidor los rechazó. Tocá para reintentar o descartar.
-              </span>
-            </span>
-          </Link>
+            </FilaInset>
+          </ListaInset>
         </Seccion>
       )}
 
       <Seccion titulo="Moneda">
-        <CambiarMonedaBase />
+        <ListaInset>
+          <CambiarMonedaBase />
+        </ListaInset>
       </Seccion>
 
       <Seccion titulo="Datos">
-        <button
-          type="button"
-          onClick={() => setMostrarExport(true)}
-          className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-muted"
-        >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-primary">
-            <Download className="h-5 w-5" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-medium">Exportar movimientos</span>
-            <span className="block text-xs text-muted-foreground">
-              Descarga un CSV. Lo arma el servidor, así que necesita conexión.
+        <ListaInset>
+          <FilaInset onClick={() => setMostrarExport(true)} chevron>
+            <span className="flex min-w-0 items-center gap-3">
+              <Mosaico icono={Download} />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">Exportar movimientos</span>
+                <span className="block text-xs text-muted-foreground">
+                  Descarga un CSV. Lo arma el servidor, así que necesita conexión.
+                </span>
+              </span>
             </span>
-          </span>
-        </button>
+          </FilaInset>
+        </ListaInset>
         <Hoja abierta={mostrarExport} onOpenChange={setMostrarExport} titulo="Exportar movimientos">
           <FormExportar onCerrar={() => setMostrarExport(false)} />
         </Hoja>
@@ -148,17 +146,20 @@ export function Ajustes() {
           {TEMAS.map((t) => (
             // En el movil, muestra arriba y nombre abajo: en un tercio de 360 px
             // no entraban en fila y la muestra quedaba aplastada.
+            // El elegido, teñido y con ✓ (sin el borde de antes).
             <button
               key={t.id}
               onClick={() => setTema(t.id)}
               aria-pressed={temaId === t.id}
               className={cn(
-                "relative flex min-h-11 flex-col items-center justify-center gap-2 rounded-lg border p-3 text-sm transition-colors lg:flex-row lg:justify-start",
-                temaId === t.id ? "border-primary bg-accent" : "border-border hover:bg-muted",
+                "relative flex min-h-11 flex-col items-center justify-center gap-2 rounded-xl p-3 text-sm shadow-tarjeta transition-colors duration-100 ease-salida lg:flex-row lg:justify-start",
+                temaId === t.id
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-card hover:bg-muted active:bg-muted",
               )}
             >
               <span
-                className="h-5 w-5 shrink-0 rounded-full border border-border"
+                className="h-5 w-5 shrink-0 rounded-full shadow-tarjeta"
                 style={{ backgroundColor: t.muestra }}
               />
               <span className="min-w-0 truncate">{t.nombre}</span>
@@ -188,36 +189,46 @@ export function Ajustes() {
       </Seccion>
 
       <Seccion titulo="Seguridad">
-        {bioDisponible ? (
-          // Prendido/apagado: Interruptor, no un boton con el estado en texto
-          // (DESIGN.md 7).
-          <div className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-border bg-card px-4">
-            <span className="text-sm font-medium">Desbloqueo biométrico</span>
-            <Interruptor
-              encendido={bioActiva}
-              etiqueta="Desbloqueo biométrico"
-              onCambio={() => void toggleBiometria()}
-            />
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
+        <ListaInset>
+          {bioDisponible && (
+            // Prendido/apagado: Interruptor, no un boton con el estado en texto
+            // (DESIGN.md 7).
+            <div className="flex min-h-11 items-center justify-between gap-3 px-4 py-3">
+              <span className="flex min-w-0 items-center gap-3">
+                <Mosaico icono={Fingerprint} />
+                <span className="text-sm font-medium">Desbloqueo biométrico</span>
+              </span>
+              <Interruptor
+                encendido={bioActiva}
+                etiqueta="Desbloqueo biométrico"
+                onCambio={() => void toggleBiometria()}
+              />
+            </div>
+          )}
+          <FilaInset onClick={bloquear}>
+            <span className="flex min-w-0 items-center gap-3">
+              <Mosaico icono={Lock} />
+              <span className="text-sm font-medium">Bloquear ahora</span>
+            </span>
+          </FilaInset>
+        </ListaInset>
+        {!bioDisponible && (
+          <p className="px-1 text-xs text-muted-foreground">
             Este dispositivo no ofrece desbloqueo biométrico.
           </p>
         )}
-        <Button variant="secondary" className="w-full" onClick={bloquear}>
-          Bloquear ahora
-        </Button>
         {/* Cerrar sesión: distinto de bloquear. Bloquear pide el PIN; esto
             cierra la sesión de servidor y borra los datos locales, así que para
             volver hace falta la clave. `disconnectAndClear` no deja rastro de
-            la sesión anterior en el dispositivo. */}
-        <Button
-          variant="ghost"
-          className="w-full text-destructive"
-          onClick={() => setConfirmarSalir(true)}
-        >
-          Cerrar sesión
-        </Button>
+            la sesión anterior en el dispositivo. Aparte y en rojo, como en iOS. */}
+        <ListaInset>
+          <FilaInset
+            onClick={() => setConfirmarSalir(true)}
+            className="justify-center text-sm font-medium text-destructive"
+          >
+            Cerrar sesión
+          </FilaInset>
+        </ListaInset>
       </Seccion>
 
       <Confirmar
@@ -359,7 +370,7 @@ function FormExportar({ onCerrar }: { onCerrar: () => void }) {
         <Button className="flex-1" onClick={exportar} disabled={exportando}>
           {exportando ? "Exportando…" : "Exportar CSV"}
         </Button>
-        <Button variant="outline" onClick={onCerrar}>
+        <Button variant="secondary" onClick={onCerrar}>
           Cancelar
         </Button>
       </div>

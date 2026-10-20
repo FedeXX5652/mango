@@ -1,8 +1,10 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft, Coins, Pencil, RefreshCw, Trash2 } from "lucide-react"
+import { Coins, RefreshCw } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
+import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
+import { EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { Vacio } from "@/componentes/Vacio"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
@@ -130,6 +132,9 @@ export function Cotizaciones() {
 
   const [editando, setEditando] = useState<Manual | "nueva" | null>(null)
   const [borrando, setBorrando] = useState<Manual | null>(null)
+  // Se cierra sola si la cotizacion ya no esta (se elimino desde su edicion).
+  const editandoVigente =
+    editando === "nueva" || (editando !== null && manuales.some((c) => c.id === editando.id))
   const [refrescando, setRefrescando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
 
@@ -174,12 +179,7 @@ export function Cotizaciones() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
-      <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl font-semibold">Cotizaciones</h1>
-      </header>
+      <EncabezadoPantalla titulo="Cotizaciones" volver={volver} />
 
       <p className="text-sm text-muted-foreground">
         La cotización se usa para <strong>ver</strong>: convierte el patrimonio y los informes a una
@@ -210,7 +210,7 @@ export function Cotizaciones() {
           <section className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold text-muted-foreground">Cargadas a mano</h2>
-              <Button variant="outline" size="sm" onClick={() => setEditando("nueva")}>
+              <Button variant="secondary" size="sm" onClick={() => setEditando("nueva")}>
                 Cargar una
               </Button>
             </div>
@@ -221,7 +221,19 @@ export function Cotizaciones() {
             ) : (
               <ListaInset>
                 {manuales.map((c) => (
-                  <FilaInset key={c.id}>
+                  // Tocar la fila la edita; eliminar esta en la edicion (y en
+                  // escritorio, tambien sobre la fila con el mouse).
+                  <FilaInset
+                    key={c.id}
+                    onClick={() => setEditando(c)}
+                    chevron
+                    acciones={
+                      <AccionesFila
+                        nombre={`la del ${formatearFechaCorta(c.rate_date)}`}
+                        onEliminar={() => setBorrando(c)}
+                      />
+                    }
+                  >
                     <div className="min-w-0 flex-1">
                       <p className="tabular truncate text-sm">
                         1 {c.base_currency} = {formatearRate(c.rate)} {c.quote_currency}
@@ -231,25 +243,6 @@ export function Cotizaciones() {
                         {/* Las de antes de la 1.7.0 guardan la etiqueta que se eligio. */}
                         {c.source !== "manual" && ` · ${c.source}`}
                       </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Editar la del ${formatearFechaCorta(c.rate_date)}`}
-                        onClick={() => setEditando(c)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Eliminar la del ${formatearFechaCorta(c.rate_date)}`}
-                        className="text-expense"
-                        onClick={() => setBorrando(c)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </div>
                   </FilaInset>
                 ))}
@@ -262,7 +255,7 @@ export function Cotizaciones() {
               <p className="text-xs text-muted-foreground">
                 Se actualizan solas cada hora, con su historia.
               </p>
-              <Button variant="outline" size="sm" onClick={refrescarAhora} disabled={refrescando}>
+              <Button variant="secondary" size="sm" onClick={refrescarAhora} disabled={refrescando}>
                 <RefreshCw
                   className={cn("mr-2 h-4 w-4", refrescando && "motion-safe:animate-spin")}
                   aria-hidden
@@ -280,7 +273,7 @@ export function Cotizaciones() {
       )}
 
       <Hoja
-        abierta={editando !== null}
+        abierta={editandoVigente}
         onOpenChange={(v) => {
           if (!v) setEditando(null)
         }}
@@ -294,6 +287,9 @@ export function Cotizaciones() {
             existentes={manuales}
             onCerrar={() => setEditando(null)}
           />
+        )}
+        {editando && editando !== "nueva" && (
+          <AccionesEdicion onEliminar={() => setBorrando(editando)} />
         )}
       </Hoja>
 
@@ -312,6 +308,7 @@ export function Cotizaciones() {
         destructivo
         onConfirmar={() => {
           if (borrando) void db.execute("DELETE FROM exchange_rates WHERE id = ?", [borrando.id])
+          setEditando(null)
         }}
       />
     </div>
@@ -355,7 +352,7 @@ function TarjetaMoneda({
   const idSelect = `dolar-${moneda}`
 
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-4">
+    <section className="space-y-3 rounded-xl bg-card shadow-tarjeta p-4">
       <div>
         <h2 className="font-semibold">
           {moneda} <span className="font-normal text-muted-foreground">{nombreLindo(moneda)}</span>
@@ -641,7 +638,7 @@ function FormCotizacion({
         <Button className="flex-1" onClick={guardar}>
           Guardar
         </Button>
-        <Button variant="outline" onClick={onCerrar}>
+        <Button variant="secondary" onClick={onCerrar}>
           Cancelar
         </Button>
       </div>

@@ -47,7 +47,7 @@ export function Confirmar({
         >
           {etiqueta}
         </Button>
-        <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <Button variant="secondary" onClick={() => onOpenChange(false)}>
           Cancelar
         </Button>
       </div>
@@ -70,7 +70,7 @@ export function Aviso({
   return (
     <Hoja abierta={abierta} onOpenChange={onOpenChange} titulo={titulo}>
       <p className="mb-4 text-sm text-muted-foreground">{detalle}</p>
-      <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>
+      <Button variant="secondary" className="w-full" onClick={() => onOpenChange(false)}>
         Entendido
       </Button>
     </Hoja>

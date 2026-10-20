@@ -1,10 +1,11 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { HandCoins } from "lucide-react"
 import { useState } from "react"
 
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Button } from "@/componentes/ui/button"
+import { Desplegable, useSalida } from "@/componentes/ui/desplegable"
+import { Insignia } from "@/componentes/ui/insignia"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { formatearMonto } from "@/lib/dinero"
 
@@ -43,10 +44,10 @@ export function CobrosPorConfirmar() {
   if (cobros.length === 0) return null
 
   return (
-    <section className="rounded-xl border border-primary/30 bg-primary/5 p-4">
-      <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-        <HandCoins className="h-4 w-4 text-primary" />
-        Cobros por confirmar ({cobros.length})
+    <section className="space-y-3">
+      <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+        Cobros por confirmar
+        <Insignia n={cobros.length} />
       </h2>
       <ListaInset>
         {cobros.map((c) => (
@@ -72,48 +73,55 @@ function Fila({
   // Llega con "Reintegros de grupo": solo hace falta elegir la cuenta.
   const [categoriaId, setCategoriaId] = useState(cobro.category_id ?? "")
   const [error, setError] = useState("")
+  // Confirmado, sale de la lista: primero se cierra (1.9.0).
+  const [saliendo, salir] = useSalida()
 
   async function confirmar() {
     if (!cuentaId) return setError("Elegí la cuenta")
     if (!categoriaId) return setError("Elegí la categoría")
     // Al confirmar deja de ser pendiente y entra al saldo de esa cuenta.
-    await db.execute(
-      "UPDATE transactions SET account_id = ?, category_id = ?, status = 'confirmed' WHERE id = ?",
-      [cuentaId, categoriaId, cobro.id],
+    await salir(() =>
+      db.execute(
+        "UPDATE transactions SET account_id = ?, category_id = ?, status = 'confirmed' WHERE id = ?",
+        [cuentaId, categoriaId, cobro.id],
+      ),
     )
   }
 
   return (
-    <FilaInset>
-      <div className="min-w-0 flex-1 space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate font-medium">{cobro.payee ?? "Pago recibido"}</span>
-          <span className="tabular shrink-0 font-medium text-income">
-            + {formatearMonto(cobro.amount, { moneda: cobro.currency })}
-          </span>
+    <Desplegable abierto={!saliendo}>
+      <FilaInset>
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate font-medium">{cobro.payee ?? "Pago recibido"}</span>
+            <span className="tabular shrink-0 font-medium text-income">
+              + {formatearMonto(cobro.amount, { moneda: cobro.currency })}
+            </span>
+          </div>
+          <div className="grid gap-2">
+            <SelectorEntidad
+              // La pregunta va en el titulo de la hoja: en media fila de 390 px
+              // el placeholder largo se cortaba ("¿A qué cue…").
+              titulo="¿A qué cuenta entró?"
+              placeholder="Cuenta"
+              opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency }))}
+              valor={cuentaId}
+              onCambio={setCuentaId}
+            />
+            <SelectorCategoria
+              categorias={categorias}
+              valor={categoriaId}
+              onCambio={setCategoriaId}
+              placeholder="Categoría"
+            />
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          {/* Secundario: en el Inicio el amarillo es el "+" (DESIGN.md 7). */}
+          <Button size="sm" variant="secondary" className="w-full" onClick={confirmar}>
+            Confirmar cobro
+          </Button>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <SelectorEntidad
-            // La pregunta va en el titulo de la hoja: en media fila de 390 px
-            // el placeholder largo se cortaba ("¿A qué cue…").
-            titulo="¿A qué cuenta entró?"
-            placeholder="Cuenta"
-            opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency }))}
-            valor={cuentaId}
-            onCambio={setCuentaId}
-          />
-          <SelectorCategoria
-            categorias={categorias}
-            valor={categoriaId}
-            onCambio={setCategoriaId}
-            placeholder="Categoría"
-          />
-        </div>
-        {error && <p className="text-xs text-destructive">{error}</p>}
-        <Button size="sm" className="w-full" onClick={confirmar}>
-          Confirmar cobro
-        </Button>
-      </div>
-    </FilaInset>
+      </FilaInset>
+    </Desplegable>
   )
 }

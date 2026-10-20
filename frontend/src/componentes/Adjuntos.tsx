@@ -100,7 +100,7 @@ export function Adjuntos({ transactionId }: { transactionId: string }) {
           onChange={alElegir}
         />
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="gap-2"
           disabled={subiendo}

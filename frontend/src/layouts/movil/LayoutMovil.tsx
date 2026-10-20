@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react"
-import { Link, NavLink, Outlet } from "react-router-dom"
+import { Link, NavLink, Outlet, useLocation, useNavigationType } from "react-router-dom"
 
-import { DESTINOS_MOVIL } from "@/componentes/navegacion"
+import { DESTINOS_MOVIL, esPestana } from "@/componentes/navegacion"
 import { useEspacio } from "@/hooks/useEspacio"
 import { rutaEspacio } from "@/lib/espacios"
 import { cn } from "@/lib/utils"
@@ -52,6 +52,25 @@ function Tab({ to, etiqueta, icono: Icono, end, seccion }: (typeof DESTINOS_MOVI
   )
 }
 
+// Una pantalla que se abre desde otra (un detalle, Cuentas, el calendario)
+// entra subiendo 12 px con la opacidad, 200 ms (DESIGN.md 8): se nota que es
+// otra pantalla. Volver (POP) no anima: es regresar a algo que ya se vio. La
+// clave cambia solo entre pantallas de este tipo, asi una pestaña no se vuelve
+// a montar por esto.
+function Entrada({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation()
+  const tipo = useNavigationType()
+  const empujada = !esPestana(pathname)
+  return (
+    <div
+      key={empujada ? pathname : "pestanas"}
+      className={cn(empujada && tipo === "PUSH" && "motion-safe:animate-entrar")}
+    >
+      {children}
+    </div>
+  )
+}
+
 export function LayoutMovil() {
   // El "+" carga en el espacio actual (0026).
   const { espacio } = useEspacio()
@@ -60,7 +79,9 @@ export function LayoutMovil() {
       {/* `pb-barra`: el alto de la barra mas el borde seguro del telefono; el
           final de cada pantalla nunca queda tapado. */}
       <main className="flex-1 overflow-auto pb-barra">
-        <Outlet />
+        <Entrada>
+          <Outlet />
+        </Entrada>
       </main>
 
       {/* z-40: por encima de todo lo que scrollea debajo. Sin z-index, cualquier

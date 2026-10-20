@@ -119,7 +119,7 @@ export function AccesosGrupo({ groupId }: { groupId: string }) {
                 </span>
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="secondary"
                   onClick={() => {
                     setVerSaldar(false)
                     setPagando(l)

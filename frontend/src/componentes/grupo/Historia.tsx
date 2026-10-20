@@ -48,7 +48,9 @@ export function FilaHistoria({
   // Abrir un gasto o un aporte. Desde Movimientos del grupo, con su mes y sus
   // filtros: en escritorio la lista sigue al lado del detalle (ConPanel), y
   // pasar de uno a otro reemplaza el abierto en vez de apilarlos.
-  const { pathname, search } = useLocation()
+  const { pathname, search, state } = useLocation()
+  // El que se acaba de cargar (lo manda el alta): se resalta una vez.
+  const nuevo = (state as { nuevo?: string } | null)?.nuevo
   const lista = `/grupos/${groupId}/movimientos`
   const enLista = pathname.startsWith(lista)
   const abierto = enLista ? pathname.slice(lista.length + 1) : ""
@@ -91,7 +93,11 @@ export function FilaHistoria({
         to={destino(a.id)}
         replace={Boolean(abierto)}
         aria-current={abierto === a.id ? "true" : undefined}
-        className={cn(FILA, abierto === a.id && "bg-muted")}
+        className={cn(
+          FILA,
+          abierto === a.id && "bg-muted",
+          nuevo === a.id && "motion-safe:animate-resaltar",
+        )}
       >
         <span className="flex min-w-0 items-center gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
@@ -121,7 +127,11 @@ export function FilaHistoria({
       to={destino(g.id)}
       replace={Boolean(abierto)}
       aria-current={abierto === g.id ? "true" : undefined}
-      className={cn(FILA, abierto === g.id && "bg-muted")}
+      className={cn(
+        FILA,
+        abierto === g.id && "bg-muted",
+        nuevo === g.id && "motion-safe:animate-resaltar",
+      )}
     >
       <span className="flex min-w-0 items-center gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
@@ -187,7 +197,7 @@ export function HojaPago({
               </p>
             </div>
             <Button
-              variant="outline"
+              variant="secondary"
               className="w-full text-destructive"
               onClick={() => setConfirmar(true)}
             >

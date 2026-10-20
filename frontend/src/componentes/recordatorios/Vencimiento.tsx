@@ -211,7 +211,7 @@ export function AccionesVencimiento({
               </Button>
             </>
           )}
-          <Button variant="outline" onClick={() => setPosponiendo(true)}>
+          <Button variant="secondary" onClick={() => setPosponiendo(true)}>
             Más tarde
           </Button>
           <Button variant="ghost" onClick={() => responder("skipped")}>
@@ -241,7 +241,7 @@ export function AccionesVencimiento({
               </Link>
             )}
           </p>
-          <Button variant="outline" className="w-full" onClick={() => responder("pending")}>
+          <Button variant="secondary" className="w-full" onClick={() => responder("pending")}>
             Deshacer
           </Button>
         </div>
@@ -301,7 +301,7 @@ function MasTarde({
         >
           Posponer
         </Button>
-        <Button variant="outline" onClick={onVolver}>
+        <Button variant="secondary" onClick={onVolver}>
           Volver
         </Button>
       </div>

@@ -1,15 +1,9 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import {
-  Archive,
-  ArchiveRestore,
-  ArrowLeft,
-  ChevronDown,
-  ChevronUp,
-  Pencil,
-  Trash2,
-} from "lucide-react"
+import { ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react"
 import { useMemo, useState } from "react"
 
+import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
+import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { HojaReasignar } from "@/componentes/HojaReasignar"
 import { Button } from "@/componentes/ui/button"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
@@ -79,9 +73,12 @@ export function Cuentas() {
   const movs = useMemo(() => new Map(movsRows.map((r) => [r.id, r.n])), [movsRows])
 
   const [editando, setEditando] = useState<Cuenta | "nuevo" | null>(null)
+  // Se cierra sola si la cuenta ya no esta (se elimino desde su edicion).
+  const editandoVigente =
+    editando === "nuevo" || (editando !== null && cuentas.some((c) => c.id === editando.id))
   const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; c: Cuenta } | null>(null)
   const [reasignando, setReasignando] = useState<Cuenta | null>(null)
-  // Modo ordenar: cambia las acciones por flechas, para no amontonar iconos.
+  // Modo ordenar: las filas dejan de abrir la edicion y muestran flechas.
   const [ordenando, setOrdenando] = useState(false)
 
   async function archivar(c: Cuenta, valor: number) {
@@ -125,8 +122,25 @@ export function Cuentas() {
 
   function filaCuenta(c: Cuenta, i?: number) {
     const Icono = iconoCuenta(c.type)
+    const ordenable = ordenando && i !== undefined
+    // Tocar la fila la edita; archivar y eliminar estan en la edicion (y en
+    // escritorio, tambien sobre la fila con el mouse).
     return (
-      <FilaInset key={c.id}>
+      <FilaInset
+        key={c.id}
+        onClick={ordenable ? undefined : () => setEditando(c)}
+        chevron={!ordenable}
+        acciones={
+          ordenable ? undefined : (
+            <AccionesFila
+              nombre={c.name}
+              archivada={c.archived === 1}
+              onArchivar={() => alArchivar(c)}
+              onEliminar={() => alTacho(c)}
+            />
+          )
+        }
+      >
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
             <Icono className="h-4 w-4" aria-hidden />
@@ -141,89 +155,64 @@ export function Cuentas() {
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {ordenando && i !== undefined ? (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Subir"
-                disabled={i === 0}
-                onClick={() => mover(c, -1)}
-              >
-                <ChevronUp className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Bajar"
-                disabled={i === activas.length - 1}
-                onClick={() => mover(c, 1)}
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Editar"
-                onClick={() => setEditando(c)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={c.archived ? "Desarchivar" : "Archivar"}
-                onClick={() => alArchivar(c)}
-              >
-                {c.archived ? (
-                  <ArchiveRestore className="h-4 w-4" />
-                ) : (
-                  <Archive className="h-4 w-4" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Eliminar"
-                className="text-expense"
-                onClick={() => alTacho(c)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
-          )}
-        </div>
+        {ordenable && (
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Subir ${c.name}`}
+              disabled={i === 0}
+              onClick={() => mover(c, -1)}
+            >
+              <ChevronUp className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Bajar ${c.name}`}
+              disabled={i === activas.length - 1}
+              onClick={() => mover(c, 1)}
+            >
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </FilaInset>
     )
   }
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
-      <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl font-semibold">Cuentas</h1>
-      </header>
+      <EncabezadoPantalla
+        titulo="Cuentas"
+        volver={volver}
+        acciones={
+          // Ordenando, "Listo" reemplaza a las demas (como "OK" en iOS).
+          ordenando ? (
+            <Button size="sm" onClick={() => setOrdenando(false)}>
+              Listo
+            </Button>
+          ) : (
+            <>
+              {activas.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Ordenar"
+                  title="Ordenar"
+                  onClick={() => setOrdenando(true)}
+                >
+                  <ArrowUpDown className="h-5 w-5" />
+                </Button>
+              )}
+              <BotonNuevo etiqueta="Nueva cuenta" onClick={() => setEditando("nuevo")} />
+            </>
+          )
+        }
+      />
 
-      <div className="flex gap-2">
-        <Button className="flex-1" onClick={() => setEditando("nuevo")}>
-          Nueva cuenta
-        </Button>
-        <Button
-          variant={ordenando ? "default" : "outline"}
-          onClick={() => setOrdenando((o) => !o)}
-          disabled={activas.length < 2}
-        >
-          {ordenando ? "Listo" : "Ordenar"}
-        </Button>
-      </div>
       <Hoja
-        abierta={editando !== null}
+        abierta={editandoVigente}
         onOpenChange={(v) => {
           if (!v) setEditando(null)
         }}
@@ -233,6 +222,17 @@ export function Cuentas() {
           <FormularioCuenta
             inicial={editando === "nuevo" ? null : editando}
             onCerrar={() => setEditando(null)}
+          />
+        )}
+        {editando && editando !== "nuevo" && (
+          <AccionesEdicion
+            archivada={editando.archived === 1}
+            onArchivar={() => {
+              alArchivar(editando)
+              // Desarchivar es directo: la edicion ya no tiene nada que hacer.
+              if (editando.archived) setEditando(null)
+            }}
+            onEliminar={() => alTacho(editando)}
           />
         )}
       </Hoja>
@@ -265,6 +265,7 @@ export function Cuentas() {
           if (!accion) return
           if (accion.tipo === "eliminar") borrar(accion.c)
           else archivar(accion.c, 1)
+          setEditando(null)
         }}
       />
       {reasignando && (
@@ -375,7 +376,7 @@ function FormularioCuenta({ inicial, onCerrar }: { inicial: Cuenta | null; onCer
         <Button className="flex-1" onClick={guardar}>
           Guardar
         </Button>
-        <Button variant="outline" onClick={onCerrar}>
+        <Button variant="secondary" onClick={onCerrar}>
           Cancelar
         </Button>
       </div>

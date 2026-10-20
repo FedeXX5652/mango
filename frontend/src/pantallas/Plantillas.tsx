@@ -1,8 +1,9 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft, Pencil, Trash2 } from "lucide-react"
+import { Pencil, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { FormPlantilla, type PlantillaEditable } from "@/componentes/FormPlantilla"
 import { Button } from "@/componentes/ui/button"
 import { Confirmar } from "@/componentes/ui/confirmar"
@@ -36,20 +37,15 @@ export function Plantillas() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
-      <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl font-semibold">Plantillas</h1>
-      </header>
+      <EncabezadoPantalla
+        titulo="Plantillas"
+        volver={volver}
+        acciones={<BotonNuevo etiqueta="Nueva plantilla" onClick={() => setEditando("nueva")} />}
+      />
 
       <p className="text-sm text-muted-foreground">
         Gastos o ingresos frecuentes precargados. Tocá una para cargarla de un toque.
       </p>
-
-      <Button className="w-full" onClick={() => setEditando("nueva")}>
-        Nueva plantilla
-      </Button>
       <Hoja
         abierta={editando !== null}
         onOpenChange={(v) => !v && setEditando(null)}

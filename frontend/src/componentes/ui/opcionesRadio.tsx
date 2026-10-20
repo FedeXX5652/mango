@@ -30,7 +30,7 @@ export function OpcionesRadio<T extends string>({
   return (
     <fieldset className={cn("space-y-2", className)}>
       <legend className="mb-2 text-sm text-muted-foreground">{etiqueta}</legend>
-      <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+      <div className="divide-y divide-border overflow-hidden rounded-xl bg-card shadow-tarjeta">
         {opciones.map((o) => (
           <label
             key={o.valor}

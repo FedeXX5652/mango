@@ -14,7 +14,8 @@ export function Vacio({
   icono: LucideIcon
   titulo: string
   detalle?: string
-  accion?: { to: string; etiqueta: string }
+  // A otra pantalla (`to`) o en esta (`onClick`, p. ej. abrir "Nueva meta").
+  accion?: { to: string; etiqueta: string } | { onClick: () => void; etiqueta: string }
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
@@ -23,11 +24,20 @@ export function Vacio({
         <p className="font-medium">{titulo}</p>
         {detalle && <p className="text-sm text-muted-foreground">{detalle}</p>}
       </div>
-      {accion && (
-        <Link to={accion.to} className={cn(botonVariants({ size: "sm" }))}>
-          {accion.etiqueta}
-        </Link>
-      )}
+      {accion &&
+        ("to" in accion ? (
+          <Link to={accion.to} className={cn(botonVariants({ size: "sm" }))}>
+            {accion.etiqueta}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={accion.onClick}
+            className={cn(botonVariants({ size: "sm" }))}
+          >
+            {accion.etiqueta}
+          </button>
+        ))}
     </div>
   )
 }

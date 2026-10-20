@@ -1,7 +1,7 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { Archive, ArchiveRestore, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 
+import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
@@ -11,6 +11,7 @@ import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Select } from "@/componentes/ui/select"
 import { SelectorIcono } from "@/componentes/SelectorIcono"
 import { ordenarJerarquico } from "@/lib/categorias"
+import { iconoDe } from "@/lib/iconos"
 import { TX_GRUPO } from "@/lib/lente"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
@@ -38,6 +39,10 @@ export function GrupoCategorias({ groupId }: { groupId: string }) {
     [groupId],
   )
   const [mostrarForm, setMostrarForm] = useState(false)
+  // Tocar una fila la edita (nombre e icono; archivar y eliminar, al pie). Se
+  // cierra sola si la categoria ya no esta (se elimino desde ahi).
+  const [editando, setEditando] = useState<Categoria | null>(null)
+  const editandoVigente = editando !== null && categorias.some((c) => c.id === editando.id)
   const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; c: Categoria } | null>(null)
 
   const principales = categorias.filter((c) => !c.parent_id)
@@ -55,9 +60,6 @@ export function GrupoCategorias({ groupId }: { groupId: string }) {
 
   async function archivar(c: Categoria, valor: number) {
     await db.execute("UPDATE categories SET archived = ? WHERE id = ?", [valor, c.id])
-  }
-  async function alIcono(c: Categoria, clave: string | null) {
-    await db.execute("UPDATE categories SET icon = ? WHERE id = ?", [clave, c.id])
   }
   async function borrar(c: Categoria) {
     await db.execute("DELETE FROM categories WHERE id = ?", [c.id])
@@ -77,14 +79,14 @@ export function GrupoCategorias({ groupId }: { groupId: string }) {
   const archivadas = categorias.filter((c) => c.archived)
 
   const fila = (c: Categoria) => (
-    <Fila key={c.id} c={c} onArchivar={alArchivar} onEliminar={alTacho} onIcono={alIcono} />
+    <Fila key={c.id} c={c} onEditar={setEditando} onArchivar={alArchivar} onEliminar={alTacho} />
   )
 
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-muted-foreground">Categorías del grupo</h2>
-        <Button variant="outline" size="sm" onClick={() => setMostrarForm(true)}>
+        <Button variant="secondary" size="sm" onClick={() => setMostrarForm(true)}>
           Nueva
         </Button>
       </div>
@@ -94,6 +96,32 @@ export function GrupoCategorias({ groupId }: { groupId: string }) {
           principales={principales}
           onCerrar={() => setMostrarForm(false)}
         />
+      </Hoja>
+      <Hoja
+        abierta={editandoVigente}
+        onOpenChange={(v) => !v && setEditando(null)}
+        titulo="Editar categoría"
+      >
+        {editando && (
+          <FormularioCategoria
+            key={editando.id}
+            groupId={groupId}
+            principales={principales}
+            inicial={editando}
+            onCerrar={() => setEditando(null)}
+          />
+        )}
+        {editando && (
+          <AccionesEdicion
+            archivada={editando.archived === 1}
+            onArchivar={() => {
+              alArchivar(editando)
+              // Desarchivar es directo: la edicion ya no tiene nada que hacer.
+              if (editando.archived) setEditando(null)
+            }}
+            onEliminar={() => alTacho(editando)}
+          />
+        )}
       </Hoja>
 
       {(["expense", "income"] as const).map((kind) => {
@@ -135,6 +163,7 @@ export function GrupoCategorias({ groupId }: { groupId: string }) {
           if (!accion) return
           if (accion.tipo === "eliminar") borrar(accion.c)
           else archivar(accion.c, 1)
+          setEditando(null)
         }}
       />
     </section>
@@ -143,20 +172,34 @@ export function GrupoCategorias({ groupId }: { groupId: string }) {
 
 function Fila({
   c,
+  onEditar,
   onArchivar,
   onEliminar,
-  onIcono,
 }: {
   c: Categoria
+  onEditar: (c: Categoria) => void
   onArchivar: (c: Categoria) => void
   onEliminar: (c: Categoria) => void
-  onIcono: (c: Categoria, clave: string | null) => void
 }) {
   const sangria = Boolean(c.parent_id)
+  // `iconoDe` devuelve un componente de un Map estatico (ver SelectorIcono).
+  const Icono = iconoDe(c.icon)
   return (
-    <FilaInset>
+    <FilaInset
+      onClick={() => onEditar(c)}
+      chevron
+      acciones={
+        <AccionesFila
+          nombre={c.name}
+          archivada={c.archived === 1}
+          onArchivar={() => onArchivar(c)}
+          onEliminar={() => onEliminar(c)}
+        />
+      }
+    >
       <span className={cn("flex min-w-0 items-center gap-3", sangria && "pl-6")}>
-        <SelectorIcono variante="fila" valor={c.icon} onCambio={(clave) => onIcono(c, clave)} />
+        {/* eslint-disable-next-line react-hooks/static-components */}
+        <Icono className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         <span
           className={cn(
             "truncate",
@@ -167,43 +210,28 @@ function Fila({
           {c.name}
         </span>
       </span>
-      <div className="flex shrink-0 items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={c.archived ? "Desarchivar" : "Archivar"}
-          onClick={() => onArchivar(c)}
-        >
-          {c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Eliminar"
-          className="text-expense"
-          onClick={() => onEliminar(c)}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
     </FilaInset>
   )
 }
 
+// Alta o edicion (`inicial`): al editar cambian el nombre y el icono, como en
+// las personales (Categorias.tsx).
 function FormularioCategoria({
   groupId,
   principales,
+  inicial,
   onCerrar,
 }: {
   groupId: string
   principales: Categoria[]
+  inicial?: Categoria
   onCerrar: () => void
 }) {
   const db = usePowerSync()
-  const [name, setName] = useState("")
+  const [name, setName] = useState(inicial?.name ?? "")
   const [kind, setKind] = useState<"expense" | "income">("expense")
   const [parentId, setParentId] = useState("")
-  const [icono, setIcono] = useState<string | null>(null)
+  const [icono, setIcono] = useState<string | null>(inicial?.icon ?? null)
   const [error, setError] = useState("")
 
   const posiblesPadres = useMemo(
@@ -214,13 +242,21 @@ function FormularioCategoria({
   async function guardar() {
     if (!name.trim()) return setError("Poné un nombre")
     try {
-      // group_id fija el ambito: es una categoria DEL grupo (owner_id queda NULL,
-      // lo pone el backend al validar la membresia, ver 0014).
-      await db.execute(
-        "INSERT INTO categories (id, group_id, name, kind, parent_id, icon, archived, sort_order)" +
-          " VALUES (?, ?, ?, ?, ?, ?, 0, 0)",
-        [uuidv4(), groupId, name.trim(), kind, parentId || null, icono],
-      )
+      if (inicial) {
+        await db.execute("UPDATE categories SET name = ?, icon = ? WHERE id = ?", [
+          name.trim(),
+          icono,
+          inicial.id,
+        ])
+      } else {
+        // group_id fija el ambito: es una categoria DEL grupo (owner_id queda
+        // NULL, lo pone el backend al validar la membresia, ver 0014).
+        await db.execute(
+          "INSERT INTO categories (id, group_id, name, kind, parent_id, icon, archived, sort_order)" +
+            " VALUES (?, ?, ?, ?, ?, ?, 0, 0)",
+          [uuidv4(), groupId, name.trim(), kind, parentId || null, icono],
+        )
+      }
       onCerrar()
     } catch {
       setError("No se pudo guardar")
@@ -239,36 +275,38 @@ function FormularioCategoria({
           />
         </div>
       </Campo>
-      <div className="grid grid-cols-2 gap-3">
-        <Campo etiqueta="Tipo">
-          <Select
-            value={kind}
-            onChange={(e) => {
-              setKind(e.target.value as "expense" | "income")
-              setParentId("")
-            }}
-          >
-            <option value="expense">Gasto</option>
-            <option value="income">Ingreso</option>
-          </Select>
-        </Campo>
-        <Campo etiqueta="Categoría padre (opcional)">
-          <Select value={parentId} onChange={(e) => setParentId(e.target.value)}>
-            <option value="">— Ninguna (nivel 1) —</option>
-            {posiblesPadres.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </Select>
-        </Campo>
-      </div>
+      {!inicial && (
+        <div className="grid grid-cols-2 gap-3">
+          <Campo etiqueta="Tipo">
+            <Select
+              value={kind}
+              onChange={(e) => {
+                setKind(e.target.value as "expense" | "income")
+                setParentId("")
+              }}
+            >
+              <option value="expense">Gasto</option>
+              <option value="income">Ingreso</option>
+            </Select>
+          </Campo>
+          <Campo etiqueta="Categoría padre (opcional)">
+            <Select value={parentId} onChange={(e) => setParentId(e.target.value)}>
+              <option value="">— Ninguna (nivel 1) —</option>
+              {posiblesPadres.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+          </Campo>
+        </div>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-2">
         <Button className="flex-1" onClick={guardar}>
           Guardar
         </Button>
-        <Button variant="outline" onClick={onCerrar}>
+        <Button variant="secondary" onClick={onCerrar}>
           Cancelar
         </Button>
       </div>

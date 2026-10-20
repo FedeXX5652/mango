@@ -54,13 +54,13 @@ export function CuentaConjunta({ groupId }: { groupId: string }) {
     <section className="space-y-2">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-muted-foreground">Cuenta conjunta</h2>
-        <Button variant="outline" size="sm" onClick={() => setAbierto(true)}>
+        <Button variant="secondary" size="sm" onClick={() => setAbierto(true)}>
           Nueva
         </Button>
       </div>
 
       {cuentas.length === 0 ? (
-        <p className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+        <p className="rounded-lg bg-card shadow-tarjeta p-4 text-sm text-muted-foreground">
           Sin cuentas conjuntas. Creá una para pagar gastos con plata del grupo: no generan deuda
           entre los miembros.
         </p>
@@ -101,7 +101,7 @@ export function CuentaConjunta({ groupId }: { groupId: string }) {
 }
 
 const ACCION =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-secondary px-3 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
 // Crear una cuenta conjunta. La usa la seccion de arriba y el acceso "Poner
 // plata" de un grupo que todavia no tiene ninguna (`onCreada` sigue al

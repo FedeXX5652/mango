@@ -191,7 +191,7 @@ export function HojaPlantillas({
             </p>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setCreando(false)}>
+              <Button variant="secondary" className="flex-1" onClick={() => setCreando(false)}>
                 Cancelar
               </Button>
               <Button className="flex-1" onClick={guardarNueva}>
@@ -200,7 +200,7 @@ export function HojaPlantillas({
             </div>
           </div>
         ) : (
-          <Button variant="outline" className="w-full" onClick={empezarACrear}>
+          <Button variant="secondary" className="w-full" onClick={empezarACrear}>
             <Plus className="h-4 w-4" aria-hidden />
             Guardar lo cargado como plantilla
           </Button>

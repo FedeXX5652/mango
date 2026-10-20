@@ -55,7 +55,9 @@ export function SelectorEspacio({ className }: { className?: string }) {
         aria-haspopup="dialog"
         aria-label={`Espacio: ${nombre}. Cambiar de espacio`}
         className={cn(
-          "inline-flex min-h-11 max-w-full items-center gap-2 rounded-full border border-border bg-card px-3 text-sm font-semibold transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          // Relleno suave y sin borde, como los demas controles de la cabecera
+          // (1.9.0); el punto de color sigue diciendo donde se esta.
+          "inline-flex min-h-11 max-w-full items-center gap-2 rounded-full bg-secondary px-3 text-sm font-semibold text-secondary-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           className,
         )}
       >
@@ -99,11 +101,11 @@ export function SelectorEspacio({ className }: { className?: string }) {
             ))}
           </ListaInset>
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" onClick={() => irA("/grupos?nuevo=1")}>
+            <Button variant="secondary" onClick={() => irA("/grupos?nuevo=1")}>
               <Plus className="h-4 w-4" aria-hidden />
               Nuevo grupo
             </Button>
-            <Button variant="outline" onClick={() => irA("/grupos")}>
+            <Button variant="secondary" onClick={() => irA("/grupos")}>
               <Settings2 className="h-4 w-4" aria-hidden />
               Administrar
             </Button>
@@ -114,7 +116,29 @@ export function SelectorEspacio({ className }: { className?: string }) {
   )
 }
 
-// Fila de arriba de las pantallas principales en el movil: el selector y, a la
+// Cabecera de una pestaña (1.9.0). En el movil, la fila del selector ES la del
+// titulo: el selector a la izquierda, en el mismo lugar que en el Inicio, y a la
+// derecha los controles de la pantalla. El nombre de la seccion ya lo dice la
+// barra de abajo, asi que el h1 queda para el lector de pantalla; antes eran
+// dos filas, la del selector y la del titulo. En escritorio el selector esta
+// arriba de la barra lateral y el h1 se ve.
+export function CabeceraPestana({
+  titulo,
+  children,
+}: {
+  titulo: string
+  children?: React.ReactNode
+}) {
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-2">
+      <SelectorEspacio className="min-w-0 lg:hidden" />
+      <h1 className="sr-only lg:not-sr-only lg:text-2xl lg:font-semibold">{titulo}</h1>
+      {children && <div className="flex shrink-0 items-center gap-1">{children}</div>}
+    </div>
+  )
+}
+
+// Fila de arriba del Inicio de un grupo en el movil: el selector y, a la
 // derecha, las acciones de la pantalla. En escritorio el selector esta arriba de
 // la barra lateral, asi que esta fila no se muestra.
 export function EncabezadoEspacio({ children }: { children?: React.ReactNode }) {

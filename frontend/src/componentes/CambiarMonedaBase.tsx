@@ -3,6 +3,8 @@ import { Coins } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { Confirmar } from "@/componentes/ui/confirmar"
+import { FilaInset } from "@/componentes/ui/listaInset"
+import { Mosaico } from "@/componentes/ui/mosaico"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { useCambiarMonedaBase, useMonedaBase } from "@/hooks/monedaBase"
@@ -59,29 +61,29 @@ export function CambiarMonedaBase() {
 
   return (
     <>
-      <button
-        type="button"
+      {/* Una fila de Ajustes: va dentro de su ListaInset. */}
+      <FilaInset
         onClick={() => {
           setBusqueda("")
           setAbierta(true)
         }}
-        className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-muted"
+        chevron
       >
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-primary">
-          <Coins className="h-5 w-5" />
-        </span>
-        <span className="min-w-0">
-          <span className="block text-sm font-medium">
-            Moneda base: {base}
-            {actual && actual.nombre !== base && (
-              <span className="font-normal text-muted-foreground"> · {actual.nombre}</span>
-            )}
+        <span className="flex min-w-0 items-center gap-3">
+          <Mosaico icono={Coins} />
+          <span className="min-w-0">
+            <span className="block text-sm font-medium">
+              Moneda base: {base}
+              {actual && actual.nombre !== base && (
+                <span className="font-normal text-muted-foreground"> · {actual.nombre}</span>
+              )}
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              En qué moneda se leen los totales.
+            </span>
           </span>
-          <span className="block text-xs text-muted-foreground">
-            En qué moneda se leen los totales.
-          </span>
         </span>
-      </button>
+      </FilaInset>
 
       <Hoja abierta={abierta} onOpenChange={setAbierta} titulo="Moneda base">
         <div className="space-y-3">

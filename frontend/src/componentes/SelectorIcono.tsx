@@ -13,14 +13,9 @@ import { cn } from "@/lib/utils"
 export function SelectorIcono({
   valor,
   onCambio,
-  variante = "campo",
 }: {
   valor: string | null
   onCambio: (clave: string | null) => void
-  // "campo": al lado del nombre en el formulario. "fila": el icono de la lista
-  // **es** el boton, que es la unica forma de cambiarle el icono a una categoria
-  // que ya existe sin inventarle una pantalla de edicion.
-  variante?: "campo" | "fila"
 }) {
   const [abierta, setAbierta] = useState(false)
   const [busqueda, setBusqueda] = useState("")
@@ -47,17 +42,12 @@ export function SelectorIcono({
           setAbierta(true)
         }}
         aria-label="Elegir ícono"
-        className={cn(
-          "flex shrink-0 items-center justify-center transition-colors",
-          variante === "campo"
-            ? "h-11 w-11 rounded-xl border border-border bg-card text-foreground hover:bg-muted"
-            : // 44 px tocables en el movil, 40 en escritorio: el margen negativo
-              // compensa el alto en la fila.
-              "-m-2 h-11 w-11 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground lg:h-10 lg:w-10",
-        )}
+        // Al lado del nombre, con el borde de los campos: es parte del
+        // formulario.
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-input bg-card text-foreground transition-colors hover:bg-muted"
       >
         {/* eslint-disable-next-line react-hooks/static-components */}
-        <Actual className={variante === "campo" ? "h-5 w-5" : "h-4 w-4"} />
+        <Actual className="h-5 w-5" />
       </button>
 
       <Hoja abierta={abierta} onOpenChange={setAbierta} titulo="Ícono">

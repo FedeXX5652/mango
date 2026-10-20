@@ -1,7 +1,8 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft, Pause, Play, Trash2 } from "lucide-react"
+import { Pause, Play, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 
+import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
@@ -101,26 +102,20 @@ export function Recurrentes() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
-      <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl font-semibold">Recurrentes</h1>
-      </header>
+      <EncabezadoPantalla
+        titulo="Recurrentes"
+        volver={volver}
+        acciones={<BotonNuevo etiqueta="Nueva regla" onClick={() => setMostrarForm(true)} />}
+      />
 
       <p className="text-sm text-muted-foreground">
         Sueldo, alquiler, servicios: se definen una vez y el sistema genera el movimiento en cada
         vencimiento.
       </p>
 
-      <div className="flex gap-2">
-        <Button className="flex-1" onClick={() => setMostrarForm(true)}>
-          Nueva regla
-        </Button>
-        <Button variant="outline" onClick={ejecutar} disabled={corriendo}>
-          {corriendo ? "Ejecutando…" : "Ejecutar vencidas"}
-        </Button>
-      </div>
+      <Button variant="secondary" className="w-full" onClick={ejecutar} disabled={corriendo}>
+        {corriendo ? "Ejecutando…" : "Ejecutar vencidas"}
+      </Button>
       {aviso && <p className="text-sm text-muted-foreground">{aviso}</p>}
 
       <Hoja abierta={mostrarForm} onOpenChange={setMostrarForm} titulo="Nueva regla">
@@ -380,7 +375,7 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
         <Button className="flex-1" onClick={guardar}>
           Guardar
         </Button>
-        <Button variant="outline" onClick={onCerrar}>
+        <Button variant="secondary" onClick={onCerrar}>
           Cancelar
         </Button>
       </div>

@@ -1,17 +1,9 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import {
-  Archive,
-  ArchiveRestore,
-  ArrowLeft,
-  BellPlus,
-  BellRing,
-  ChevronDown,
-  ChevronUp,
-  Pencil,
-  Trash2,
-} from "lucide-react"
+import { ArrowUpDown, BellPlus, BellRing, ChevronDown, ChevronUp } from "lucide-react"
 import { useMemo, useState } from "react"
 
+import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
+import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { HojaReasignar } from "@/componentes/HojaReasignar"
 import { HojaAvisarme } from "@/componentes/recordatorios/HojaAvisarme"
 import { Button } from "@/componentes/ui/button"
@@ -72,6 +64,8 @@ export function MediosPago() {
   const { porTarjeta } = useVinculados()
   const [mostrarForm, setMostrarForm] = useState(false)
   const [editando, setEditando] = useState<Medio | null>(null)
+  // Se cierra sola si el medio ya no esta (se elimino desde su edicion).
+  const editandoVigente = editando !== null && medios.some((m) => m.id === editando.id)
   const [avisando, setAvisando] = useState<Medio | null>(null)
   const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; m: Medio } | null>(null)
   const [reasignando, setReasignando] = useState<Medio | null>(null)
@@ -114,11 +108,26 @@ export function MediosPago() {
   }
 
   function filaMedio(m: Medio, i?: number) {
-    // "Avisarme" (1.6.0): una tarjeta de credito en uso, con dia de vencimiento.
-    const avisable = m.kind === "credit_card" && m.due_day !== null && !m.archived
     const aviso = porTarjeta.get(m.id)
+    const ordenable = ordenando && i !== undefined
+    // Tocar la fila lo edita; ahi estan "Avisarme", archivar y eliminar (y en
+    // escritorio, archivar y eliminar tambien sobre la fila con el mouse).
     return (
-      <FilaInset key={m.id}>
+      <FilaInset
+        key={m.id}
+        onClick={ordenable ? undefined : () => setEditando(m)}
+        chevron={!ordenable}
+        acciones={
+          ordenable ? undefined : (
+            <AccionesFila
+              nombre={m.name}
+              archivada={m.archived === 1}
+              onArchivar={() => alArchivar(m)}
+              onEliminar={() => alTacho(m)}
+            />
+          )
+        }
+      >
         <div className="min-w-0">
           <p className={cn("break-words font-medium", m.archived && "text-muted-foreground")}>
             {m.name}
@@ -132,106 +141,76 @@ export function MediosPago() {
             {m.kind === "credit_card" && m.due_day ? ` · vence ${m.due_day}` : ""}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {ordenando && i !== undefined ? (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Subir"
-                disabled={i === 0}
-                onClick={() => mover(m, -1)}
-              >
-                <ChevronUp className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Bajar"
-                disabled={i === activos.length - 1}
-                onClick={() => mover(m, 1)}
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </>
-          ) : (
-            <>
-              {avisable && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={
-                    aviso
-                      ? `Recordatorio del vencimiento de ${m.name}`
-                      : `Avisarme del vencimiento de ${m.name}`
-                  }
-                  onClick={() => setAvisando(m)}
-                >
-                  {aviso ? <BellRing className="h-4 w-4" /> : <BellPlus className="h-4 w-4" />}
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Editar"
-                onClick={() => setEditando(m)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={m.archived ? "Desarchivar" : "Archivar"}
-                onClick={() => alArchivar(m)}
-              >
-                {m.archived ? (
-                  <ArchiveRestore className="h-4 w-4" />
-                ) : (
-                  <Archive className="h-4 w-4" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Eliminar"
-                className="text-expense"
-                onClick={() => alTacho(m)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
-          )}
-        </div>
+        {ordenable ? (
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Subir ${m.name}`}
+              disabled={i === 0}
+              onClick={() => mover(m, -1)}
+            >
+              <ChevronUp className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Bajar ${m.name}`}
+              disabled={i === activos.length - 1}
+              onClick={() => mover(m, 1)}
+            >
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          // Ya tiene aviso del vencimiento: se ve desde la lista.
+          aviso && (
+            <BellRing
+              className="h-4 w-4 shrink-0 text-muted-foreground"
+              role="img"
+              aria-label="Con aviso del vencimiento"
+            />
+          )
+        )}
       </FilaInset>
     )
   }
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
-      <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl font-semibold">Medios de pago</h1>
-      </header>
+      <EncabezadoPantalla
+        titulo="Medios de pago"
+        volver={volver}
+        acciones={
+          // Ordenando, "Listo" reemplaza a las demas (como "OK" en iOS).
+          ordenando ? (
+            <Button size="sm" onClick={() => setOrdenando(false)}>
+              Listo
+            </Button>
+          ) : (
+            <>
+              {activos.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Ordenar"
+                  title="Ordenar"
+                  onClick={() => setOrdenando(true)}
+                >
+                  <ArrowUpDown className="h-5 w-5" />
+                </Button>
+              )}
+              <BotonNuevo etiqueta="Nuevo medio" onClick={() => setMostrarForm(true)} />
+            </>
+          )
+        }
+      />
 
-      <div className="flex gap-2">
-        <Button className="flex-1" onClick={() => setMostrarForm(true)}>
-          Nuevo medio
-        </Button>
-        <Button
-          variant={ordenando ? "default" : "outline"}
-          onClick={() => setOrdenando((o) => !o)}
-          disabled={activos.length < 2}
-        >
-          {ordenando ? "Listo" : "Ordenar"}
-        </Button>
-      </div>
       <Hoja abierta={mostrarForm} onOpenChange={setMostrarForm} titulo="Nuevo medio">
         <FormularioMedio onCerrar={() => setMostrarForm(false)} />
       </Hoja>
       <Hoja
-        abierta={editando !== null}
+        abierta={editandoVigente}
         onOpenChange={(v) => !v && setEditando(null)}
         titulo="Editar medio"
       >
@@ -241,6 +220,36 @@ export function MediosPago() {
             inicial={editando}
             onCerrar={() => setEditando(null)}
           />
+        )}
+        {editando && (
+          <AccionesEdicion
+            archivada={editando.archived === 1}
+            onArchivar={() => {
+              alArchivar(editando)
+              // Desarchivar es directo: la edicion ya no tiene nada que hacer.
+              if (editando.archived) setEditando(null)
+            }}
+            onEliminar={() => alTacho(editando)}
+          >
+            {/* "Avisarme" (1.6.0): una tarjeta de credito en uso, con dia de
+                vencimiento. Se abre encima de la edicion. */}
+            {editando.kind === "credit_card" && editando.due_day !== null && !editando.archived && (
+              <Button
+                variant="ghost"
+                className="justify-start"
+                onClick={() => setAvisando(editando)}
+              >
+                {porTarjeta.get(editando.id) ? (
+                  <BellRing className="h-4 w-4" aria-hidden />
+                ) : (
+                  <BellPlus className="h-4 w-4" aria-hidden />
+                )}
+                {porTarjeta.get(editando.id)
+                  ? "Recordatorio del vencimiento"
+                  : "Avisarme del vencimiento"}
+              </Button>
+            )}
+          </AccionesEdicion>
         )}
       </Hoja>
       {avisando?.due_day && (
@@ -282,6 +291,7 @@ export function MediosPago() {
           if (!accion) return
           if (accion.tipo === "eliminar") borrar(accion.m)
           else archivar(accion.m, 1)
+          setEditando(null)
         }}
       />
       {reasignando && (
@@ -423,7 +433,7 @@ function FormularioMedio({ inicial, onCerrar }: { inicial?: Medio; onCerrar: () 
         <Button className="flex-1" onClick={guardar}>
           Guardar
         </Button>
-        <Button variant="outline" onClick={onCerrar}>
+        <Button variant="secondary" onClick={onCerrar}>
           Cancelar
         </Button>
       </div>

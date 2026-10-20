@@ -169,7 +169,7 @@ export function HojaRechazada({
             {claves.length === 0 ? "Reintentar" : "Guardar y reintentar"}
           </Button>
           {claves.length > 0 && (
-            <Button variant="outline" disabled={trabajando} onClick={() => guardar(false)}>
+            <Button variant="secondary" disabled={trabajando} onClick={() => guardar(false)}>
               Guardar sin reintentar
             </Button>
           )}

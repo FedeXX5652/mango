@@ -114,12 +114,12 @@ export function ReporteGrupo({ groupId }: { groupId: string }) {
         </div>
 
         {txsPeriodo.length === 0 ? (
-          <p className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+          <p className="rounded-lg bg-card shadow-tarjeta p-4 text-sm text-muted-foreground">
             {periodo === "mes" ? "Sin gastos compartidos este mes." : "Sin gastos compartidos."}
           </p>
         ) : modo === "global" ? (
           <div className="space-y-3">
-            <div className="rounded-xl border border-border bg-card p-4">
+            <div className="rounded-xl bg-card shadow-tarjeta p-4">
               <p className="text-xs text-muted-foreground">Total del grupo</p>
               <p className="tabular text-2xl font-semibold">
                 {formatearMonto(global.total, { moneda: base })}
@@ -162,7 +162,7 @@ export function ReporteGrupo({ groupId }: { groupId: string }) {
               {reporte.length > 1 && (
                 <p className="text-xs font-medium text-muted-foreground">{r.currency}</p>
               )}
-              <div className="rounded-xl border border-border bg-card p-4">
+              <div className="rounded-xl bg-card shadow-tarjeta p-4">
                 <p className="text-xs text-muted-foreground">Total del grupo</p>
                 <p className="tabular text-2xl font-semibold">
                   {formatearMonto(r.total, { moneda: r.currency })}

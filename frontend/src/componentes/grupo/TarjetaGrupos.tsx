@@ -29,7 +29,7 @@ export function TarjetaGrupos() {
       <h2 id="titulo-grupos" className="text-sm font-semibold text-muted-foreground">
         Grupos
       </h2>
-      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+      <ul className="divide-y divide-border overflow-hidden rounded-xl bg-card shadow-tarjeta">
         {grupos.map((g) => (
           <li key={g.id}>
             <Link

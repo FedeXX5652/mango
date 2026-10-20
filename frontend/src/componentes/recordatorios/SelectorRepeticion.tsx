@@ -311,7 +311,7 @@ function Personalizar({
         <Button className="flex-1" disabled={!!error} onClick={() => onListo(final)}>
           Listo
         </Button>
-        <Button variant="outline" onClick={onVolver}>
+        <Button variant="secondary" onClick={onVolver}>
           Volver
         </Button>
       </div>

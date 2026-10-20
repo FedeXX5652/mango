@@ -124,7 +124,7 @@ export function HojaReasignar({
               >
                 {trabajando ? "Moviendo…" : `Eliminar y mover a ${elegido?.nombre ?? ""}`}
               </Button>
-              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={trabajando}>
+              <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={trabajando}>
                 Cancelar
               </Button>
             </div>

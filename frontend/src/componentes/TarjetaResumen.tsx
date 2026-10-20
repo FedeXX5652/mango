@@ -153,7 +153,7 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
   useRefrescoCotizaciones(faltantes)
 
   return (
-    <section className="rounded-xl bg-card p-4">
+    <section className="rounded-xl bg-card p-4 shadow-tarjeta">
       <div className="flex flex-wrap items-center justify-between gap-2">
         {/* Solo "Resumen": los chips ya dicen el modo y el selector la moneda.
             Repetirlo partia la fila en dos en 390 px. */}
@@ -179,6 +179,7 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
           <Monto centavos={totalArriba} moneda={moneda} className="block text-3xl font-semibold" />
           {!unaSola && (
             <SelectorMoneda
+              suelto
               className="mt-2"
               monedas={monedas}
               valor={moneda}

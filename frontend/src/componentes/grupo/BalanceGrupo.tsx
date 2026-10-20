@@ -1,9 +1,10 @@
 import { ChevronDown } from "lucide-react"
-import { useState } from "react"
+import { useId, useState } from "react"
 
 import { DeA } from "@/componentes/DeA"
 import { SaldarPago, type Liquidacion } from "@/componentes/SaldarPago"
 import { Button } from "@/componentes/ui/button"
+import { Desplegable } from "@/componentes/ui/desplegable"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { useGrupo } from "@/hooks/useGrupo"
 import { formatearMonto } from "@/lib/dinero"
@@ -18,7 +19,7 @@ export function BalanceGrupo({ groupId }: { groupId: string }) {
 
   if (balance.length === 0) {
     return (
-      <section className="rounded-xl bg-card p-4">
+      <section className="rounded-xl bg-card p-4 shadow-tarjeta">
         <h2 className="text-sm font-medium text-muted-foreground">Balance</h2>
         <p className="mt-1 text-lg font-semibold">Todavía no hay gastos compartidos</p>
       </section>
@@ -37,7 +38,7 @@ export function BalanceGrupo({ groupId }: { groupId: string }) {
               ? `Debés ${formatearMonto(-neto, { moneda: r.currency })}`
               : "Están al día"
         return (
-          <section key={r.currency} className="space-y-4 rounded-xl bg-card p-4">
+          <section key={r.currency} className="space-y-4 rounded-xl bg-card p-4 shadow-tarjeta">
             <div>
               <h2 className="text-sm font-medium text-muted-foreground">
                 Balance{balance.length > 1 ? ` (${r.currency})` : ""}
@@ -55,7 +56,7 @@ export function BalanceGrupo({ groupId }: { groupId: string }) {
 
             {/* Como saldar: cada sugerencia se registra como pago (o saldado). */}
             {r.liquidaciones.length > 0 && (
-              <ListaInset>
+              <ListaInset plana className="-mx-4 border-y border-border">
                 {r.liquidaciones.map((l, i) => (
                   <FilaInset key={i}>
                     {/* Los nombres arriba y el monto abajo: en una sola linea,
@@ -73,7 +74,7 @@ export function BalanceGrupo({ groupId }: { groupId: string }) {
                     </span>
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="secondary"
                       onClick={() =>
                         setPagando({ de: l.de, a: l.a, monto: l.monto, currency: r.currency })
                       }
@@ -86,15 +87,8 @@ export function BalanceGrupo({ groupId }: { groupId: string }) {
             )}
 
             {/* El detalle de cada uno: lo que puso y lo que le tocaba. */}
-            <details className="group">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 text-sm font-medium text-enlace">
-                Cómo se llegó a esto
-                <ChevronDown
-                  className="h-4 w-4 transition-transform group-open:rotate-180 motion-reduce:transition-none"
-                  aria-hidden
-                />
-              </summary>
-              <ListaInset className="mt-2">
+            <Detalle>
+              <ListaInset plana className="mt-2 border-t border-border">
                 {r.balances.map((b) => (
                   <FilaInset key={b.user_id}>
                     <div className="min-w-0">
@@ -120,7 +114,7 @@ export function BalanceGrupo({ groupId }: { groupId: string }) {
                   </FilaInset>
                 ))}
               </ListaInset>
-            </details>
+            </Detalle>
           </section>
         )
       })}
@@ -133,5 +127,36 @@ export function BalanceGrupo({ groupId }: { groupId: string }) {
         onClose={() => setPagando(null)}
       />
     </>
+  )
+}
+
+// "Como se llego a esto": se abre en el lugar con el alto y la opacidad (antes,
+// un <details> que aparecia de golpe). El desplegable se corre hasta los bordes
+// de la tarjeta, para que la lista llegue de lado a lado como la de arriba.
+function Detalle({ children }: { children: React.ReactNode }) {
+  const [abierto, setAbierto] = useState(false)
+  const id = useId()
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setAbierto((a) => !a)}
+        aria-expanded={abierto}
+        aria-controls={id}
+        className="flex min-h-11 items-center gap-1 rounded-md text-sm font-medium text-enlace focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        Cómo se llegó a esto
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-salida",
+            abierto && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </button>
+      <Desplegable abierto={abierto} id={id} className="-mx-4">
+        {children}
+      </Desplegable>
+    </div>
   )
 }

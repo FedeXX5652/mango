@@ -1,7 +1,8 @@
 import { useQuery } from "@powersync/react"
-import { ArrowLeft, UserPlus, X } from "lucide-react"
+import { UserPlus, X } from "lucide-react"
 import { useState } from "react"
 
+import { EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { GrupoCategorias } from "@/componentes/GrupoCategorias"
 import { PaletaColor } from "@/componentes/PaletaColor"
 import { GrupoEtiquetas } from "@/componentes/grupo/GrupoEtiquetas"
@@ -87,12 +88,7 @@ export function AjustesGrupo() {
 
   return (
     <div className="mx-auto max-w-xl space-y-6 p-4">
-      <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="min-w-0 truncate text-2xl font-semibold">Ajustes del grupo</h1>
-      </header>
+      <EncabezadoPantalla titulo="Ajustes del grupo" volver={volver} />
 
       <section className="space-y-3">
         <Campo etiqueta="Nombre">
@@ -124,7 +120,7 @@ export function AjustesGrupo() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground">Miembros</h2>
           {soyDueño && (
-            <Button variant="outline" size="sm" onClick={() => setAgregando(true)}>
+            <Button variant="secondary" size="sm" onClick={() => setAgregando(true)}>
               <UserPlus className="h-4 w-4" aria-hidden />
               Agregar
             </Button>

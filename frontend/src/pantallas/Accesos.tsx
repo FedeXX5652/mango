@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Minus, Plus } from "lucide-react"
+import { ChevronDown, ChevronRight, ChevronUp, Minus, Plus } from "lucide-react"
 import { useState } from "react"
 import { Link } from "react-router-dom"
 
@@ -11,6 +11,7 @@ import {
   moverAcceso,
   quitarAcceso,
 } from "@/componentes/accesos"
+import { EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { Button } from "@/componentes/ui/button"
 import { ListaInset } from "@/componentes/ui/listaInset"
 import { useAccesos } from "@/hooks/useAccesos"
@@ -30,20 +31,19 @@ export function Accesos() {
 
   return (
     <div className="mx-auto max-w-xl space-y-6 p-4">
-      <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl font-semibold">Accesos</h1>
-        <Button
-          variant={editando ? "default" : "outline"}
-          size="sm"
-          className="ml-auto"
-          onClick={() => setEditando((e) => !e)}
-        >
-          {editando ? "Listo" : "Editar"}
-        </Button>
-      </header>
+      <EncabezadoPantalla
+        titulo="Accesos"
+        volver={volver}
+        acciones={
+          <Button
+            variant={editando ? "default" : "secondary"}
+            size="sm"
+            onClick={() => setEditando((e) => !e)}
+          >
+            {editando ? "Listo" : "Editar"}
+          </Button>
+        }
+      />
 
       {editando ? (
         <>
@@ -126,7 +126,7 @@ export function Accesos() {
             </ListaInset>
           </section>
 
-          <Button variant="outline" className="w-full" onClick={() => guardar(null)}>
+          <Button variant="secondary" className="w-full" onClick={() => guardar(null)}>
             Volver a los de fábrica
           </Button>
         </>

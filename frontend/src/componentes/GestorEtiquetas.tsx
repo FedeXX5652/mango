@@ -1,7 +1,8 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { Archive, ArchiveRestore, Pencil, Plus, Tags, Trash2 } from "lucide-react"
+import { Plus, Tags } from "lucide-react"
 import { useMemo, useState } from "react"
 
+import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
 import { Vacio } from "@/componentes/Vacio"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
@@ -15,7 +16,9 @@ import { cn } from "@/lib/utils"
 
 // Las etiquetas de un ambito: las personales (pantalla Etiquetas) o las de un
 // grupo (Ajustes del grupo, 1.7.0). Crear, editar, archivar y eliminar las que no
-// tienen movimientos. Con `titulo`, es una seccion con su boton "Nueva".
+// tienen movimientos. Con `titulo`, es una seccion con su boton "Nueva". Sin
+// el, es la pantalla: `encabezado` dibuja su cabecera y recibe como abrir
+// "Nueva etiqueta" (el "+" de la cabecera, DESIGN.md 7).
 
 interface Etiqueta {
   id: string
@@ -24,7 +27,15 @@ interface Etiqueta {
   archived: number
 }
 
-export function GestorEtiquetas({ grupo, titulo }: { grupo?: string; titulo?: string }) {
+export function GestorEtiquetas({
+  grupo,
+  titulo,
+  encabezado,
+}: {
+  grupo?: string
+  titulo?: string
+  encabezado?: (nueva: () => void) => React.ReactNode
+}) {
   const db = usePowerSync()
   // Las del ambito: las personales, o las de un grupo (1.7.0).
   const { data: etiquetas } = useQuery<Etiqueta>(
@@ -40,6 +51,9 @@ export function GestorEtiquetas({ grupo, titulo }: { grupo?: string; titulo?: st
   const uso = useMemo(() => new Map(usoRows.map((r) => [r.id, r.n])), [usoRows])
 
   const [editando, setEditando] = useState<Etiqueta | "nueva" | null>(null)
+  // Se cierra sola si la etiqueta ya no esta (se elimino desde su edicion).
+  const editandoVigente =
+    editando === "nueva" || (editando !== null && etiquetas.some((e) => e.id === editando.id))
   const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; e: Etiqueta } | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
 
@@ -76,9 +90,23 @@ export function GestorEtiquetas({ grupo, titulo }: { grupo?: string; titulo?: st
 
   function fila(e: Etiqueta) {
     const n = uso.get(e.id) ?? 0
-    const eliminable = n === 0
+    // Tocar la fila la edita; archivar y eliminar estan en la edicion (y en
+    // escritorio, tambien sobre la fila con el mouse). Eliminar una con
+    // movimientos explica por que no se puede.
     return (
-      <FilaInset key={e.id}>
+      <FilaInset
+        key={e.id}
+        onClick={() => setEditando(e)}
+        chevron
+        acciones={
+          <AccionesFila
+            nombre={e.name}
+            archivada={e.archived === 1}
+            onArchivar={() => alArchivar(e)}
+            onEliminar={() => alTacho(e)}
+          />
+        }
+      >
         <div className="flex min-w-0 items-center gap-3">
           <span
             className="h-3 w-3 shrink-0 rounded-full"
@@ -94,29 +122,6 @@ export function GestorEtiquetas({ grupo, titulo }: { grupo?: string; titulo?: st
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => setEditando(e)}>
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={e.archived ? "Desarchivar" : "Archivar"}
-            onClick={() => alArchivar(e)}
-          >
-            {e.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Eliminar"
-            aria-disabled={!eliminable}
-            className={eliminable ? "text-expense" : "text-muted-foreground/40"}
-            onClick={() => alTacho(e)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
       </FilaInset>
     )
   }
@@ -126,18 +131,16 @@ export function GestorEtiquetas({ grupo, titulo }: { grupo?: string; titulo?: st
       {titulo ? (
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground">{titulo}</h2>
-          <Button variant="outline" size="sm" onClick={() => setEditando("nueva")}>
+          <Button variant="secondary" size="sm" onClick={() => setEditando("nueva")}>
             <Plus className="h-4 w-4" aria-hidden />
             Nueva
           </Button>
         </div>
       ) : (
-        <Button className="w-full" onClick={() => setEditando("nueva")}>
-          Nueva etiqueta
-        </Button>
+        encabezado?.(() => setEditando("nueva"))
       )}
       <Hoja
-        abierta={editando !== null}
+        abierta={editandoVigente}
         onOpenChange={(v) => {
           if (!v) setEditando(null)
         }}
@@ -149,6 +152,17 @@ export function GestorEtiquetas({ grupo, titulo }: { grupo?: string; titulo?: st
             existentes={etiquetas}
             grupo={grupo}
             onCerrar={() => setEditando(null)}
+          />
+        )}
+        {editando && editando !== "nueva" && (
+          <AccionesEdicion
+            archivada={editando.archived === 1}
+            onArchivar={() => {
+              alArchivar(editando)
+              // Desarchivar es directo: la edicion ya no tiene nada que hacer.
+              if (editando.archived) setEditando(null)
+            }}
+            onEliminar={() => alTacho(editando)}
           />
         )}
       </Hoja>
@@ -163,6 +177,7 @@ export function GestorEtiquetas({ grupo, titulo }: { grupo?: string; titulo?: st
             icono={Tags}
             titulo="Sin etiquetas todavía"
             detalle="Creá una para seguir el costo de un proyecto sin ensuciar los informes por categoría."
+            accion={{ onClick: () => setEditando("nueva"), etiqueta: "Nueva etiqueta" }}
           />
         )
       ) : (
@@ -196,6 +211,7 @@ export function GestorEtiquetas({ grupo, titulo }: { grupo?: string; titulo?: st
           if (!accion) return
           if (accion.tipo === "eliminar") borrar(accion.e)
           else archivar(accion.e, 1)
+          setEditando(null)
         }}
       />
       <Aviso
@@ -291,7 +307,7 @@ function FormEtiqueta({
         <Button className="flex-1" onClick={guardar}>
           Guardar
         </Button>
-        <Button variant="outline" onClick={onCerrar}>
+        <Button variant="secondary" onClick={onCerrar}>
           Cancelar
         </Button>
       </div>

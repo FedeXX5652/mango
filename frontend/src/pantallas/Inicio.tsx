@@ -187,7 +187,7 @@ export function Inicio() {
                   <Link
                     key={c.id}
                     to={`/movimientos?cuenta=${c.id}`}
-                    className="rounded-xl border border-border bg-card p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="rounded-xl bg-card shadow-tarjeta p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <div className="mb-2 flex items-center gap-2">
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
@@ -227,11 +227,11 @@ export function Inicio() {
               )}
             </div>
             {recientes.length === 0 ? (
-              <p className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+              <p className="rounded-lg bg-card shadow-tarjeta p-4 text-sm text-muted-foreground">
                 Todavía no hay movimientos.
               </p>
             ) : (
-              <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+              <ul className="divide-y divide-border overflow-hidden rounded-xl bg-card shadow-tarjeta">
                 {recientes.map((m) => (
                   <li key={m.id}>
                     <Link
@@ -244,16 +244,22 @@ export function Inicio() {
                             m.categoria ||
                             (m.kind === "transfer" ? "Transferencia" : "—")}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatearFechaCorta(m.occurred_at)}
+                        {/* El grupo, en la linea de la fecha (antes en un
+                            renglon propio, 1.9.0). */}
+                        <p className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                          {m.grupo_nombre && (
+                            <>
+                              <EtiquetaGrupo
+                                variante="punto"
+                                nombre={m.grupo_nombre}
+                                color={m.grupo_color}
+                                className="min-w-0 max-w-[60%] shrink-0"
+                              />
+                              <span aria-hidden>·</span>
+                            </>
+                          )}
+                          <span className="shrink-0">{formatearFechaCorta(m.occurred_at)}</span>
                         </p>
-                        {m.grupo_nombre && (
-                          <EtiquetaGrupo
-                            nombre={m.grupo_nombre}
-                            color={m.grupo_color}
-                            className="mt-1"
-                          />
-                        )}
                       </div>
                       <span
                         className={cn(

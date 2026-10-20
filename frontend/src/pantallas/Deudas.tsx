@@ -1,8 +1,10 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft, BellPlus, BellRing, HandCoins, Trash2 } from "lucide-react"
+import { BellPlus, BellRing, HandCoins } from "lucide-react"
 import { useState } from "react"
 import { useSearchParams } from "react-router-dom"
 
+import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
+import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Vacio } from "@/componentes/Vacio"
 import { HojaAvisarme } from "@/componentes/recordatorios/HojaAvisarme"
@@ -42,7 +44,8 @@ export function Deudas() {
   )
   const { porDeuda } = useVinculados()
   const [form, setForm] = useState(false)
-  const [saldando, setSaldando] = useState<Deuda | null>(null)
+  // La deuda abierta (tocar la fila): saldarla, el aviso y eliminarla.
+  const [abierta, setAbierta] = useState<Deuda | null>(null)
   const [aBorrar, setABorrar] = useState<Deuda | null>(null)
   const [avisando, setAvisando] = useState<Deuda | null>(null)
 
@@ -51,9 +54,11 @@ export function Deudas() {
   const [params, setParams] = useSearchParams()
   const pedida = params.get("saldar")
   const deudaPedida = deudas.find((x) => x.id === pedida && x.amount > x.amount_settled) ?? null
-  const aSaldar = saldando ?? deudaPedida
-  function cerrarSaldar() {
-    setSaldando(null)
+  // La de la consulta, no la guardada al tocar: con lo saldado al dia, y la
+  // hoja se cierra sola si la deuda se elimino.
+  const aVer = (abierta && deudas.find((x) => x.id === abierta.id)) || deudaPedida
+  function cerrar() {
+    setAbierta(null)
     if (pedida) setParams({}, { replace: true })
   }
 
@@ -74,8 +79,20 @@ export function Deudas() {
             const pendiente = d.amount - d.amount_settled
             const saldada = pendiente <= 0
             const aviso = porDeuda.get(d.id)
+            // Tocar la fila abre la deuda: ahi se salda, se pide el aviso y se
+            // elimina (y en escritorio, eliminar tambien sobre la fila).
             return (
-              <FilaInset key={d.id}>
+              <FilaInset
+                key={d.id}
+                onClick={() => setAbierta(d)}
+                chevron
+                acciones={
+                  <AccionesFila
+                    nombre={`la deuda con ${d.counterparty}`}
+                    onEliminar={() => setABorrar(d)}
+                  />
+                }
+              >
                 <div className="min-w-0">
                   <p className="truncate font-medium">{d.counterparty}</p>
                   {/* Sin cortar: al final va la fecha de vencimiento (1.5.1). */}
@@ -87,37 +104,14 @@ export function Deudas() {
                     {d.due_date ? ` · vence ${formatearFechaCorta(d.due_date)}` : ""}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  {/* "Avisarme" (1.6.0): solo con fecha, y mientras se deba. */}
-                  {!saldada && d.due_date && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={
-                        aviso
-                          ? `Recordatorio de la deuda con ${d.counterparty}`
-                          : `Avisarme del vencimiento con ${d.counterparty}`
-                      }
-                      onClick={() => setAvisando(d)}
-                    >
-                      {aviso ? <BellRing className="h-4 w-4" /> : <BellPlus className="h-4 w-4" />}
-                    </Button>
-                  )}
-                  {!saldada && (
-                    <Button variant="outline" size="sm" onClick={() => setSaldando(d)}>
-                      Saldar
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-expense"
-                    aria-label="Eliminar"
-                    onClick={() => setABorrar(d)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                {/* Ya tiene aviso del vencimiento: se ve desde la lista. */}
+                {!saldada && aviso && (
+                  <BellRing
+                    className="h-4 w-4 shrink-0 text-muted-foreground"
+                    role="img"
+                    aria-label="Con aviso del vencimiento"
+                  />
+                )}
               </FilaInset>
             )
           })}
@@ -127,16 +121,12 @@ export function Deudas() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
-      <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl font-semibold">Deudas y préstamos</h1>
-      </header>
+      <EncabezadoPantalla
+        titulo="Deudas y préstamos"
+        volver={volver}
+        acciones={<BotonNuevo etiqueta="Nueva deuda o préstamo" onClick={() => setForm(true)} />}
+      />
 
-      <Button className="w-full" onClick={() => setForm(true)}>
-        Nueva
-      </Button>
       <Hoja abierta={form} onOpenChange={setForm} titulo="Nueva deuda o préstamo">
         <FormularioDeuda onCerrar={() => setForm(false)} />
       </Hoja>
@@ -146,6 +136,7 @@ export function Deudas() {
           icono={HandCoins}
           titulo="Sin deudas ni préstamos"
           detalle="Anotá lo que te deben o lo que debés, fuera de un grupo."
+          accion={{ onClick: () => setForm(true), etiqueta: "Nueva deuda o préstamo" }}
         />
       ) : (
         <div className="space-y-4">
@@ -154,7 +145,15 @@ export function Deudas() {
         </div>
       )}
 
-      {aSaldar && <SaldarDeuda deuda={aSaldar} onCerrar={cerrarSaldar} />}
+      {aVer && (
+        <HojaDeuda
+          deuda={aVer}
+          conAviso={porDeuda.has(aVer.id)}
+          onAvisar={() => setAvisando(aVer)}
+          onEliminar={() => setABorrar(aVer)}
+          onCerrar={cerrar}
+        />
+      )}
       {avisando?.due_date && (
         <HojaAvisarme
           existente={porDeuda.get(avisando.id)}
@@ -175,7 +174,21 @@ export function Deudas() {
   )
 }
 
-function SaldarDeuda({ deuda, onCerrar }: { deuda: Deuda; onCerrar: () => void }) {
+// Una deuda: saldarla (todo o una parte) mientras se deba y, al pie, el aviso
+// del vencimiento y eliminarla. El aviso y la confirmacion se abren encima.
+function HojaDeuda({
+  deuda,
+  conAviso,
+  onAvisar,
+  onEliminar,
+  onCerrar,
+}: {
+  deuda: Deuda
+  conAviso: boolean
+  onAvisar: () => void
+  onEliminar: () => void
+  onCerrar: () => void
+}) {
   const db = usePowerSync()
   const pendiente = deuda.amount - deuda.amount_settled
   const [monto, setMonto] = useState(aTextoEditable(pendiente, deuda.currency))
@@ -193,25 +206,48 @@ function SaldarDeuda({ deuda, onCerrar }: { deuda: Deuda; onCerrar: () => void }
   }
 
   return (
-    <Hoja abierta onOpenChange={(v) => !v && onCerrar()} titulo="Saldar">
-      <div className="space-y-3">
+    <Hoja abierta onOpenChange={(v) => !v && onCerrar()} titulo={deuda.counterparty}>
+      {pendiente > 0 ? (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Pendiente:{" "}
+            <span className="font-medium text-foreground">
+              {formatearMonto(pendiente, { moneda: deuda.currency })}
+            </span>{" "}
+            de {formatearMonto(deuda.amount, { moneda: deuda.currency })}
+            {deuda.due_date ? ` · vence ${formatearFechaCorta(deuda.due_date)}` : ""}.
+          </p>
+          <Campo etiqueta={`Monto a saldar (${deuda.currency})`}>
+            <Input
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+              inputMode="decimal"
+              className="tabular"
+            />
+          </Campo>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button className="w-full" onClick={guardar}>
+            Saldar
+          </Button>
+        </div>
+      ) : (
         <p className="text-sm text-muted-foreground">
-          Pendiente con <span className="font-medium text-foreground">{deuda.counterparty}</span>:{" "}
-          {formatearMonto(pendiente, { moneda: deuda.currency })}.
+          Saldada: {formatearMonto(deuda.amount, { moneda: deuda.currency })}.
         </p>
-        <Campo etiqueta={`Monto a saldar (${deuda.currency})`}>
-          <Input
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            inputMode="decimal"
-            className="tabular"
-          />
-        </Campo>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button className="w-full" onClick={guardar}>
-          Saldar
-        </Button>
-      </div>
+      )}
+      <AccionesEdicion onEliminar={onEliminar}>
+        {/* "Avisarme" (1.6.0): solo con fecha, y mientras se deba. */}
+        {pendiente > 0 && deuda.due_date && (
+          <Button variant="ghost" className="justify-start" onClick={onAvisar}>
+            {conAviso ? (
+              <BellRing className="h-4 w-4" aria-hidden />
+            ) : (
+              <BellPlus className="h-4 w-4" aria-hidden />
+            )}
+            {conAviso ? "Recordatorio del vencimiento" : "Avisarme del vencimiento"}
+          </Button>
+        )}
+      </AccionesEdicion>
     </Hoja>
   )
 }
@@ -289,7 +325,7 @@ function FormularioDeuda({ onCerrar }: { onCerrar: () => void }) {
         <Button className="flex-1" onClick={guardar}>
           Guardar
         </Button>
-        <Button variant="outline" onClick={onCerrar}>
+        <Button variant="secondary" onClick={onCerrar}>
           Cancelar
         </Button>
       </div>

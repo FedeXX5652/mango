@@ -31,7 +31,7 @@ export function PlantillasDelGrupo({ groupId, moneda }: { groupId: string; moned
     <section className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-muted-foreground">Plantillas del grupo</h2>
-        <Button variant="outline" size="sm" onClick={() => setEditando("nueva")}>
+        <Button variant="secondary" size="sm" onClick={() => setEditando("nueva")}>
           <Plus className="h-4 w-4" aria-hidden />
           Nueva
         </Button>

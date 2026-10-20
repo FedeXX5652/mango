@@ -4,11 +4,14 @@ import {
   ArrowLeftRight,
   ArrowUpRight,
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
+  CloudOff,
   List,
   type LucideIcon,
   Receipt,
+  RefreshCw,
   SlidersHorizontal,
   X,
 } from "lucide-react"
@@ -27,7 +30,7 @@ import { Campo } from "@/componentes/ui/campo"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
-import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
+import { CabeceraPestana } from "@/componentes/SelectorEspacio"
 import { useConexion } from "@/hooks/conexion"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { useLayout } from "@/hooks/useLayout"
@@ -116,13 +119,20 @@ function EstadoSync() {
     )
   }
 
-  const texto = !hayConexion
-    ? "Sin conexión"
-    : status.dataFlowStatus.downloading || status.dataFlowStatus.uploading
-      ? "Sincronizando…"
-      : "Al día"
+  // Con icono y en gris (1.9.0): "Al día" suelto y en verde no se entendia que
+  // era. Lo urgente (lo rechazado) es lo unico que se pinta.
+  const sincronizando = status.dataFlowStatus.downloading || status.dataFlowStatus.uploading
+  const [Icono, texto]: [LucideIcon, string] = !hayConexion
+    ? [CloudOff, "Sin conexión"]
+    : sincronizando
+      ? [RefreshCw, "Sincronizando…"]
+      : [Check, "Sincronizado"]
   return (
-    <span className={cn("text-xs", hayConexion ? "text-income" : "text-muted-foreground")}>
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <Icono
+        className={cn("h-3.5 w-3.5", sincronizando && hayConexion && "motion-safe:animate-spin")}
+        aria-hidden
+      />
       {texto}
     </span>
   )
@@ -139,6 +149,8 @@ export function Movimientos() {
   const hoy = new Date()
   const movil = useLayout() === "movil"
   const location = useLocation()
+  // El que se acaba de cargar (lo manda el alta): se resalta una vez.
+  const nuevo = (location.state as { nuevo?: string } | null)?.nuevo
   // El movimiento abierto en el panel de escritorio (la ruta hija), para
   // marcarlo en la lista.
   const abierto = location.pathname.match(/^\/movimientos\/([^/]+)/)?.[1] ?? null
@@ -439,11 +451,9 @@ export function Movimientos() {
   if (cargando) {
     return (
       <div className="mx-auto max-w-2xl space-y-3 p-4">
-        <EncabezadoEspacio />
-        <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Movimientos</h1>
+        <CabeceraPestana titulo="Movimientos">
           <EstadoSync />
-        </header>
+        </CabeceraPestana>
         <Cargando visible={mostrarEsqueleto} className="space-y-3" etiqueta="Cargando movimientos">
           <div className="grid grid-cols-2 gap-2">
             <Esqueleto className="h-10" />
@@ -459,11 +469,9 @@ export function Movimientos() {
   return (
     <ConPanel etiqueta="Detalle del movimiento">
       <div className="mx-auto max-w-2xl space-y-3 p-4">
-        <EncabezadoEspacio />
-        <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Movimientos</h1>
+        <CabeceraPestana titulo="Movimientos">
           <EstadoSync />
-        </header>
+        </CabeceraPestana>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
@@ -487,7 +495,7 @@ export function Movimientos() {
           </div>
           <div className="flex gap-1">
             <Button
-              variant={vista === "lista" ? "default" : "outline"}
+              variant={vista === "lista" ? "secondary" : "ghost"}
               size="icon"
               onClick={() => cambiar({ vista: null })}
               aria-label="Lista"
@@ -496,7 +504,7 @@ export function Movimientos() {
               <List className="h-4 w-4" />
             </Button>
             <Button
-              variant={vista === "calendario" ? "default" : "outline"}
+              variant={vista === "calendario" ? "secondary" : "ghost"}
               size="icon"
               onClick={() => cambiar({ vista: "calendario" })}
               aria-label="Calendario"
@@ -514,7 +522,7 @@ export function Movimientos() {
             <div className="flex gap-2">
               {buscador}
               <Button
-                variant="outline"
+                variant="secondary"
                 onClick={() => setVerFiltros(true)}
                 aria-label={activos.length > 0 ? `Filtros, ${activos.length} activos` : "Filtros"}
               >
@@ -548,7 +556,7 @@ export function Movimientos() {
                 ))}
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     disabled={activos.length === 0}
                     onClick={() => cambiar(Object.fromEntries(activos.map((a) => [a.clave, null])))}
                   >
@@ -630,9 +638,7 @@ export function Movimientos() {
                         // ya lo comunican el signo y el color del monto. Sin
                         // categoria (una transferencia, por ejemplo) se cae al
                         // del tipo.
-                        const Icono = f.categoria_icon
-                          ? iconoDe(f.categoria_icon)
-                          : ICONO_MOV[f.kind]
+                        const Icono = f.categoria ? iconoDe(f.categoria_icon) : ICONO_MOV[f.kind]
                         const titulo =
                           f.payee || f.categoria || (f.kind === "transfer" ? "Transferencia" : "—")
                         const sub = [f.payee ? f.categoria : null, f.cuenta].filter(Boolean)
@@ -648,7 +654,10 @@ export function Movimientos() {
                                 { replace: abierto !== null },
                               )
                             }
-                            className={cn(abierto === f.id && "bg-muted")}
+                            className={cn(
+                              abierto === f.id && "bg-muted",
+                              nuevo === f.id && "motion-safe:animate-resaltar",
+                            )}
                             actual={abierto === f.id}
                           >
                             <div className="flex min-w-0 items-center gap-3">
@@ -657,17 +666,22 @@ export function Movimientos() {
                               </span>
                               <div className="min-w-0">
                                 <p className="truncate font-medium">{titulo}</p>
-                                {sub.length > 0 && (
-                                  <p className="truncate text-xs text-muted-foreground">
-                                    {sub.join(" · ")}
+                                {/* El grupo va en la linea de abajo, como un
+                                    dato mas: en un renglon propio la fila
+                                    crecia a tres lineas. */}
+                                {(sub.length > 0 || f.grupo_nombre) && (
+                                  <p className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                                    {f.grupo_nombre && (
+                                      <EtiquetaGrupo
+                                        variante="punto"
+                                        nombre={f.grupo_nombre}
+                                        color={f.grupo_color}
+                                        className="min-w-0 max-w-[50%] shrink-0"
+                                      />
+                                    )}
+                                    {f.grupo_nombre && sub.length > 0 && <span aria-hidden>·</span>}
+                                    <span className="truncate">{sub.join(" · ")}</span>
                                   </p>
-                                )}
-                                {f.grupo_nombre && (
-                                  <EtiquetaGrupo
-                                    nombre={f.grupo_nombre}
-                                    color={f.grupo_color}
-                                    className="mt-1"
-                                  />
                                 )}
                               </div>
                             </div>

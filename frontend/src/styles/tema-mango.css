@@ -5,6 +5,19 @@
 
 :root {
   --radius: 0.5rem;
+  /* Elevacion de una tarjeta (1.9.0, DESIGN.md 4): en claro, un filete muy
+     suave y una sombra corta, no un borde. El blanco de la tarjeta sobre el
+     fondo casi no se distingue: el filete marca el canto sin el peso del
+     borde. En oscuro manda la luminosidad (la tarjeta es mas clara que el
+     fondo) y alcanza con un filete apenas mas claro. Teñidos con el texto de
+     cada tema, para que la sombra no ensucie el tono del fondo. */
+  --sombra-tarjeta:
+    0 0 0 1px color-mix(in srgb, var(--foreground) 6%, transparent),
+    0 1px 2px color-mix(in srgb, var(--foreground) 6%, transparent),
+    0 2px 8px color-mix(in srgb, var(--foreground) 4%, transparent);
+}
+:root.dark {
+  --sombra-tarjeta: 0 0 0 1px color-mix(in srgb, var(--foreground) 6%, transparent);
 }
 
 /* ============================ default (mango) ============================ */
@@ -18,7 +31,7 @@
   --popover-foreground: #1c1917;
   --muted: #f5f2ea;
   --muted-foreground: #6b6259;
-  --secondary: #f5f2ea;
+  --secondary: #eae6de;
   --secondary-foreground: #1c1917;
   --primary: #fdbe02;
   --primary-foreground: #1a1400;
@@ -29,12 +42,12 @@
   /* Anillo de foco: 3,7:1 contra el fondo (WCAG 1.4.11 pide 3:1). El #d9a300
      de antes daba 2,2:1 y el foco con teclado casi no se veia. */
   --ring: #a87c00;
-  --destructive: #c62828;
+  --destructive: #ad2f22;
   --destructive-foreground: #ffffff;
-  --expense: #c62828;
-  --income: #00795b;
-  --transfer: #1f5fbf;
-  --pending: #6d45c7;
+  --expense: #ad2f22;
+  --income: #0b7552;
+  --transfer: #2d62af;
+  --pending: #724aab;
   --rejected: #6b6259;
 }
 :root[data-tema="default"].dark {
@@ -47,7 +60,7 @@
   --popover-foreground: #f2ede1;
   --muted: #2e291d;
   --muted-foreground: #a8a093;
-  --secondary: #2e291d;
+  --secondary: #3d382c;
   --secondary-foreground: #f2ede1;
   --primary: #fdbe02;
   --primary-foreground: #14120c;
@@ -56,12 +69,12 @@
   --border: #474030;
   --input: #766b50;
   --ring: #fdbe02;
-  --destructive: #ff8a80;
+  --destructive: #ffa08f;
   --destructive-foreground: #14120c;
-  --expense: #ff8a80;
-  --income: #4ade9b;
-  --transfer: #7fb0ff;
-  --pending: #c0a6ff;
+  --expense: #ffa08f;
+  --income: #6cd6a7;
+  --transfer: #96c0fe;
+  --pending: #c8aefa;
   --rejected: #a8a093;
 }
 
@@ -76,7 +89,7 @@
   --popover-foreground: #0f1a17;
   --muted: #ecf1f0;
   --muted-foreground: #5b6b66;
-  --secondary: #ecf1f0;
+  --secondary: #e0e5e4;
   --secondary-foreground: #0f1a17;
   --primary: #0f766e;
   --primary-foreground: #ffffff;
@@ -85,12 +98,12 @@
   --border: #d2dedb;
   --input: #75988f;
   --ring: #0f766e;
-  --destructive: #c62828;
+  --destructive: #ad2f22;
   --destructive-foreground: #ffffff;
-  --expense: #c62828;
-  --income: #00795b;
-  --transfer: #1f5fbf;
-  --pending: #6d45c7;
+  --expense: #ad2f22;
+  --income: #0b7552;
+  --transfer: #2d62af;
+  --pending: #724aab;
   --rejected: #5b6b66;
 }
 :root[data-tema="bosque"].dark {
@@ -103,7 +116,7 @@
   --popover-foreground: #e8efed;
   --muted: #1e2a28;
   --muted-foreground: #93a5a0;
-  --secondary: #1e2a28;
+  --secondary: #2d3937;
   --secondary-foreground: #e8efed;
   --primary: #2dd4bf;
   --primary-foreground: #06201c;
@@ -112,12 +125,12 @@
   --border: #2e3e3b;
   --input: #526e69;
   --ring: #2dd4bf;
-  --destructive: #ff8a80;
+  --destructive: #ffa08f;
   --destructive-foreground: #0c1211;
-  --expense: #ff8a80;
-  --income: #4ade9b;
-  --transfer: #7fb0ff;
-  --pending: #c0a6ff;
+  --expense: #ffa08f;
+  --income: #6cd6a7;
+  --transfer: #96c0fe;
+  --pending: #c8aefa;
   --rejected: #93a5a0;
 }
 
@@ -132,7 +145,7 @@
   --popover-foreground: #17171f;
   --muted: #eeeef3;
   --muted-foreground: #62626e;
-  --secondary: #eeeef3;
+  --secondary: #e2e3e8;
   --secondary-foreground: #17171f;
   --primary: #4f46e5;
   --primary-foreground: #ffffff;
@@ -141,12 +154,12 @@
   --border: #d8d8e1;
   --input: #8f8fab;
   --ring: #4f46e5;
-  --destructive: #c62828;
+  --destructive: #ad2f22;
   --destructive-foreground: #ffffff;
-  --expense: #c62828;
-  --income: #00795b;
-  --transfer: #1f5fbf;
-  --pending: #6d45c7;
+  --expense: #ad2f22;
+  --income: #0b7552;
+  --transfer: #2d62af;
+  --pending: #724aab;
   --rejected: #62626e;
 }
 :root[data-tema="indigo"].dark {
@@ -159,7 +172,7 @@
   --popover-foreground: #e9e9f0;
   --muted: #24242e;
   --muted-foreground: #9a9aa6;
-  --secondary: #24242e;
+  --secondary: #33333e;
   --secondary-foreground: #e9e9f0;
   --primary: #818cf8;
   --primary-foreground: #0e0e14;
@@ -168,11 +181,11 @@
   --border: #34343f;
   --input: #64647a;
   --ring: #818cf8;
-  --destructive: #ff8a80;
+  --destructive: #ffa08f;
   --destructive-foreground: #0e0e14;
-  --expense: #ff8a80;
-  --income: #4ade9b;
-  --transfer: #7fb0ff;
-  --pending: #c0a6ff;
+  --expense: #ffa08f;
+  --income: #6cd6a7;
+  --transfer: #96c0fe;
+  --pending: #c8aefa;
   --rejected: #9a9aa6;
 }

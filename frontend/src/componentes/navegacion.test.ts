@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { DESTINOS, DESTINOS_MOVIL } from "@/componentes/navegacion"
+import { DESTINOS, DESTINOS_MOVIL, esPestana } from "@/componentes/navegacion"
 
 // La barra movil es 2 + "+" + 2 en cinco columnas iguales (DESIGN.md 2, 0022):
 // con otra cantidad el "+" deja de caer en el centro. Este test es el que frena
@@ -36,5 +36,29 @@ describe("navegacion", () => {
 
   it("Inicio es el primero y solo activa en su ruta exacta", () => {
     expect(DESTINOS_MOVIL[0]).toMatchObject({ to: "/", end: true })
+  })
+})
+
+// Que pantalla entra animada en el movil (1.9.0): las que se abren desde otra,
+// no las pestañas (que cambian al instante) ni el alta (tiene la suya).
+describe("esPestana", () => {
+  it("las cuatro secciones y el alta, personales y de un grupo", () => {
+    for (const r of ["/", "/movimientos", "/presupuesto", "/estadisticas", "/nuevo"])
+      expect(esPestana(r)).toBe(true)
+    for (const r of ["/grupos/g1", "/grupos/g1/movimientos", "/grupos/g1/nuevo"])
+      expect(esPestana(r)).toBe(true)
+  })
+
+  it("lo que se abre desde otra pantalla no es pestaña", () => {
+    for (const r of [
+      "/cuentas",
+      "/ajustes",
+      "/movimientos/abc",
+      "/grupos",
+      "/grupos/g1/ajustes",
+      "/grupos/g1/calendario",
+      "/grupos/g1/movimientos/abc",
+    ])
+      expect(esPestana(r)).toBe(false)
   })
 })

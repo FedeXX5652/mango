@@ -1,10 +1,11 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { Wallet } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Button } from "@/componentes/ui/button"
+import { Desplegable, useSalida } from "@/componentes/ui/desplegable"
+import { Insignia } from "@/componentes/ui/insignia"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { cotizacionDe } from "@/lib/conversion"
@@ -73,26 +74,37 @@ export function PagosPorConfirmar() {
   const pendientes = visibles.filter((p) => p.status === "pending").length
 
   return (
-    <section className="rounded-xl border border-primary/30 bg-primary/5 p-4">
-      <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-        <Wallet className="h-4 w-4 text-primary" aria-hidden />
-        Pagos por confirmar{pendientes > 0 ? ` (${pendientes})` : ""}
+    <section className="space-y-3">
+      <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+        Pagos por confirmar
+        {pendientes > 0 && <Insignia n={pendientes} />}
       </h2>
       <ListaInset>
         {visibles.map((p) => (
-          <FilaInset key={p.id}>
-            <TuParte
-              pago={p}
-              conEnlace
-              onRechazado={(id) => {
-                setRecientes((r) => [...r, id])
-                setTimeout(() => setRecientes((r) => r.filter((x) => x !== id)), DESHACER_MS)
-              }}
-            />
-          </FilaInset>
+          <FilaPago
+            key={p.id}
+            pago={p}
+            onRechazado={(id) => {
+              setRecientes((r) => [...r, id])
+              setTimeout(() => setRecientes((r) => r.filter((x) => x !== id)), DESHACER_MS)
+            }}
+          />
         ))}
       </ListaInset>
     </section>
+  )
+}
+
+// Una fila de "Pagos por confirmar": al confirmar, se cierra antes de irse de
+// la lista y lo de abajo no salta (1.9.0).
+function FilaPago({ pago, onRechazado }: { pago: PagoMio; onRechazado: (id: string) => void }) {
+  const [saliendo, salir] = useSalida()
+  return (
+    <Desplegable abierto={!saliendo}>
+      <FilaInset>
+        <TuParte pago={pago} conEnlace salir={salir} onRechazado={onRechazado} />
+      </FilaInset>
+    </Desplegable>
   )
 }
 
@@ -101,10 +113,14 @@ export function TuParte({
   pago,
   conEnlace,
   onRechazado,
+  salir,
 }: {
   pago: PagoMio
   conEnlace?: boolean
   onRechazado?: (id: string) => void
+  // En una lista de la que el pago sale al confirmarlo: la escritura pasa por
+  // aca (useSalida), que primero cierra la fila.
+  salir?: (accion: () => Promise<unknown>) => Promise<void>
 }) {
   const db = usePowerSync()
   const { cuentas, ultima } = useCuentas()
@@ -130,11 +146,13 @@ export function TuParte({
         return setError(`Poné cuánto salió de la cuenta, en ${cuenta.currency}`)
       cotizacion = cotizacionDe(pago.amount, pago.currency, montoCuenta, cuenta.currency)
     }
-    await db.execute(
-      `UPDATE transactions SET account_id = ?, amount_account = ?, exchange_rate = ?,
+    const escribir = () =>
+      db.execute(
+        `UPDATE transactions SET account_id = ?, amount_account = ?, exchange_rate = ?,
          status = 'confirmed' WHERE id = ?`,
-      [cuenta.id, montoCuenta, cotizacion, pago.id],
-    )
+        [cuenta.id, montoCuenta, cotizacion, pago.id],
+      )
+    await (salir ? salir(escribir) : escribir())
     setCambiando(false)
   }
 
@@ -240,7 +258,8 @@ export function TuParte({
           {error}
         </p>
       )}
-      <Button size="sm" className="w-full" onClick={confirmar}>
+      {/* Secundario: en el Inicio el amarillo es el "+" (DESIGN.md 7). */}
+      <Button size="sm" variant="secondary" className="w-full" onClick={confirmar}>
         {cuenta ? `La pagué con ${cuenta.name}` : "La pagué"}
       </Button>
       <div className="flex flex-wrap items-center justify-between gap-2">

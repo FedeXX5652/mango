@@ -92,15 +92,25 @@ siempre el token.
 | `card-foreground` | Texto dentro de tarjetas |
 | `primary` | Accion principal, elemento activo |
 | `primary-foreground` | Texto sobre `primary` |
-| `secondary` | Accion secundaria |
+| `secondary` | Relleno de los botones secundarios (sin borde), de los selectores sueltos y del interruptor apagado. Un paso mas hondo que `muted` (1.9.0): se ve sobre el fondo (≈1,2:1) y sobre la tarjeta |
 | `muted` | Fondos sutiles, filas alternas |
 | `muted-foreground` | Texto secundario, etiquetas |
 | `accent` | Resaltado al pasar el mouse o con foco |
 | `accent-foreground` | Texto sobre `accent` |
 | `enlace` | Texto de enlaces y acciones de texto ("Ver todos", "Cargarla") e iconos que dicen un estado (el check de lo elegido). Es un **alias** de `accent-foreground`, no un color nuevo: ese token ya es oscuro sobre claro y claro sobre oscuro en los tres temas (9:1 a 13:1) |
 | `border` | Bordes y separadores |
-| `input` | Borde de campos de formulario y de los botones `outline`. Minimo **3:1** contra `background` y `card` (WCAG 1.4.11: el borde es lo que delimita el control). En Mango claro es `#A49163`; el `#CFC5AD` de antes daba 1,7:1. Los seis temas/modos estan en 3,0:1 o mas |
+| `input` | Borde de los campos de formulario: lo que se escribe o se elige dentro de un formulario (`Input`, `Select`, `SelectorEntidad`). Los botones no llevan borde (desde 1.9.0 no hay variante `outline`). Minimo **3:1** contra `background` y `card` (WCAG 1.4.11: el borde es lo que delimita el control). En Mango claro es `#A49163`; el `#CFC5AD` de antes daba 1,7:1. Los seis temas/modos estan en 3,0:1 o mas |
 | `ring` | Anillo de foco. Minimo **3:1** contra el fondo (WCAG 1.4.11): en Mango claro es `#A87C00`; el `#D9A300` de antes daba 2,2:1 |
+
+**Los tokens aceptan opacidad** (`bg-primary/10`, `hover:bg-secondary/80`). En
+`tailwind.config.ts` cada color es una funcion: sin opacidad da `var(--x)` tal
+cual, y con opacidad una mezcla `color-mix` con transparente. Hasta la 1.9.0
+Tailwind no podia aplicarla a una variable y esas clases **no se generaban**: no
+hacian nada (la manija de la hoja movil no se veia).
+
+**Elevacion: `shadow-tarjeta`** (variable `--sombra-tarjeta`). En claro, un
+filete muy suave y una sombra corta, teñidos con el `foreground` del tema; en
+oscuro, solo un filete apenas mas claro (ver 4).
 
 **`primary` es de fondo, no de texto.** El amarillo de marca sobre blanco da
 **1,7:1**: como texto no se lee. Va de fondo, con `primary-foreground` encima
@@ -119,6 +129,22 @@ aplicacion de finanzas.
 | `transfer` | Movimientos entre cuentas propias |
 | `pending` | Transacciones que esperan resolucion |
 | `rejected` | Transacciones rechazadas por el banco |
+
+Los cuatro primeros estan armonizados en OKLCH (1.9.0): la **misma
+luminosidad** por modo (L 0,50 en claro, 0,80 en oscuro) y croma parejo, para
+que ninguno pese mas que otro; el rojo, corrido hacia el naranja de la marca.
+Son iguales en los tres temas:
+
+| Token | Claro | Oscuro |
+|---|---|---|
+| `expense` (y `destructive`) | `#AD2F22` | `#FFA08F` |
+| `income` | `#0B7552` | `#6CD6A7` |
+| `transfer` | `#2D62AF` | `#96C0FE` |
+| `pending` | `#724AAB` | `#C8AEFA` |
+
+Contraste medido contra `background`, `card` y `muted` de los tres temas: el
+peor es 4,9:1 (ingreso sobre `muted` en Indigo claro). Antes, en oscuro, el
+verde era el mas saturado y vibraba.
 
 **Regla de accesibilidad**: nunca comunicar gasto o ingreso **solo** por color.
 Siempre acompanar con signo, icono o posicion. Cerca del 8% de los varones
@@ -209,8 +235,14 @@ El modo se resuelve asi:
 el negro absoluto contra texto blanco produce fatiga visual y halo.
 
 **La elevacion se marca con luminosidad, no con sombra.** En claro, una tarjeta
-sobre el fondo se distingue por sombra. En oscuro, por ser un poco mas clara
-que el fondo.
+sobre el fondo se distingue por sombra (`shadow-tarjeta`), **no por borde**: el
+borde tostado en cada tarjeta, boton y tecla era lo que mas ensuciaba la
+pantalla (1.9.0). En oscuro, por ser un poco mas clara que el fondo.
+
+**Una tarjeta nunca va dentro de otra.** Lo de adentro va con separadores
+(`ListaInset plana`, la lista de la tarjeta de balance) y una seccion que pide
+atencion se marca con su encabezado (y una `Insignia` con la cuenta), no con una
+caja teñida alrededor de la lista.
 
 **Los colores saturados se atenuan.** Un rojo que funciona en claro sobre
 blanco vibra desagradablemente en oscuro. Bajar saturacion y subir luminosidad.
@@ -366,9 +398,13 @@ el string completo, no lo que se muestra.
 Un informe **nunca mezcla monedas** (ver ESPECIFICACION 3.6.1). El patron es
 siempre el mismo:
 
-- El **selector de moneda va a nivel de pantalla**, no por cuadro: `Segmentado`
-  al lado del titulo, con las monedas que **tienen datos** y la base primero.
-  Con una sola moneda el control no se dibuja: seria ruido.
+- El **selector de moneda va a nivel de pantalla**, no por cuadro: al lado del
+  titulo, con las monedas que **tienen datos** y la base primero. Con una sola
+  moneda el control no se dibuja: seria ruido. En Estadisticas la moneda y el
+  modo (Global / Por moneda) son **un solo control** compacto, "ARS · Global ▾",
+  que abre una hoja con las dos elecciones (1.9.0): eran dos controles mas
+  apilados con el del periodo. Fuera de un formulario, `SelectorMoneda suelto`
+  va con relleno suave y sin el borde de campo.
 - Debajo, una linea que dice en que moneda se esta leyendo. Un informe que
   filtra sin decirlo se confunde con un informe que suma mal.
 - Donde no hay selector (los tres datos del mes en Inicio), se usa la moneda
@@ -530,9 +566,16 @@ movimiento en escritorio.
 
 ### Listas agrupadas: `ListaInset` / `FilaInset`
 
-Grupo redondeado con borde, fondo `card` y separadores internos de una linea.
-Es la presentacion por defecto de cualquier lista de gestion (cuentas,
-categorias, medios) y de los grupos de movimientos.
+Grupo redondeado, fondo `card` con `shadow-tarjeta` (sin borde) y separadores
+internos de una linea. Es la presentacion por defecto de cualquier lista de
+gestion (cuentas, categorias, medios), de los grupos de movimientos y de Ajustes.
+
+- `plana`: la lista va dentro de una tarjeta y lleva solo los separadores.
+- `FilaInset chevron`: el › del final, "esta fila abre algo".
+- `FilaInset acciones`: botones de icono que en escritorio aparecen sobre el
+  final de la fila con el mouse o el teclado (ver "Acciones de fila").
+- Al tocar, la fila responde con el fondo `muted` en 100 ms (`active:`): en el
+  telefono no hay hover y antes no daba ninguna señal.
 
 **Las archivadas van en una seccion aparte, al final**, con su propio
 encabezado. Nunca mezcladas con las activas.
@@ -554,8 +597,22 @@ encabezado. Nunca mezcladas con las activas.
 
 ### Acciones de fila
 
-Iconos, no texto, y **siempre con `aria-label`**: editar (lapiz), archivar
-(caja) / desarchivar (caja con flecha), eliminar (tacho).
+**Tocar la fila la edita** (1.9.0), como en iOS: no hay lapiz. Archivar
+(caja) / desarchivar (caja con flecha) y eliminar (tacho) van **al pie de la
+edicion**, separados por una linea (`AccionesEdicion`); la confirmacion se abre
+encima de esa hoja y, al cancelarla, se vuelve a la edicion. Antes eran tres
+iconos siempre a la vista en cada fila y se amontonaban.
+
+En **escritorio**, archivar y eliminar aparecen tambien sobre el final de la
+fila al pasar el mouse o al llegar con el teclado (`AccionesFila`), con
+`aria-label` que nombra la fila ("Eliminar Efectivo"). Se ocultan con
+opacidad, no con `display`: asi siguen en el orden de Tab.
+
+Lo que no es archivar o eliminar tambien va a la hoja: "Avisarme del
+vencimiento" de una tarjeta o una deuda; en la fila queda la campanita como
+indicador de que ya tiene aviso. Una deuda se abre en su hoja, donde se salda.
+Donde tocar la fila hace otra cosa (usar una plantilla, reintentar un cambio
+rechazado), los iconos quedan en la fila.
 
 El tacho **nunca desaparece y nunca esta deshabilitado**: lo que cambia es lo
 que hace. Si la entidad no se usa, pide confirmacion y la borra. Si esta en uso,
@@ -649,7 +706,8 @@ Desarchivar no pide confirmacion: es reversible y no destruye nada.
 Encendido/apagado de **una** cosa: pastilla con perilla que se desliza. Es un
 `<button role="switch">` con `aria-checked`, no un checkbox nativo —que se ve
 distinto en cada sistema y no admite la pastilla—. El deslizamiento es
-`motion-safe`; con movimiento reducido queda el cambio de color solo.
+`motion-safe`; con movimiento reducido queda el cambio de color solo. Apagado,
+la pastilla es `secondary`: con `muted` casi no se veia sobre una tarjeta blanca.
 
 Se usa cuando la opcion es binaria y **por fila** (una moneda en automatico o a
 mano, el desbloqueo biometrico). Para elegir entre dos alternativas con nombre
@@ -744,6 +802,24 @@ En un **grupo** los accesos son fijos y van en cuatro columnas: Saldar, Poner
 plata, Miembros y Categorias (0026). Se ven tambien en escritorio: son acciones,
 no destinos que ya esten en la barra lateral.
 
+### Ajustes
+
+Como los Ajustes de iOS (1.9.0): cada seccion es una `ListaInset` y cada fila,
+un icono chico en un cuadrado redondeado y relleno (`Mosaico`: amarillo de
+marca; rojo para lo que pide atencion, los cambios rechazados), el nombre y ›.
+Reemplaza a la grilla de tarjetas con circulos pastel. "Cerrar sesion" va
+aparte, al final, como fila roja centrada.
+
+### Pantallas de lista: `EncabezadoPantalla`
+
+La cabecera de una pantalla que se abre desde otra (Cuentas, Categorias, Metas…):
+volver, el titulo y, a la derecha, sus acciones. **Crear es un "+"**
+(`BotonNuevo`, con `aria-label` "Nueva cuenta"), no un boton amarillo de ancho
+completo; con la lista vacia, el estado vacio ofrece el boton ("Nueva meta").
+Volver y el "+" se corren hasta el borde del contenido sin achicar su area de 44
+px: asi entra "Calendario de pagos" en 360 px. Ordenar es un icono; ordenando,
+"Listo" reemplaza a las demas acciones.
+
 ### Plantillas en el alta
 
 Un solo boton **"Plantillas (n)"** en la fila de la moneda, que abre una `Hoja`
@@ -762,7 +838,9 @@ de gasto, y al editar el tipo no cambia (el servidor no lo deja).
 
 - **Muestra la cuenta**: arriba, a la izquierda, lo acumulado y el operador
   ("100 +"); a la derecha, el resultado parcial ("= 150"). El operador pendiente
-  queda marcado (`aria-pressed`, fondo `accent` y anillo).
+  queda marcado (`aria-pressed` y anillo).
+- **Como la de iOS** (1.9.0): digitos en gris suave (`secondary`), operadores en
+  tinte (`accent`) y el "=" en amarillo. Sin bordes.
 - **Se guarda lo que se ve**: "100 + 50" sin "=" es 150. Antes se guardaba el
   numero en pantalla (50).
 - **Toques rapidos**: las teclas llevan `touch-manipulation`. Sin eso, dos
@@ -775,7 +853,8 @@ de gasto, y al editar el tipo no cambia (el servidor no lo deja).
 
 Un **espacio** es Personal o un grupo, con las mismas pantallas (0026). El
 espacio actual se ve siempre en un chip: punto de color (Personal, el amarillo de
-marca; un grupo, su color), nombre truncado y chevron, 44 px de alto. Es la
+marca; un grupo, su color), nombre truncado y chevron, 44 px de alto, con
+relleno suave y sin borde (1.9.0). Es la
 defensa contra cargar algo en el espacio equivocado, asi que **no se esconde**.
 
 - Al tocarlo abre una `Hoja` "Espacios" con Personal y cada grupo (tilde en el
@@ -785,9 +864,12 @@ defensa contra cargar algo en el espacio equivocado, asi que **no se esconde**.
 - El alta dice **"Se carga en ● Casa ▾"** con el mismo chip, y deja cambiar el
   espacio sin salir del formulario.
 - Cambiar deja en la **misma seccion** del otro espacio.
-- En el movil, el chip encabeza Inicio, Movimientos, Presupuesto y Estadisticas
-  (`EncabezadoEspacio`, con las acciones de la pantalla a la derecha). En
-  escritorio esta arriba de la barra lateral y esa fila no se muestra.
+- En el movil, el chip encabeza Inicio y cada pestaña, siempre arriba a la
+  izquierda. En las pestañas, **su fila es la del titulo** (`CabeceraPestana`,
+  1.9.0): el chip y, a la derecha, los controles de la pantalla ("✓
+  Sincronizado", "ARS · Global"). El nombre de la seccion ya lo dice la barra de
+  abajo, asi que el `h1` queda para el lector de pantalla. En escritorio el chip
+  esta arriba de la barra lateral y el `h1` se ve.
 - Las rutas de los dos espacios usan los mismos nombres de seccion
   (`/movimientos` y `/grupos/<grupo>/movimientos`); se arman con `rutaEspacio`,
   nunca a mano.
@@ -956,6 +1038,26 @@ El `latido` es **el unico bucle de la aplicacion**: no comunica un cambio de
 estado sino "seguimos trabajando", asi que va lento y suave para no robar
 atencion (ver 0008 y `componentes/ui/cargando.tsx`).
 
+Lo que se anima (1.9.0), todo con la curva `salida`:
+
+- **Filas que se tocan**: fondo `muted` al apoyar, 100 ms.
+- **Lo que se despliega en el lugar** (`Desplegable`: un sobre, "Como se llego a
+  esto"): alto con `grid-rows` 0fr→1fr y opacidad, 200 ms. Cerrado queda
+  `inert`.
+- **Una fila que sale de una lista** al confirmarla (cobros y pagos por
+  confirmar): se cierra en 200 ms antes de irse (`useSalida`), para que lo de
+  abajo no salte.
+- **Una pantalla que se abre desde otra** (un detalle, Cuentas, el calendario),
+  en el movil: sube 12 px con la opacidad, 200 ms. No las pestañas ni al volver.
+- **El movimiento recien cargado**: su fila se resalta con `accent` y se apaga en
+  800 ms, una vez.
+
+Lo que **no** se anima, a proposito: la pastilla de la barra inferior entre
+pestañas (la navegacion central cambia al instante, como en iOS), los graficos
+que se dibujan y los montos que cuentan (son datos que se leen), una entrada en
+cascada de la lista de movimientos y la calculadora (la entrada que mas se
+repite).
+
 **Respetar `prefers-reduced-motion`.** Si el usuario pidio menos movimiento, las
 transiciones se reducen a cambios de opacidad o se eliminan.
 
@@ -967,6 +1069,11 @@ de doscientos movimientos, animar cada fila marea.
 ## 9. Lo que no se hace
 
 - Colores literales en componentes. Siempre tokens.
+- Un boton con borde (`outline`): los secundarios son de relleno suave. El borde
+  es de los campos.
+- Mas de un boton amarillo por pantalla. El amarillo es la accion principal;
+  crear en una pantalla de lista es el "+" de la cabecera (`BotonNuevo`).
+- Una tarjeta dentro de otra.
 - Texto en `primary` sobre fondo claro: en Mango da 1,7:1. Los enlaces van en
   `enlace`.
 - El color de una entidad (grupo, etiqueta) en el **texto**: no garantiza

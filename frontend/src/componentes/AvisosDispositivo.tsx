@@ -90,7 +90,7 @@ export function AvisosDispositivo() {
 
   return (
     <div className="space-y-2">
-      <div className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-border bg-card px-4">
+      <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-card px-4 py-2 shadow-tarjeta">
         <span className="text-sm font-medium">Avisos en este dispositivo</span>
         <Interruptor
           encendido={estado === "activo"}
@@ -110,7 +110,7 @@ export function AvisosDispositivo() {
       )}
       {estado === "activo" && <Familias />}
       {estado === "activo" && (
-        <Button variant="outline" size="sm" disabled={enviando} onClick={() => void probar()}>
+        <Button variant="secondary" size="sm" disabled={enviando} onClick={() => void probar()}>
           {enviando ? "Enviando…" : "Mandar un aviso de prueba"}
         </Button>
       )}
@@ -146,7 +146,7 @@ function Familias() {
   return (
     <fieldset className="space-y-2">
       <legend className="mb-2 text-sm text-muted-foreground">Qué avisos llegan acá</legend>
-      <div className="divide-y divide-border rounded-md border border-border bg-card">
+      <div className="divide-y divide-border overflow-hidden rounded-xl bg-card shadow-tarjeta">
         {FAMILIAS.map((f) => {
           const prendida = prendidas.includes(f.id)
           // Apagarlas todas es apagar los avisos: eso es el interruptor de arriba.

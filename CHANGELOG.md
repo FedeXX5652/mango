@@ -4,6 +4,47 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.9.0] - 2026-10-20
+
+### Cambiado
+
+- **Un diseño más limpio, más cerca de las apps de Apple.**
+  - Las tarjetas y las listas ya no tienen borde: se separan del fondo con una
+    sombra suave (en oscuro, por ser más claras). Lo de adentro de una tarjeta va
+    con líneas, nunca con otra tarjeta.
+  - Los botones secundarios son de relleno suave, sin borde. La calculadora,
+    como la del iPhone: números en gris, operaciones en tinte y el "=" en
+    amarillo.
+  - **Un solo amarillo por pantalla**: crear algo en una lista (una cuenta, una
+    meta, un recordatorio) es el **+** de arriba a la derecha.
+  - **Ajustes** es una lista como la del iPhone, con un ícono chico por fila.
+  - Los colores de gasto, ingreso, transferencia y pendiente están parejos entre
+    sí; en oscuro, el verde ya no encandila.
+- **Tocar una fila la edita**: en Cuentas, Categorías, Medios, Etiquetas, Metas,
+  Deudas y Cotizaciones. Archivar y eliminar están al pie de la edición (con el
+  mouse, también sobre la fila). Las categorías ahora se pueden renombrar.
+- **Una deuda se abre en su hoja**: ahí se salda, se pide el aviso del
+  vencimiento y se elimina. "Avisarme" de una tarjeta pasó a su edición.
+- **Arriba de cada pestaña, una sola fila**: el espacio a la izquierda y lo de
+  esa pantalla a la derecha. En Movimientos, "Sincronizado" (antes "Al día").
+- **Estadísticas**: la moneda y el modo van en un solo botón, "ARS · Global";
+  debajo queda solo el período.
+- **Movimientos**: el grupo va en la línea de abajo (la fila ya no crece a tres
+  líneas), y una categoría sin ícono muestra el de etiqueta en vez de una flecha.
+- **Cobros por confirmar**: la cuenta y la categoría, una debajo de la otra.
+- **Más fluido**: las filas responden al toque, las pantallas que se abren desde
+  otra suben suavemente, "Cómo se llegó a esto" se despliega, un cobro o pago
+  confirmado se cierra antes de irse de la lista y el movimiento recién cargado
+  se resalta un instante. Con "reducir movimiento" en el teléfono, nada de esto.
+
+### Corregido
+
+- **La manija de las hojas no se veía**, y otros fondos y bordes tenues (los no
+  leídos de la campanita, lo elegido en los filtros) nunca se dibujaban.
+- **Con un sobre cerrado, el teclado entraba igual a sus controles**.
+- **El gráfico de anillo** mostraba una muesca con una sola categoría.
+- **El interruptor apagado** casi no se veía sobre una tarjeta blanca.
+
 ## [1.8.0] - 2026-10-19
 
 ### Agregado

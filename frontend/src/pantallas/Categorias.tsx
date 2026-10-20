@@ -1,7 +1,9 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { Archive, ArchiveRestore, ArrowLeft, Lock, Trash2 } from "lucide-react"
+import { Lock } from "lucide-react"
 import { useMemo, useState } from "react"
 
+import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
+import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { HojaReasignar } from "@/componentes/HojaReasignar"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
@@ -15,6 +17,7 @@ import { uuidv4 } from "@/lib/uuid"
 import { SelectorIcono } from "@/componentes/SelectorIcono"
 import { useVolver } from "@/hooks/useVolver"
 import { ordenarJerarquico } from "@/lib/categorias"
+import { iconoDe } from "@/lib/iconos"
 import { cn } from "@/lib/utils"
 
 interface Categoria {
@@ -36,6 +39,10 @@ export function Categorias() {
     "SELECT id, name, kind, parent_id, archived, icon, system_key FROM categories WHERE deleted_at IS NULL ORDER BY sort_order, name",
   )
   const [mostrarForm, setMostrarForm] = useState(false)
+  // Tocar una fila la edita (nombre e icono; archivar y eliminar, al pie). Se
+  // cierra sola si la categoria ya no esta (se elimino desde ahi).
+  const [editando, setEditando] = useState<Categoria | null>(null)
+  const editandoVigente = editando !== null && categorias.some((c) => c.id === editando.id)
   const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; c: Categoria } | null>(null)
   // Eliminar y mover: el fallback para borrar una categoria ya usada sin tocar
   // los movimientos a mano (ESPECIFICACION 3.3).
@@ -64,11 +71,6 @@ export function Categorias() {
     await db.execute("UPDATE categories SET archived = ? WHERE id = ?", [valor, c.id])
   }
 
-  // Escritura local y directa: tocar el icono de la fila lo guarda, sin un
-  // formulario de edicion en el medio.
-  async function alIcono(c: Categoria, clave: string | null) {
-    await db.execute("UPDATE categories SET icon = ? WHERE id = ?", [clave, c.id])
-  }
   async function borrar(c: Categoria) {
     await db.execute("DELETE FROM categories WHERE id = ?", [c.id])
   }
@@ -119,9 +121,9 @@ export function Categorias() {
       key={c.id}
       c={c}
       sangria={sangria}
+      onEditar={setEditando}
       onArchivar={alArchivar}
       onEliminar={alTacho}
-      onIcono={alIcono}
     />
   )
 
@@ -137,18 +139,40 @@ export function Categorias() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4">
-      <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={volver} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl font-semibold">Categorías</h1>
-      </header>
+      <EncabezadoPantalla
+        titulo="Categorías"
+        volver={volver}
+        acciones={<BotonNuevo etiqueta="Nueva categoría" onClick={() => setMostrarForm(true)} />}
+      />
 
-      <Button className="w-full" onClick={() => setMostrarForm(true)}>
-        Nueva categoría
-      </Button>
       <Hoja abierta={mostrarForm} onOpenChange={setMostrarForm} titulo="Nueva categoría">
         <FormularioCategoria principales={principales} onCerrar={() => setMostrarForm(false)} />
+      </Hoja>
+      <Hoja
+        abierta={editandoVigente}
+        onOpenChange={(v) => !v && setEditando(null)}
+        titulo="Editar categoría"
+      >
+        {editando && (
+          <FormularioCategoria
+            key={editando.id}
+            principales={principales}
+            inicial={editando}
+            onCerrar={() => setEditando(null)}
+          />
+        )}
+        {/* Las del sistema (0026) se renombran, pero no se archivan ni se borran. */}
+        {editando && !editando.system_key && (
+          <AccionesEdicion
+            archivada={editando.archived === 1}
+            onArchivar={() => {
+              alArchivar(editando)
+              // Desarchivar es directo: la edicion ya no tiene nada que hacer.
+              if (editando.archived) setEditando(null)
+            }}
+            onEliminar={() => alTacho(editando)}
+          />
+        )}
       </Hoja>
 
       <div className="space-y-4">
@@ -194,6 +218,7 @@ export function Categorias() {
           if (!accion) return
           if (accion.tipo === "eliminar") borrar(accion.c)
           else archivar(accion.c, 1)
+          setEditando(null)
         }}
       />
       {reasignando && (
@@ -221,20 +246,36 @@ export function Categorias() {
 function Fila({
   c,
   sangria,
+  onEditar,
   onArchivar,
   onEliminar,
-  onIcono,
 }: {
   c: Categoria
   sangria?: boolean
+  onEditar: (c: Categoria) => void
   onArchivar: (c: Categoria) => void
   onEliminar: (c: Categoria) => void
-  onIcono: (c: Categoria, clave: string | null) => void
 }) {
+  // `iconoDe` devuelve un componente de un Map estatico (ver SelectorIcono).
+  const Icono = iconoDe(c.icon)
   return (
-    <FilaInset>
+    <FilaInset
+      onClick={() => onEditar(c)}
+      chevron
+      acciones={
+        c.system_key ? undefined : (
+          <AccionesFila
+            nombre={c.name}
+            archivada={c.archived === 1}
+            onArchivar={() => onArchivar(c)}
+            onEliminar={() => onEliminar(c)}
+          />
+        )
+      }
+    >
       <span className={cn("flex min-w-0 items-center gap-3", sangria && "pl-6")}>
-        <SelectorIcono variante="fila" valor={c.icon} onCambio={(clave) => onIcono(c, clave)} />
+        {/* eslint-disable-next-line react-hooks/static-components */}
+        <Icono className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         <span
           className={cn(
             "truncate",
@@ -245,50 +286,35 @@ function Fila({
           {c.name}
         </span>
       </span>
-      {c.system_key ? (
+      {c.system_key && (
         // La crea y la usa la app (los cobros de un grupo): se puede renombrar
         // o cambiarle el icono, pero no archivar ni borrar.
         <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
           <Lock className="h-3 w-3" aria-hidden />
           Del sistema
         </span>
-      ) : (
-        <div className="flex shrink-0 items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={c.archived ? "Desarchivar" : "Archivar"}
-            onClick={() => onArchivar(c)}
-          >
-            {c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Eliminar"
-            className="text-expense"
-            onClick={() => onEliminar(c)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
       )}
     </FilaInset>
   )
 }
 
+// Alta o edicion (`inicial`) de una categoria. Al editar cambian el nombre y el
+// icono: el tipo no (convertiria gastos en ingresos ya clasificados) y mover
+// de padre es "eliminar y mover".
 function FormularioCategoria({
   principales,
+  inicial,
   onCerrar,
 }: {
   principales: Categoria[]
+  inicial?: Categoria
   onCerrar: () => void
 }) {
   const db = usePowerSync()
-  const [name, setName] = useState("")
+  const [name, setName] = useState(inicial?.name ?? "")
   const [kind, setKind] = useState<"expense" | "income">("expense")
   const [parentId, setParentId] = useState("")
-  const [icono, setIcono] = useState<string | null>(null)
+  const [icono, setIcono] = useState<string | null>(inicial?.icon ?? null)
   const [error, setError] = useState("")
 
   // Si es subcategoria, hereda el kind del padre.
@@ -300,10 +326,18 @@ function FormularioCategoria({
   async function guardar() {
     if (!name.trim()) return setError("Poné un nombre")
     try {
-      await db.execute(
-        "INSERT INTO categories (id, name, kind, parent_id, icon, archived, sort_order) VALUES (?, ?, ?, ?, ?, 0, 0)",
-        [uuidv4(), name.trim(), kind, parentId || null, icono],
-      )
+      if (inicial) {
+        await db.execute("UPDATE categories SET name = ?, icon = ? WHERE id = ?", [
+          name.trim(),
+          icono,
+          inicial.id,
+        ])
+      } else {
+        await db.execute(
+          "INSERT INTO categories (id, name, kind, parent_id, icon, archived, sort_order) VALUES (?, ?, ?, ?, ?, 0, 0)",
+          [uuidv4(), name.trim(), kind, parentId || null, icono],
+        )
+      }
       onCerrar()
     } catch {
       setError("No se pudo guardar")
@@ -318,36 +352,38 @@ function FormularioCategoria({
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Transporte" />
         </div>
       </Campo>
-      <div className="grid grid-cols-2 gap-3">
-        <Campo etiqueta="Tipo">
-          <Select
-            value={kind}
-            onChange={(e) => {
-              setKind(e.target.value as "expense" | "income")
-              setParentId("")
-            }}
-          >
-            <option value="expense">Gasto</option>
-            <option value="income">Ingreso</option>
-          </Select>
-        </Campo>
-        <Campo etiqueta="Categoría padre (opcional)">
-          <Select value={parentId} onChange={(e) => setParentId(e.target.value)}>
-            <option value="">— Ninguna (nivel 1) —</option>
-            {posiblesPadres.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </Select>
-        </Campo>
-      </div>
+      {!inicial && (
+        <div className="grid grid-cols-2 gap-3">
+          <Campo etiqueta="Tipo">
+            <Select
+              value={kind}
+              onChange={(e) => {
+                setKind(e.target.value as "expense" | "income")
+                setParentId("")
+              }}
+            >
+              <option value="expense">Gasto</option>
+              <option value="income">Ingreso</option>
+            </Select>
+          </Campo>
+          <Campo etiqueta="Categoría padre (opcional)">
+            <Select value={parentId} onChange={(e) => setParentId(e.target.value)}>
+              <option value="">— Ninguna (nivel 1) —</option>
+              {posiblesPadres.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+          </Campo>
+        </div>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-2">
         <Button className="flex-1" onClick={guardar}>
           Guardar
         </Button>
-        <Button variant="outline" onClick={onCerrar}>
+        <Button variant="secondary" onClick={onCerrar}>
           Cancelar
         </Button>
       </div>

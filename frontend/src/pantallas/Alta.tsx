@@ -89,7 +89,8 @@ export function FormularioMovimiento({
   cuentaInicial?: string
   destinoInicial?: string
   // Recibe el espacio donde quedo el movimiento ("" = Personal).
-  onGuardado: (grupoId: string) => void
+  // `id`: el movimiento recien guardado (la lista lo resalta una vez).
+  onGuardado: (grupoId: string, id: string) => void
 }) {
   const db = usePowerSync()
 
@@ -377,7 +378,7 @@ export function FormularioMovimiento({
         cuentas.find((c) => c.id === cuentaDestinoId)?.group_id ??
         cuentas.find((c) => c.id === cuentaId)?.group_id ??
         ""
-      onGuardado(tipo === "transfer" ? grupoDeLaConjunta : grupoId)
+      onGuardado(tipo === "transfer" ? grupoDeLaConjunta : grupoId, idTx)
     } catch {
       setError("No se pudo guardar")
       setGuardando(false)
@@ -439,7 +440,7 @@ export function FormularioMovimiento({
         ) : (
           <span />
         )}
-        <Button variant="outline" onClick={() => setVerPlantillas(true)}>
+        <Button variant="secondary" onClick={() => setVerPlantillas(true)}>
           <Files className="h-4 w-4" aria-hidden />
           Plantillas{plantillasDelEspacio.length > 0 ? ` (${plantillasDelEspacio.length})` : ""}
         </Button>
@@ -676,12 +677,12 @@ export function Alta() {
         ciclo={ciclo}
         // A los Movimientos del espacio donde quedo, no del que se partio. Un
         // pago de un recordatorio vuelve al calendario, donde ya se ve pagado.
-        onGuardado={(g) =>
+        onGuardado={(g, id) =>
           navigate(
             ciclo
               ? (estado?.volverA ?? "/calendario")
               : rutaEspacio(g ? { tipo: "grupo", id: g } : PERSONAL, "movimientos"),
-            { replace: true },
+            { replace: true, state: { nuevo: id } },
           )
         }
       />

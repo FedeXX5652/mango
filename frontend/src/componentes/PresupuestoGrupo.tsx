@@ -164,7 +164,7 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
       )}
 
       {candidatas.length > 0 && (
-        <Button variant="outline" className="w-full" onClick={() => setAgregando(true)}>
+        <Button variant="secondary" className="w-full" onClick={() => setAgregando(true)}>
           <Plus className="h-4 w-4" aria-hidden />
           Agregar tope
         </Button>

@@ -38,3 +38,13 @@ export const DESTINOS_MOVIL: Destino[] = [
   { to: "/presupuesto", etiqueta: "Presupuesto", icono: Wallet, seccion: "presupuesto" },
   { to: "/estadisticas", etiqueta: "Estadísticas", icono: PieChart, seccion: "estadisticas" },
 ]
+
+// Las pestañas de un espacio (y el alta): cambian al instante, como la barra de
+// pestañas de iOS, y el alta tiene su propia entrada. Cualquier otra pantalla se
+// abre desde otra y entra animada en el movil (LayoutMovil, DESIGN.md 8).
+const PESTANAS =
+  /^\/(movimientos|presupuesto|estadisticas|nuevo)?$|^\/grupos\/[^/]+(\/(movimientos|presupuesto|estadisticas|nuevo))?$/
+
+export function esPestana(pathname: string): boolean {
+  return PESTANAS.test(pathname)
+}

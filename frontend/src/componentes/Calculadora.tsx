@@ -200,7 +200,7 @@ function Tecla({
   // Operador pendiente: queda marcado hasta el segundo numero o el "=".
   activa?: boolean
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  const variant = variante === "igual" ? "default" : variante === "op" ? "secondary" : "outline"
+  const variant = variante === "igual" ? "default" : "secondary"
   return (
     <Button
       type="button"
@@ -211,7 +211,8 @@ function Tecla({
       // se pierde. `select-none`: una pulsacion larga no selecciona el texto.
       className={cn(
         "h-12 w-full touch-manipulation select-none font-mono text-lg",
-        activa && "bg-accent text-accent-foreground ring-2 ring-inset ring-ring",
+        variante === "op" && "bg-accent text-accent-foreground hover:bg-accent/80",
+        activa && "ring-2 ring-inset ring-ring",
       )}
       onClick={onClick}
       {...props}

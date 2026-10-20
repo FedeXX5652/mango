@@ -1,8 +1,9 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft, CheckCircle2, Pencil, RotateCw, Trash2 } from "lucide-react"
+import { CheckCircle2, Pencil, RotateCw, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+import { EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { HojaRechazada } from "@/componentes/HojaRechazada"
 import { Vacio } from "@/componentes/Vacio"
 import { Button } from "@/componentes/ui/button"
@@ -141,12 +142,7 @@ export function Rechazados() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
-      <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Volver">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl font-semibold">Cambios sin guardar</h1>
-      </header>
+      <EncabezadoPantalla titulo="Cambios sin guardar" volver={() => navigate(-1)} />
 
       {filas.length === 0 ? (
         <Vacio
@@ -173,7 +169,7 @@ export function Rechazados() {
               {nSel > 0 ? `Reintentar ${nSel}` : "Reintentar todos"}
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => setADescartar(alcance())}
               disabled={trabajando}
               className="gap-2 text-destructive"

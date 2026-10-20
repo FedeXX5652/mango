@@ -1,5 +1,5 @@
 import { PresupuestoGrupo } from "@/componentes/PresupuestoGrupo"
-import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
+import { CabeceraPestana } from "@/componentes/SelectorEspacio"
 import { useGrupoDeRuta } from "@/hooks/useEspacio"
 import { CargandoGrupo, GrupoNoEncontrado } from "@/pantallas/grupo/comun"
 
@@ -10,8 +10,7 @@ export function PresupuestoDelGrupo() {
   if (!grupo) return <GrupoNoEncontrado />
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
-      <EncabezadoEspacio />
-      <h1 className="text-2xl font-semibold">Presupuesto</h1>
+      <CabeceraPestana titulo="Presupuesto" />
       <PresupuestoGrupo groupId={id} />
     </div>
   )

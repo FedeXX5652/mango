@@ -20,11 +20,15 @@ export function SelectorMoneda({
   valor,
   onCambio,
   className,
+  suelto,
 }: {
   monedas: string[]
   valor: string
   onCambio: (moneda: string) => void
   className?: string
+  // Fuera de un formulario (la cabecera del Presupuesto, el Resumen): relleno
+  // suave como un boton secundario, sin el borde de campo (1.9.0).
+  suelto?: boolean
 }) {
   if (monedas.length <= 1) return null
 
@@ -50,7 +54,11 @@ export function SelectorMoneda({
       opciones={monedas.map((m) => ({ id: m, nombre: m }))}
       valor={valor}
       onCambio={onCambio}
-      className={cn("h-11 w-auto lg:h-9", className)}
+      className={cn(
+        "h-11 w-auto lg:h-9",
+        suelto && "border-0 bg-secondary font-medium hover:bg-secondary/80",
+        className,
+      )}
     />
   )
 }

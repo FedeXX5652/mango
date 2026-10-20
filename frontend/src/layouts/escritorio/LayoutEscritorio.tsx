@@ -126,9 +126,11 @@ export function LayoutEscritorio() {
         <FormularioMovimiento
           key={espacio.tipo === "grupo" ? espacio.id : ""}
           grupoInicial={espacio.tipo === "grupo" ? espacio.id : ""}
-          onGuardado={(g) => {
+          onGuardado={(g, id) => {
             setNuevoAbierto(false)
-            navigate(rutaEspacio(g ? { tipo: "grupo", id: g } : PERSONAL, "movimientos"))
+            navigate(rutaEspacio(g ? { tipo: "grupo", id: g } : PERSONAL, "movimientos"), {
+              state: { nuevo: id },
+            })
           }}
         />
       </Hoja>
