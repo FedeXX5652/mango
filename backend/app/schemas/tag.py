@@ -7,6 +7,9 @@ from pydantic import BaseModel, ConfigDict, field_validator
 class TagCreate(BaseModel):
     # El id lo genera el cliente (decision 5.1).
     id: uuid.UUID
+    # De un grupo (1.7.0): la usa y la administra cualquier miembro. Se elige al
+    # crearla.
+    group_id: uuid.UUID | None = None
     name: str
     color: str | None = None
 
@@ -39,6 +42,7 @@ class TagRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    group_id: uuid.UUID | None
     name: str
     color: str | None
     archived: bool

@@ -47,10 +47,10 @@ async def _otro_usuario(api: SimpleNamespace) -> uuid.UUID:
     uid = uuid.uuid4()
     await api.session.execute(
         text(
-            "INSERT INTO users (id, username, email, password_hash, display_name) "
-            "VALUES (:id, :u, :e, '!', 'Otro')"
+            "INSERT INTO users (id, username, password_hash, display_name) "
+            "VALUES (:id, :u, '!', 'Otro')"
         ),
-        {"id": str(uid), "u": f"otro-{uid.hex[:6]}", "e": f"{uid}@test.local"},
+        {"id": str(uid), "u": f"otro-{uid.hex[:6]}"},
     )
     await api.session.flush()
     return uid
@@ -328,6 +328,52 @@ async def test_un_tipo_sin_familia_no_salta_el_filtro(api: SimpleNamespace, push
     await _aviso(api, tipo="tipo_nuevo")
     await planificador.despachar_avisos(api.session)
     assert [info["endpoint"] for info, _ in push_activo.enviados] == [todo["endpoint"]]
+
+
+async def test_re_registrarse_sin_tipos_conserva_los_elegidos(
+    api: SimpleNamespace, push_activo
+) -> None:
+    # La app se re-registra cada vez que abre, sin `tipos`: no tiene que borrar
+    # lo que la persona eligio para este dispositivo (1.7.0).
+    sub = _sub(tipos=["recordatorios"])
+    await api.client.post("/api/v1/push/subscriptions", json=sub)
+    sin_tipos = {k: v for k, v in sub.items() if k != "tipos"}
+    r = await api.client.post("/api/v1/push/subscriptions", json=sin_tipos)
+    assert r.json()["tipos"] == ["recordatorios"]
+    # Mandarlos los cambia; mandar null vuelve a "todos".
+    r = await api.client.post("/api/v1/push/subscriptions", json=sub | {"tipos": ["gastos"]})
+    assert r.json()["tipos"] == ["gastos"]
+    r = await api.client.post("/api/v1/push/subscriptions", json=sub | {"tipos": None})
+    assert r.json()["tipos"] is None
+
+
+async def test_otro_dueno_no_hereda_los_tipos(api: SimpleNamespace, push_activo) -> None:
+    # Mismo navegador, inicio sesion otra persona: lo elegido por la anterior no
+    # sigue.
+    endpoint = f"https://push.example/{uuid.uuid4()}"
+    await _de_otro(api, endpoint)
+    await api.session.execute(
+        text("""UPDATE push_subscriptions SET tipos = '["recordatorios"]' WHERE endpoint = :e"""),
+        {"e": endpoint},
+    )
+    r = await api.client.post("/api/v1/push/subscriptions", json=_sub(endpoint=endpoint))
+    assert r.status_code == 201, r.text
+    assert await _duenio(api, endpoint) == api.owner_id
+    assert r.json()["tipos"] is None
+
+
+async def test_un_gasto_compartido_es_de_la_familia_gastos(
+    api: SimpleNamespace, push_activo
+) -> None:
+    # "Gastos del grupo" se apaga aparte (1.7.0): el que eligio solo "grupos" no
+    # lo recibe.
+    grupos = _sub(tipos=["grupos"])
+    gastos = _sub(tipos=["gastos"])
+    await api.client.post("/api/v1/push/subscriptions", json=grupos)
+    await api.client.post("/api/v1/push/subscriptions", json=gastos)
+    await _aviso(api, tipo="gasto_compartido")
+    await planificador.despachar_avisos(api.session)
+    assert [info["endpoint"] for info, _ in push_activo.enviados] == [gastos["endpoint"]]
 
 
 async def test_sale_con_urgencia_alta(monkeypatch) -> None:

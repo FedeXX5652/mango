@@ -19,31 +19,32 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE users (
     id              UUID PRIMARY KEY,
-    email           TEXT NOT NULL UNIQUE,
+    -- Identidad de login (fase 3a, ver 0013). Reemplazo a `email` por
+    -- expandir/contraer (0012); `email` se borro en la 1.7.0.
+    username        TEXT NOT NULL UNIQUE,
     password_hash   TEXT NOT NULL,
+    -- Clave temporal puesta por el admin: el cliente obliga a cambiarla antes
+    -- de hacer nada (reset sin mail).
+    must_change_password BOOLEAN NOT NULL DEFAULT false,
     display_name    TEXT NOT NULL,
     base_currency   CHAR(3) NOT NULL DEFAULT 'ARS',
-    locale          TEXT NOT NULL DEFAULT 'es-AR',
 
     -- Apariencia. Ver docs/DESIGN.md seccion 5.
     --
     -- theme_id: cual de los temas predefinidos usa. 'default' siempre existe y
-    -- es al que se cae si el tema guardado ya no esta disponible.
+    -- es al que se cae si el tema guardado ya no esta disponible. Los temas
+    -- personalizados todavia no existen (DESIGN.md 5): no hay columna para
+    -- ellos.
     theme_id        TEXT NOT NULL DEFAULT 'default',
-
-    -- theme_custom: tokens que el usuario sobreescribio, por modo. Solo los
-    -- modificados; lo que no este aca se hereda del tema base. Asi un tema
-    -- personalizado sigue siendo valido si el tema base agrega tokens nuevos.
-    --
-    --   {"light": {"primary": "#0f766e"},
-    --    "dark":  {"primary": "#2dd4bf", "background": "#0c0f0e"}}
-    theme_custom    JSONB,
 
     -- color_scheme: 'system' sigue la preferencia del sistema operativo.
     color_scheme    TEXT NOT NULL DEFAULT 'system',
 
     -- Monedas que se cargan a mano (fuera del refresco automatico, ver 0005).
     fx_manual       JSONB,
+    -- Con que dolar se convierte cada moneda a pesos (0031): {moneda: casa}.
+    -- NULL, o la moneda sin clave, es MEP.
+    fx_dolar        JSONB,
 
     -- Accesos del panel de Inicio, en orden: lista de ids del catalogo del
     -- cliente (frontend/src/componentes/accesos.ts). NULL = los de fabrica.
@@ -51,13 +52,15 @@ CREATE TABLE users (
     home_shortcuts  JSONB,
     -- Hasta cuando calla el boton "Mas tarde" del aviso push (0030): 1h, 3h o
     -- manana (a las 9). NULL = 3 horas. En la app se elige cada vez.
-    snooze_default  TEXT CHECK (snooze_default IS NULL OR snooze_default IN ('1h','3h','manana')),
+    snooze_default  TEXT,
 
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at      TIMESTAMPTZ,
 
-    CONSTRAINT users_color_scheme_chk CHECK (color_scheme IN ('light','dark','system'))
+    CONSTRAINT users_color_scheme_chk CHECK (color_scheme IN ('light','dark','system')),
+    CONSTRAINT users_snooze_default_chk
+        CHECK (snooze_default IS NULL OR snooze_default IN ('1h','3h','manana'))
 );
 
 -- Un grupo es un hogar, una pareja, un viaje compartido.
@@ -732,18 +735,24 @@ CREATE TABLE exchange_rates (
     quote_currency  CHAR(3) NOT NULL,
     rate            NUMERIC(20,10) NOT NULL,
     rate_date       DATE NOT NULL,
-    -- 'oficial', 'manual', 'mep'... en Argentina conviven varias y no siempre
-    -- aplica la misma.
+    -- El origen: 'auto' la trajo el servidor (todo contra el dolar, ver 0031);
+    -- cualquier otro valor es cargada a mano ('manual', o la etiqueta que se
+    -- elegia antes de la 1.7.0: 'oficial', 'mep', 'tarjeta').
     source          TEXT NOT NULL DEFAULT 'manual',
+    -- Que dolar es una USD -> ARS automatica. NULL en el resto.
+    casa            TEXT CONSTRAINT fx_casa_chk
+                        CHECK (casa IS NULL OR casa IN ('oficial','mep','blue','tarjeta')),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at      TIMESTAMPTZ
 );
 
--- Una cotizacion por (par, fecha, fuente) entre las vigentes. Parcial para que
--- borrar y volver a cargar no choque (ver 0003).
+-- Una cotizacion por (par, fecha, origen, dolar) entre las vigentes. Parcial
+-- para que borrar y volver a cargar no choque (ver 0003), y NULLS NOT DISTINCT
+-- para que `casa` NULL tambien sea unica.
 CREATE UNIQUE INDEX fx_uniq
-    ON exchange_rates (base_currency, quote_currency, rate_date, source)
+    ON exchange_rates (base_currency, quote_currency, rate_date, source, casa)
+    NULLS NOT DISTINCT
     WHERE deleted_at IS NULL;
 
 -- La consulta caliente es "la ultima cotizacion conocida de este par".

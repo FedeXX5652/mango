@@ -46,14 +46,14 @@ async def refresh_rates(
     session: AsyncSession = Depends(get_session),
     owner_id: uuid.UUID = Depends(get_current_user_id),
 ) -> RefrescoRead:
-    """Trae la cotizacion de cada moneda del usuario contra su moneda base.
+    """Completa la serie de cotizaciones y trae lo del dia (0031). La serie es
+    de todos; la respuesta habla de las monedas de las cuentas del usuario.
 
-    Idempotente por fecha: la fuente publica una por dia, asi que llamarlo al
-    abrir la app no gasta una llamada por vez. `forzar` reescribe la del dia.
+    La app lo pide al abrir: si recien se hizo una vuelta, no sale a la red.
+    `forzar` (el boton "Actualizar ahora") sale igual.
 
     Nunca falla por la red: lo que no se pudo traer sale en `fallidas` y la app
-    sigue con lo que ya tenia (la cotizacion cacheada sirve para estimar, ver
-    0005)."""
+    sigue con lo que ya tenia (ver 0005)."""
     res = await servicio_fx.refrescar(session, owner_id, forzar=forzar)
     return RefrescoRead(**vars(res))
 
@@ -68,7 +68,12 @@ async def update_rate(
     rate = await crud.get_rate(session, rate_id)
     if rate is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
-    return await crud.update_rate(session, rate, data)
+    try:
+        return await crud.update_rate(session, rate, data)
+    except DomainError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
 
 
 @router.delete("/{rate_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -77,7 +82,16 @@ async def delete_rate(
     session: AsyncSession = Depends(get_session),
     _: uuid.UUID = Depends(get_current_user_id),
 ) -> None:
-    rate = await crud.get_rate(session, rate_id)
+    rate = await crud.get_rate(session, rate_id, incluso_borrado=True)
     if rate is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
-    await crud.soft_delete_rate(session, rate)
+    # Idempotente (1.7.0): lo ya borrado da 204, no un 404 que iria a
+    # "Rechazados". Lo ajeno sigue en 404.
+    if rate.deleted_at is not None:
+        return
+    try:
+        await crud.soft_delete_rate(session, rate)
+    except DomainError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc

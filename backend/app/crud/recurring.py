@@ -12,6 +12,7 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.crud._borrado import vivo
 from app.crud.transaction import _validate_invariants
 from app.models.recurring import RecurringRule
 from app.schemas.recurring import RecurringCreate, RecurringUpdate
@@ -38,12 +39,12 @@ async def create_recurring(
 
 
 async def get_recurring(
-    session: AsyncSession, owner_id: uuid.UUID, rule_id: uuid.UUID
+    session: AsyncSession, owner_id: uuid.UUID, rule_id: uuid.UUID, *, incluso_borrado: bool = False
 ) -> RecurringRule | None:
     stmt = select(RecurringRule).where(
         RecurringRule.id == rule_id,
         RecurringRule.owner_id == owner_id,
-        RecurringRule.deleted_at.is_(None),
+        vivo(RecurringRule, incluso_borrado),
     )
     return (await session.execute(stmt)).scalar_one_or_none()
 

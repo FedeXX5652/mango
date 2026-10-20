@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
+from app.crud._borrado import vivo
 from app.crud.group import membresia
 from app.models.budget import Budget
 from app.models.category import Category
@@ -40,13 +41,17 @@ async def _category_kind_de_grupo(
 
 
 async def get_budget(
-    session: AsyncSession, owner_id: uuid.UUID, budget_id: uuid.UUID
+    session: AsyncSession,
+    owner_id: uuid.UUID,
+    budget_id: uuid.UUID,
+    *,
+    incluso_borrado: bool = False,
 ) -> Budget | None:
     """El presupuesto si el usuario lo puede tocar: personal suyo, o de un grupo
     del que es miembro (ver 0015)."""
     budget = (
         await session.execute(
-            select(Budget).where(Budget.id == budget_id, Budget.deleted_at.is_(None))
+            select(Budget).where(Budget.id == budget_id, vivo(Budget, incluso_borrado))
         )
     ).scalar_one_or_none()
     if budget is None:

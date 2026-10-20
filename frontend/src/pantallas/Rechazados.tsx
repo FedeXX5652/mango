@@ -1,8 +1,9 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowLeft, CheckCircle2, RotateCw, Trash2 } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Pencil, RotateCw, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+import { HojaRechazada } from "@/componentes/HojaRechazada"
 import { Vacio } from "@/componentes/Vacio"
 import { Button } from "@/componentes/ui/button"
 import { Confirmar } from "@/componentes/ui/confirmar"
@@ -43,6 +44,7 @@ const ETIQUETA_TABLA: Record<string, string> = {
   accounts: "cuenta",
   categories: "categoría",
   payment_methods: "medio de pago",
+  payment_method_accounts: "cuenta de un medio de pago",
   budgets: "presupuesto",
   budget_rules: "regla de presupuesto",
   tags: "etiqueta",
@@ -84,6 +86,8 @@ export function Rechazados() {
   const [trabajando, setTrabajando] = useState(false)
   const [aDescartar, setADescartar] = useState<string[] | null>(null)
   const [aviso, setAviso] = useState("")
+  // El rechazo abierto para verlo y editarlo (1.7.0).
+  const [abierta, setAbierta] = useState<Rechazada | null>(null)
 
   // La seleccion se poda contra lo que sigue existiendo: al reintentar o
   // descartar, las filas que se van no pueden quedar contadas.
@@ -99,8 +103,8 @@ export function Rechazados() {
     if (modoSeleccion) {
       setSel((s) => alTocarEnModo(s, id))
     } else {
-      // Fuera del modo, un toque abre el detalle del error (no hay: por ahora,
-      // nada — el motivo ya se ve en la fila).
+      // Fuera del modo, un toque abre el detalle para verlo y corregirlo.
+      setAbierta(filas.find((f) => f.id === id) ?? null)
     }
   }
 
@@ -213,11 +217,26 @@ export function Rechazados() {
                     setModoSeleccion(true)
                     setSel((s) => alTocarEnModo(s, f.id))
                   }}
+                  onAbrir={() => setAbierta(f)}
                 />
               )
             })}
           </ListaInset>
         </>
+      )}
+
+      {abierta && (
+        <HojaRechazada
+          key={abierta.id}
+          f={abierta}
+          titulo={describir(abierta)}
+          hayConexion={hayConexion}
+          onCerrar={() => setAbierta(null)}
+          onDescartar={() => {
+            setADescartar([abierta.id])
+            setAbierta(null)
+          }}
+        />
       )}
 
       <Confirmar
@@ -245,6 +264,7 @@ function FilaRechazada({
   onClickEscritorio,
   onTocarMovil,
   onLargo,
+  onAbrir,
 }: {
   f: Rechazada
   elegida: boolean
@@ -253,6 +273,7 @@ function FilaRechazada({
   onClickEscritorio: (e: React.MouseEvent) => void
   onTocarMovil: () => void
   onLargo: () => void
+  onAbrir: () => void
 }) {
   // Toque largo en movil: 500 ms sin soltar entra en modo seleccion. Se cancela
   // si el dedo se mueve (scroll) o se suelta antes.
@@ -302,6 +323,20 @@ function FilaRechazada({
           <p className="truncate text-xs text-destructive">{f.motivo}</p>
           <p className="text-xs text-muted-foreground">{formatearFechaCorta(f.rechazada_en)}</p>
         </div>
+        {/* En escritorio el click de la fila selecciona: ver y editar va aparte. */}
+        {layout === "escritorio" && (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Ver y editar: ${describir(f)}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onAbrir()
+            }}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </FilaInset>
   )

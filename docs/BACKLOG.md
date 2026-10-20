@@ -12,15 +12,6 @@ Cosas decididas-para-despues y cabos sueltos. El roadmap por fases vive en
 - **No publicar `MANGO_PORT` fuera del tailnet.** La API ya tiene auth (3a), pero
   exponerla a internet es innecesario.
 
-## Notificaciones push (ver 0019 y 0029)
-
-Hecho en la 1.4.0. Queda:
-
-- **Elegir que avisos recibe cada dispositivo.** `push_subscriptions.tipos` ya
-  filtra por familia (`grupos`, `recordatorios`), pero no hay pantalla para
-  elegirlas: hoy cada dispositivo recibe todo. Cobra sentido con los
-  recordatorios de la 1.5.0, cuando haya dos familias.
-
 ## Auditoria de frontend (2026-09-30, ver 0022)
 
 Lo que quedaba se hizo en la 1.2.0: tarjetas de cuenta a Movimientos filtrado,
@@ -68,10 +59,12 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   pide confirmacion y lo pasa a ser del usuario. Formato documentado
   (`docs/recordatorios.md`) para la ingesta. (`recurring_rules.auto_create` ya
   habia salido en la inc 26.)
-- **1.7.0 - Fase 4.** Dolar elegible por moneda (MEP por defecto), serie diaria
-  completa con historia (ArgentinaDatos para los dolares, Frankfurter/BCE para el
-  resto, pivote USD: cambiar la moneda base no obliga a regenerar nada) y grafico
-  en Cotizaciones.
+- **1.7.0 - Fase 4 y los cabos sueltos: HECHA** (2026-10-12, 0031). Dolar
+  elegible por moneda (MEP por defecto), serie diaria con historia (ArgentinaDatos
+  para los dolares, Frankfurter/BCE para el resto, pivote USD: cambiar la moneda
+  base no obliga a regenerar nada) y grafico en Cotizaciones. Con los cabos
+  sueltos: borrado idempotente, etiquetas de grupo, rechazados editables, avisos
+  por familia y tres avisos nuevos, CSV con fecha local, `users.email` afuera.
 - **1.8.0 - Pagos en conjunto.** Un gasto compartido = total + cuanto puso cada
   uno + cuanto le toca a cada uno. Lo que puso otro le llega como "pago por
   confirmar" (de que cuenta salio); cuenta en el balance desde que se carga; lo
@@ -95,38 +88,10 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
 
 ## Cabos sueltos
 
-- **`users.email` -> `username`.** Hoy conviven; el `email` quedo de relleno. Cuando
-  la forma este firme, contraer la columna (expandir/contraer, 0012).
-- **Transformaciones de la cola de rechazados** (0011). Hoy un rechazo se guarda y
-  se puede reintentar o descartar; falta poder **editarlo** antes de reintentar.
 - **Espacios personales aislados** (0026): un emprendimiento separado de lo
   personal = un grupo de una sola persona con su cuenta comun, fondeada con plata
   propia. Evaluar despues de los espacios de grupo (y si hace falta una vista
   "Todo" que sume patrimonios).
-- **Mas eventos de notificacion** (0019): te quitaron de un grupo, gasto compartido
-  nuevo, presupuesto del grupo excedido.
-- **`SelectorEntidad` no anuncia lo elegido** al lector de pantalla. Dentro de un
-  `Campo` (un `<label>`), el nombre del disparador es solo la etiqueta ("Cuenta"),
-  no "Cuenta, Efectivo". Mismo arreglo que el selector de repeticion (0030):
-  `aria-labelledby` con la etiqueta y el valor.
-- **Borrar dos veces termina en "Rechazados"** en todas las tablas salvo los
-  recordatorios (0030). Si dos dispositivos borran lo mismo sin conexion (o la
-  sync reintenta un DELETE que ya se aplico), el segundo recibe 404 y el conector
-  lo registra como rechazo. Arreglo: DELETE idempotente en el backend (lo ya
-  borrado devuelve 204, lo ajeno sigue en 404), como `reminders`.
-- **`backend/tests/compat/replay.py` tiene una copia vieja del mapa tabla -> ruta**
-  del conector: le faltan goals, debts, splits, settlements, notifications y las
-  del calendario.
-- **Las etiquetas de grupo no se pueden crear** (encontrado el 2026-10-09). La
-  sync las trae (`tags.group_id`), pero `TagCreate` no tiene `group_id`, el CRUD
-  filtra solo por dueño y el cliente las inserta sin grupo.
-- **El CSV exportado lleva la fecha en ISO** (`occurred_at.isoformat()`, con hora
-  y zona). La 1.5.1 paso a dd/mm/aaaa todo lo que se ve en la app, pero el
-  archivo se dejo como estaba hasta que el usuario decida: el ISO lo lee
-  cualquier planilla, y dd/mm/aaaa perderia la hora.
-- **Movimientos salta de `h1` a `h3`** en los titulos de cada dia (regla
-  `heading-order` de axe, de "best-practice": la auditoria completa no la mira).
-  Encontrado al revisar la 1.5.1. Arreglo: `h2`.
 
 ## Fases del roadmap que faltan (resumen; detalle en ESPECIFICACION §7)
 
@@ -134,9 +99,9 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   **bandeja de pendientes**; reglas por comercio (`category_rules`) y **sugerencias
   de IA** que nunca se aplican solas; deduplicacion. Es el otro pilar del producto
   y esta **entero pendiente** (las tablas existen en el esquema, sin usar).
-- **Fase 4 - resto.** El **reparto/liquidacion ya se hizo** en 3b (splits,
-  settlements, cobros). Falta: **tipos de cambio con historico** y **reportes
-  convertidos a moneda base**.
+- **Fase 4: HECHA.** El reparto y la liquidacion en 3b (splits, settlements,
+  cobros); los tipos de cambio con historico y el dolar de cada moneda en la
+  1.7.0 (0031). Los reportes ya convertian a moneda base desde 0005.
 - **Fase 5 - Extras.** HECHA (metas, deudas/prestamos, fechas de tarjeta, adjuntos).
   Pendiente relacionado: **adjuntos offline** (hoy subir/ver necesita conexion) y
   **limpieza de binarios** de adjuntos borrados (hoy queda el archivo en disco).

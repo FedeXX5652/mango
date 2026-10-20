@@ -47,4 +47,31 @@ evento, asi el aviso y el hecho se guardan juntos (o ninguno).
   mismos eventos que ya generan la fila en `notifications`: el push es otro canal
   del mismo aviso.
 - **Futuro:** mas eventos (te quitaron de un grupo, un gasto compartido nuevo,
-  presupuesto del grupo excedido).
+  presupuesto del grupo excedido). Hechos en la 1.7.0 (abajo).
+
+## Eventos de la 1.7.0
+
+- `miembro_quitado`: te sacaron de un grupo. Se crea en la misma transaccion que
+  la baja, como `miembro_agregado`. El link va al inicio: el grupo ya no se puede
+  abrir. Lo que la persona cargo en el grupo sigue en sus movimientos.
+- `gasto_compartido`: alguien cargo un gasto del grupo en el que tenes parte. Le
+  llega a cada miembro con parte **mayor que cero**, nunca a quien lo cargo. Sin
+  partes guardadas el gasto es en partes iguales entre todos (0015), asi que le
+  llega a cada miembro. El cuerpo dice cuanto te toca (con partes), "se reparte
+  en partes iguales" o "lo pago la cuenta conjunta". El link abre el gasto en el
+  grupo.
+- `presupuesto_excedido`: lo gastado este mes en una categoria del grupo paso su
+  tope. **Una vez por tope** (el tope es de un mes), a todos los miembros. Cuenta
+  como la pantalla del presupuesto del grupo: los gastos compartidos de esa
+  categoria **en la moneda del tope** (0005), en el mes de Argentina. Solo el mes
+  en curso: un gasto cargado tarde en un mes que ya paso no avisa.
+
+**Los dos ultimos no salen en el evento: los arma el planificador** (tarea
+`grupos`, cada minuto, 0029). Un gasto compartido sube por la cola de sync antes
+que sus partes, en otros pedidos: en el alta todavia no se sabe a quien le toca
+algo. La tarea mira los gastos que llegaron hace mas de un minuto y menos de una
+hora; uno que llego antes ya no es "nuevo" (tampoco el que se paso de privado a
+compartido despues de esa hora). El tope se revisa entero en cada vuelta, asi que
+tambien avisa si se baja el tope por debajo de lo gastado. Lo ya avisado se
+reconoce por el `meta` del aviso (`transaction_id`, `budget_id`): la tarea puede
+pasar de nuevo por lo mismo y no repite.

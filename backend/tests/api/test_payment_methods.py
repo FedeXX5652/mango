@@ -61,10 +61,10 @@ async def test_other_users_pm_is_404(api: SimpleNamespace) -> None:
     other_pm = uuid.uuid4()
     await api.session.execute(
         text(
-            "INSERT INTO users (id, username, email, password_hash, display_name) "
-            "VALUES (:id, :email, :email, 'x', 'Otro')"
+            "INSERT INTO users (id, username, password_hash, display_name) "
+            "VALUES (:id, :u, 'x', 'Otro')"
         ),
-        {"id": other_user, "email": f"{other_user}@test.local"},
+        {"id": other_user, "u": f"{other_user}@test.local"},
     )
     await api.session.execute(
         text(

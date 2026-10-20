@@ -1,7 +1,9 @@
 # 0005 - Multimoneda: presupuesto por moneda, patrimonio convertido y tipo de cambio por movimiento
 
 - **Fecha**: 2026-09-07
-- **Estado**: aceptada
+- **Estado**: aceptada. De dónde salen las cotizaciones automáticas y con qué
+  dólar se convierte cada moneda lo cambió la 0031 (1.7.0): todo contra el
+  dólar, con los dólares argentinos y su historia.
 
 ## Contexto
 

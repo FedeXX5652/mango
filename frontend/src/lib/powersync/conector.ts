@@ -67,13 +67,23 @@ export async function subir({ tabla, op, id, datos }: Subida): Promise<Resultado
 
   let resp: Response
   if (tabla === "payment_method_accounts") {
-    // Recurso anidado: (medio, moneda) -> cuenta.
-    if (op !== UpdateType.PUT) return { ok: false, motivo: "Operación no soportada" }
-    resp = await fetch(`${base}/payment-methods/${datos.payment_method_id}/accounts`, {
-      method: "POST",
-      headers: jsonHeaders(),
-      body: JSON.stringify({ id, currency: datos.currency, account_id: datos.account_id }),
-    })
+    // Recurso anidado: (medio, moneda) -> cuenta. Se crea bajo su medio; se borra
+    // por su id, porque el DELETE de la cola no trae el medio (1.7.0). No se
+    // modifica: para cambiarla se borra y se crea otra.
+    if (op === UpdateType.PUT) {
+      resp = await fetch(`${base}/payment-methods/${datos.payment_method_id}/accounts`, {
+        method: "POST",
+        headers: jsonHeaders(),
+        body: JSON.stringify({ id, currency: datos.currency, account_id: datos.account_id }),
+      })
+    } else if (op === UpdateType.DELETE) {
+      resp = await fetch(`${base}/payment-method-accounts/${id}`, {
+        method: "DELETE",
+        headers: conAuth(),
+      })
+    } else {
+      return { ok: false, motivo: "Operación no soportada" }
+    }
   } else {
     const ruta = RUTA[tabla]
     if (!ruta) throw new Error(`Tabla sin mapeo de subida: ${tabla}`)

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
 from app.crud import reminder as recordatorios
+from app.crud._borrado import vivo
 from app.models.account import Account, PaymentMethod, PaymentMethodAccount
 from app.schemas.payment_method import (
     PaymentMethodAccountCreate,
@@ -47,12 +48,12 @@ async def create_payment_method(
 
 
 async def get_payment_method(
-    session: AsyncSession, owner_id: uuid.UUID, pm_id: uuid.UUID
+    session: AsyncSession, owner_id: uuid.UUID, pm_id: uuid.UUID, *, incluso_borrado: bool = False
 ) -> PaymentMethod | None:
     stmt = select(PaymentMethod).where(
         PaymentMethod.id == pm_id,
         PaymentMethod.owner_id == owner_id,
-        PaymentMethod.deleted_at.is_(None),
+        vivo(PaymentMethod, incluso_borrado),
     )
     return (await session.execute(stmt)).scalar_one_or_none()
 
@@ -122,6 +123,23 @@ async def get_pma(
         PaymentMethodAccount.id == pma_id,
         PaymentMethodAccount.payment_method_id == pm_id,
         PaymentMethodAccount.deleted_at.is_(None),
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def get_pma_mia(
+    session: AsyncSession, owner_id: uuid.UUID, pma_id: uuid.UUID, *, incluso_borrado: bool = False
+) -> PaymentMethodAccount | None:
+    """La asociacion, si su medio de pago es mio. Para borrarla desde la sync: el
+    DELETE de la cola no trae el medio, solo el id (1.7.0)."""
+    stmt = (
+        select(PaymentMethodAccount)
+        .join(PaymentMethod, PaymentMethod.id == PaymentMethodAccount.payment_method_id)
+        .where(
+            PaymentMethodAccount.id == pma_id,
+            PaymentMethod.owner_id == owner_id,
+            vivo(PaymentMethodAccount, incluso_borrado),
+        )
     )
     return (await session.execute(stmt)).scalar_one_or_none()
 

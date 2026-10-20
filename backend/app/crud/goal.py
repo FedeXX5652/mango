@@ -6,6 +6,7 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.crud._borrado import vivo
 from app.models.budget import Goal
 from app.schemas.goal import GoalCreate, GoalUpdate
 
@@ -18,9 +19,11 @@ async def create_goal(session: AsyncSession, owner_id: uuid.UUID, data: GoalCrea
     return goal
 
 
-async def get_goal(session: AsyncSession, owner_id: uuid.UUID, goal_id: uuid.UUID) -> Goal | None:
+async def get_goal(
+    session: AsyncSession, owner_id: uuid.UUID, goal_id: uuid.UUID, *, incluso_borrado: bool = False
+) -> Goal | None:
     stmt = select(Goal).where(
-        Goal.id == goal_id, Goal.owner_id == owner_id, Goal.deleted_at.is_(None)
+        Goal.id == goal_id, Goal.owner_id == owner_id, vivo(Goal, incluso_borrado)
     )
     return (await session.execute(stmt)).scalar_one_or_none()
 

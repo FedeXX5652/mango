@@ -2,7 +2,7 @@
 
 import uuid
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +19,12 @@ async def guardar(
     Si el endpoint es de otra persona, pasa a ser de quien lo registra solo si
     trae las mismas claves: es el mismo navegador y ahi inicio sesion otra
     persona (los avisos de la anterior no tienen que llegar ahi). Con otras
-    claves no es ese navegador: devuelve None y no toca nada."""
+    claves no es ese navegador: devuelve None y no toca nada.
+
+    Las familias que acepta (`tipos`) se cambian solo si vienen (1.7.0): la app
+    se re-registra cada vez que abre, sin ellas, y no tiene que borrar lo que la
+    persona eligio. Si el dispositivo cambia de dueño, lo elegido por el anterior
+    no sigue: vuelve a lo que llega (NULL, todas, si no vino nada)."""
     alta = insert(PushSubscription).values(
         id=data.id,
         user_id=user_id,
@@ -30,6 +35,12 @@ async def guardar(
         tipos=data.tipos,
     )
     nueva = alta.excluded
+    mismo_dueno = PushSubscription.user_id == nueva.user_id
+    tipos = (
+        nueva.tipos
+        if "tipos" in data.model_fields_set
+        else case((mismo_dueno, PushSubscription.tipos), else_=nueva.tipos)
+    )
     stmt = (
         alta.on_conflict_do_update(
             index_elements=[PushSubscription.endpoint],
@@ -39,11 +50,11 @@ async def guardar(
                 "p256dh": nueva.p256dh,
                 "auth": nueva.auth,
                 "dispositivo": nueva.dispositivo,
-                "tipos": nueva.tipos,
+                "tipos": tipos,
                 "updated_at": func.now(),
             },
             where=or_(
-                PushSubscription.user_id == nueva.user_id,
+                mismo_dueno,
                 and_(
                     PushSubscription.p256dh == nueva.p256dh,
                     PushSubscription.auth == nueva.auth,

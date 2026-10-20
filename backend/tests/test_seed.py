@@ -41,7 +41,6 @@ async def test_seed_user_arranca_con_clave_temporal(
     # clave nueva. `users` no tiene owner_id, asi que el fixture no lo aisla.
     monkeypatch.setattr(settings, "seed_user_id", uuid.uuid4())
     monkeypatch.setattr(settings, "seed_user_username", f"seed-{uuid.uuid4()}")
-    monkeypatch.setattr(settings, "seed_user_email", f"{uuid.uuid4()}@test.local")
     user = await seed_default_user(session)
     assert user.username == settings.seed_user_username
     assert user.must_change_password is True
@@ -55,7 +54,6 @@ async def test_seed_categories_idempotent(session: AsyncSession) -> None:
         User(
             id=owner,
             username=f"fresh-{owner}",
-            email=f"{owner}@test.local",
             password_hash="!",
             display_name="Fresh",
         )

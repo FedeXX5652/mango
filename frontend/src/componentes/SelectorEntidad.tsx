@@ -1,6 +1,7 @@
 import { Check, ChevronRight } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useId, useMemo, useState } from "react"
 
+import { useEtiquetaDeCampo } from "@/componentes/ui/campoContexto"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { ListaInset } from "@/componentes/ui/listaInset"
@@ -60,6 +61,10 @@ export function SelectorEntidad({
 }) {
   const [abierta, setAbierta] = useState(false)
   const [busqueda, setBusqueda] = useState("")
+  // Dentro de un `Campo`, el nombre es su etiqueta mas el valor ("Cuenta,
+  // Efectivo"): si no, el lector de pantalla solo decia "Cuenta" (1.7.0).
+  const idEtiqueta = useEtiquetaDeCampo()
+  const idValor = useId()
 
   const elegida = opciones.find((o) => o.id === valor) ?? null
 
@@ -82,6 +87,7 @@ export function SelectorEntidad({
     <>
       <button
         type="button"
+        aria-labelledby={idEtiqueta ? `${idEtiqueta} ${idValor}` : undefined}
         onClick={() => {
           setBusqueda("")
           setAbierta(true)
@@ -100,7 +106,7 @@ export function SelectorEntidad({
               // eslint-disable-next-line react-hooks/static-components
               <Actual className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
             )}
-            <span className="min-w-0 flex-1 truncate">
+            <span id={idValor} className="min-w-0 flex-1 truncate">
               {elegida.nombre}
               {elegida.detalle && (
                 <span className="text-muted-foreground"> · {elegida.detalle}</span>
@@ -108,7 +114,7 @@ export function SelectorEntidad({
             </span>
           </>
         ) : (
-          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+          <span id={idValor} className="min-w-0 flex-1 truncate text-muted-foreground">
             {vacio ?? placeholder}
           </span>
         )}

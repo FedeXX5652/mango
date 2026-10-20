@@ -40,7 +40,6 @@ async def seed_default_user(session: AsyncSession) -> User:
         user = User(
             id=settings.seed_user_id,
             username=settings.seed_user_username,
-            email=settings.seed_user_email,
             # Clave temporal + must_change: se entra con ella y el cliente
             # obliga a cambiarla antes de hacer nada (fase 3a, ver §7).
             password_hash=hashear(settings.seed_user_password),

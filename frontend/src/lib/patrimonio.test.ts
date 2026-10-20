@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest"
 
-import { buscarCotizacion, calcularPatrimonio, convertir, ultimaPorPar } from "@/lib/patrimonio"
+import {
+  type Conversor,
+  type FilaCotizacion,
+  SIN_PREFERENCIAS,
+  conversor,
+  indexar,
+} from "@/lib/cotizaciones"
+import { calcularPatrimonio, convertir } from "@/lib/patrimonio"
+
+// Las filas de estas pruebas son cargadas a mano (como todas antes de la 1.7.0):
+// la busqueda de lo cargado a mano es la de siempre, directa, inversa o
+// compuesta por una tercera moneda. La serie automatica contra el dolar se
+// prueba en cotizaciones.test.ts.
+function conv(filas: Omit<FilaCotizacion, "source" | "casa">[]): Conversor {
+  return conversor(
+    indexar(filas.map((f) => ({ source: "manual", casa: null, ...f }))),
+    SIN_PREFERENCIAS,
+  )
+}
 
 const USD_ARS = {
   base_currency: "USD",
@@ -24,7 +42,7 @@ describe("convertir", () => {
 
 describe("calcularPatrimonio", () => {
   it("la moneda objetivo pasa tal cual", () => {
-    const r = calcularPatrimonio([{ moneda: "ARS", saldo: 99200100 }], "ARS", [])
+    const r = calcularPatrimonio([{ moneda: "ARS", saldo: 99200100 }], "ARS", conv([]))
     expect(r.total).toBe(99200100)
     expect(r.sinCotizacion).toEqual([])
     // Sin conversion no hay fecha que mostrar.
@@ -38,7 +56,7 @@ describe("calcularPatrimonio", () => {
         { moneda: "USD", saldo: 281851 },
       ],
       "ARS",
-      [USD_ARS],
+      conv([USD_ARS]),
     )
     // 2.818,51 USD * 1735,10 = 4.890.396,70 ARS
     expect(r.total).toBe(99200100 + 489039670)
@@ -54,7 +72,7 @@ describe("calcularPatrimonio", () => {
         { moneda: "ARS", saldo: 173510000 },
       ],
       "USD",
-      [USD_ARS],
+      conv([USD_ARS]),
     )
     // 1.735.100,00 ARS / 1735,10 = 1.000,00 USD
     expect(r.total).toBe(100000 + 100000)
@@ -68,7 +86,7 @@ describe("calcularPatrimonio", () => {
         { moneda: "BRL", saldo: 50000 },
       ],
       "ARS",
-      [USD_ARS],
+      conv([USD_ARS]),
     )
     expect(r.total).toBe(100000)
     expect(r.sinCotizacion).toEqual(["BRL"])
@@ -82,7 +100,7 @@ describe("calcularPatrimonio", () => {
         { moneda: "EUR", saldo: 100000 },
       ],
       "ARS",
-      [
+      conv([
         USD_ARS,
         {
           base_currency: "EUR",
@@ -90,22 +108,24 @@ describe("calcularPatrimonio", () => {
           rate: "2000",
           rate_date: "2026-08-20",
         },
-      ],
+      ]),
     )
     // El total no es mas fresco que su peor dato.
     expect(r.fecha).toBe("2026-08-20")
   })
 
   it("una cotizacion en cero no se usa: anularia el saldo", () => {
-    const r = calcularPatrimonio([{ moneda: "USD", saldo: 100000 }], "ARS", [
-      { ...USD_ARS, rate: "0" },
-    ])
+    const r = calcularPatrimonio(
+      [{ moneda: "USD", saldo: 100000 }],
+      "ARS",
+      conv([{ ...USD_ARS, rate: "0" }]),
+    )
     expect(r.total).toBe(0)
     expect(r.sinCotizacion).toEqual(["USD"])
   })
 
   it("sin saldos el total es cero", () => {
-    expect(calcularPatrimonio([], "ARS", [USD_ARS])).toEqual({
+    expect(calcularPatrimonio([], "ARS", conv([USD_ARS]))).toEqual({
       total: 0,
       lineas: [],
       sinCotizacion: [],
@@ -125,7 +145,7 @@ describe("los flujos usan la misma cotizacion que el patrimonio", () => {
   ]
 
   it("un ingreso viejo se convierte con la ultima cotizacion, no con la de su dia", () => {
-    const r = calcularPatrimonio([{ moneda: "USD", saldo: 50000 }], "ARS", ultimas)
+    const r = calcularPatrimonio([{ moneda: "USD", saldo: 50000 }], "ARS", conv(ultimas))
     expect(r.total).toBe(75000000)
     expect(r.fecha).toBe("2026-09-06")
   })
@@ -137,44 +157,29 @@ describe("los flujos usan la misma cotizacion que el patrimonio", () => {
         { moneda: "BRL", saldo: 50000 },
       ],
       "ARS",
-      ultimas,
+      conv(ultimas),
     )
     expect(r.total).toBe(100000000)
     expect(r.sinCotizacion).toEqual(["BRL"])
   })
 })
 
-describe("ultimaPorPar", () => {
-  it("se queda con la primera de cada par (la mas nueva)", () => {
-    const filas = [
-      { ...USD_ARS, rate: "1735", rate_date: "2026-09-06" },
-      { ...USD_ARS, rate: "1700", rate_date: "2026-09-01" },
-      { base_currency: "EUR", quote_currency: "ARS", rate: "2000", rate_date: "2026-09-05" },
-    ]
-    const r = ultimaPorPar(filas)
-    expect(r).toHaveLength(2)
-    expect(r[0].rate).toBe("1735")
-    expect(r[1].base_currency).toBe("EUR")
-  })
-})
-
-// Los pares reales que deja el refresco con base ARS: TODO contra la base, una
-// llamada por moneda (ver 0005). El par USD/MXN no existe ni va a existir.
+// Cargadas a mano contra la base: el par USD/MXN no esta y hay que componerlo.
 const CONTRA_ARS = [
   { base_currency: "USD", quote_currency: "ARS", rate: "1509.9100000000", rate_date: "2026-09-12" },
   { base_currency: "MXN", quote_currency: "ARS", rate: "88.9600000000", rate_date: "2026-09-12" },
 ]
 
-describe("buscarCotizacion compuesta", () => {
+describe("compuesta, con lo cargado a mano", () => {
   it("compone por la base cuando el par no existe", () => {
     // 1 USD = 1509,91 ARS y 1 MXN = 88,96 ARS -> 1 USD = 16,97 MXN.
-    const r = buscarCotizacion("USD", "MXN", CONTRA_ARS)
+    const r = conv(CONTRA_ARS)("USD", "MXN")
     expect(r?.rate).toBeCloseTo(1509.91 / 88.96, 10)
     expect(r?.via).toBe("ARS")
   })
 
   it("el par directo le gana al compuesto", () => {
-    const r = buscarCotizacion("USD", "ARS", CONTRA_ARS)
+    const r = conv(CONTRA_ARS)("USD", "ARS")
     expect(r?.rate).toBe(1509.91)
     expect(r?.via).toBeNull()
   })
@@ -182,7 +187,7 @@ describe("buscarCotizacion compuesta", () => {
   it("la fecha es la mas vieja de las dos patas", () => {
     // El resultado no puede ser mas fresco que su peor insumo.
     const viejo = [CONTRA_ARS[0], { ...CONTRA_ARS[1], rate_date: "2026-09-08" }]
-    expect(buscarCotizacion("USD", "MXN", viejo)?.fecha).toBe("2026-09-08")
+    expect(conv(viejo)("USD", "MXN")?.fecha).toBe("2026-09-08")
   })
 
   it("entre dos cadenas gana la del eslabon debil mas nuevo", () => {
@@ -202,7 +207,7 @@ describe("buscarCotizacion compuesta", () => {
       },
     ]
     // Por EUR daria 18 y es de enero; por ARS es de septiembre.
-    const r = buscarCotizacion("USD", "MXN", dos)
+    const r = conv(dos)("USD", "MXN")
     expect(r?.via).toBe("ARS")
     expect(r?.fecha).toBe("2026-09-12")
   })
@@ -210,11 +215,11 @@ describe("buscarCotizacion compuesta", () => {
   it("respeta `hasta` en las DOS patas", () => {
     const mezcla = [CONTRA_ARS[0], { ...CONTRA_ARS[1], rate_date: "2026-09-20" }]
     // La pata MXN es posterior al corte: la cadena no cierra.
-    expect(buscarCotizacion("USD", "MXN", mezcla, "2026-09-15")).toBeNull()
+    expect(conv(mezcla)("USD", "MXN", "2026-09-15")).toBeNull()
   })
 
   it("sin cadena posible devuelve null", () => {
-    expect(buscarCotizacion("USD", "BRL", CONTRA_ARS)).toBeNull()
+    expect(conv(CONTRA_ARS)("USD", "BRL")).toBeNull()
   })
 })
 
@@ -228,7 +233,7 @@ describe("patrimonio con cotizacion compuesta", () => {
         { moneda: "MXN", saldo: 100000 },
       ],
       "USD",
-      CONTRA_ARS,
+      conv(CONTRA_ARS),
     )
     expect(r.sinCotizacion).toEqual([])
     // 1.000,00 MXN * (88,96 / 1509,91) = 58,92 USD

@@ -59,6 +59,12 @@ Reglas (decididas):
   grupo agrega bien. Sin mapear personal↔grupo: los dos usan la del grupo.
 - **Cualquier miembro** crea y edita las categorias/tags del grupo. Es un hogar,
   no una empresa: nadie queda trabado esperando al dueño.
+- **Las etiquetas del grupo llegaron en la 1.7.0.** Antes la sync las traia pero
+  no se podian crear. Guardan a quien la creo (`owner_id`) y su `group_id`, como
+  las plantillas de grupo; se administran en Ajustes del grupo, y **un gasto
+  compartido lleva etiquetas de su grupo** (uno privado, personales): la
+  etiqueta personal de un gasto del grupo no la tendrian los demas. Al cambiar
+  el espacio de un gasto, sus etiquetas se quitan.
 - **Un grupo nace con un arbol por defecto** (Vivienda/Comida/Transporte…, como
   la siembra personal), listo para usar. Se edita despues.
 

@@ -48,10 +48,10 @@ async def _otro_usuario(api: SimpleNamespace) -> uuid.UUID:
     uid = uuid.uuid4()
     await api.session.execute(
         text(
-            "INSERT INTO users (id, username, email, password_hash, display_name) "
-            "VALUES (:id, :u, :e, '!', 'Otro')"
+            "INSERT INTO users (id, username, password_hash, display_name) "
+            "VALUES (:id, :u, '!', 'Otro')"
         ),
-        {"id": str(uid), "u": f"otro-{uid.hex[:6]}", "e": f"{uid}@test.local"},
+        {"id": str(uid), "u": f"otro-{uid.hex[:6]}"},
     )
     await api.session.flush()
     return uid

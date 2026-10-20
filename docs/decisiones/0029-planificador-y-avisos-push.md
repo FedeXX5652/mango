@@ -49,7 +49,7 @@ Las tareas:
 | Tarea | Cada | Qué hace |
 | --- | --- | --- |
 | `avisos` | 1 min, o al despertar | Manda por push los avisos sin `pushed_at` |
-| `cotizaciones` | 1 h | La cotización de hoy de cada usuario; si ya está, no se vuelve a pedir |
+| `cotizaciones` | 1 h | La serie contra el dólar (0031, 1.7.0): completa la historia que falte y trae lo del día |
 
 La 1.5.0 suma los recordatorios del calendario de pagos.
 
@@ -68,10 +68,21 @@ La 1.5.0 suma los recordatorios del calendario de pagos.
     persona. Con otras claves no es ese navegador, y la respuesta es 404:
     conocer el endpoint de alguien no alcanza para cortarle los avisos.
   - **Cerrar sesión da de baja** la suscripción de ese dispositivo.
-  - `tipos` guarda qué familias acepta cada dispositivo (`grupos`,
-    `recordatorios`; NULL = todas). Queda listo para preferencias por
-    dispositivo. Un tipo de aviso que no está en `FAMILIA` es su propia
-    familia: le llega a quien acepta todo, nunca a quien eligió otras.
+  - `tipos` guarda qué familias acepta cada dispositivo (`grupos`, `gastos`,
+    `recordatorios`; NULL = todas). Un tipo de aviso que no está en `FAMILIA`
+    es su propia familia: le llega a quien acepta todo, nunca a quien eligió
+    otras.
+  - **Se eligen por dispositivo** (1.7.0), en Ajustes › Notificaciones, con un
+    interruptor por familia: Vencimientos, Gastos del grupo (`gastos`, el
+    gasto compartido nuevo, el que más se repite) y Grupos (pagos, miembros y
+    topes). La última prendida no se puede apagar: no recibir ninguno es
+    apagar los avisos del dispositivo. Con todas prendidas se guarda NULL, así
+    una familia que se sume después también llega.
+  - **Re-registrarse no borra la elección.** La app se re-registra cada vez que
+    abre, sin `tipos`: el servidor deja los que había. Si el dispositivo cambia
+    de dueño, lo elegido por el anterior no sigue. La respuesta trae los
+    `tipos` vigentes y la app los recuerda (por persona) para mostrarlos sin
+    pedirlos; apagar y prender los avisos vuelve con la elección de antes.
 - **Todo aviso sale con urgencia alta** (`Urgency: high`, RFC 8030; desde la
   1.6.1). Con la normal, un Android en reposo (Doze) retenía el push hasta su
   próxima ventana de actividad, minutos u horas después, y el aviso de un

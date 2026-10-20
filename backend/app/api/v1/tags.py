@@ -61,9 +61,13 @@ async def delete_tag(
     session: AsyncSession = Depends(get_session),
     owner_id: uuid.UUID = Depends(get_current_user_id),
 ) -> None:
-    tag = await crud.get_tag(session, owner_id, tag_id)
+    tag = await crud.get_tag(session, owner_id, tag_id, incluso_borrado=True)
     if tag is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
+    # Idempotente (1.7.0): lo ya borrado da 204, no un 404 que iria a
+    # "Rechazados". Lo ajeno sigue en 404.
+    if tag.deleted_at is not None:
+        return
     await crud.soft_delete_tag(session, tag)
 
 
@@ -87,9 +91,13 @@ async def delete_transaction_tag(
     session: AsyncSession = Depends(get_session),
     owner_id: uuid.UUID = Depends(get_current_user_id),
 ) -> None:
-    tt = await crud.get_transaction_tag(session, owner_id, tt_id)
+    tt = await crud.get_transaction_tag(session, owner_id, tt_id, incluso_borrado=True)
     if tt is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Asociacion no encontrada"
         )
+    # Idempotente (1.7.0): lo ya borrado da 204, no un 404 que iria a
+    # "Rechazados". Lo ajeno sigue en 404.
+    if tt.deleted_at is not None:
+        return
     await crud.soft_delete_transaction_tag(session, tt)

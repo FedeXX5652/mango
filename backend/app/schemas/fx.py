@@ -11,6 +11,7 @@ serializa Pydantic los `Decimal`.
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,6 +20,9 @@ from app.schemas.account import Currency
 # La cotizacion es positiva y no cero: un cero anularia cualquier monto que
 # multiplique. El tope de 10 decimales es el de la columna NUMERIC(20,10).
 Rate = Decimal
+
+# Los dolares argentinos que se ofrecen (P4, ver 0031).
+Casa = Literal["oficial", "mep", "blue", "tarjeta"]
 
 
 class ExchangeRateCreate(BaseModel):
@@ -29,10 +33,12 @@ class ExchangeRateCreate(BaseModel):
     quote_currency: Currency
     rate: Rate = Field(gt=0, max_digits=20, decimal_places=10)
     rate_date: date
-    # De donde salio: 'oficial' (la publicada), 'manual' (cargada a mano), o la
-    # que agregue la ingesta. Se guarda porque en Argentina conviven varias
-    # cotizaciones y no siempre aplica la misma.
+    # El origen. Lo que crea el cliente es cargado a mano: 'manual' (antes de la
+    # 1.7.0 se elegia una etiqueta, 'oficial', 'mep', 'tarjeta', y se sigue
+    # aceptando). 'auto' es del servidor y el CRUD la rechaza (0031).
     source: str = "manual"
+    # Que dolar, si el que la carga lo dice. Informativo en una cargada a mano.
+    casa: Casa | None = None
 
 
 class ExchangeRateUpdate(BaseModel):
@@ -51,6 +57,7 @@ class ExchangeRateRead(BaseModel):
     rate: Decimal
     rate_date: date
     source: str
+    casa: str | None
     created_at: datetime
     updated_at: datetime
 

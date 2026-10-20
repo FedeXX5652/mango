@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
 from app.crud import reminder as recordatorios
+from app.crud._borrado import vivo
 from app.models.debt import Debt
 from app.schemas.debt import DebtCreate, DebtUpdate
 
@@ -20,9 +21,11 @@ async def create_debt(session: AsyncSession, owner_id: uuid.UUID, data: DebtCrea
     return debt
 
 
-async def get_debt(session: AsyncSession, owner_id: uuid.UUID, debt_id: uuid.UUID) -> Debt | None:
+async def get_debt(
+    session: AsyncSession, owner_id: uuid.UUID, debt_id: uuid.UUID, *, incluso_borrado: bool = False
+) -> Debt | None:
     stmt = select(Debt).where(
-        Debt.id == debt_id, Debt.owner_id == owner_id, Debt.deleted_at.is_(None)
+        Debt.id == debt_id, Debt.owner_id == owner_id, vivo(Debt, incluso_borrado)
     )
     return (await session.execute(stmt)).scalar_one_or_none()
 

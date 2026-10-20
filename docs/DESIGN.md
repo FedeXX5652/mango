@@ -509,6 +509,12 @@ El disparador de `SelectorEntidad` usa **los mismos tokens que `ui/select`**: en
 un formulario tiene que verse como un campo mas. Lo unico distinto es la flecha,
 y a proposito: `›` abre un panel, `▾` despliega en el lugar.
 
+**Dentro de un `Campo`, se nombra con la etiqueta y el valor** ("Cuenta,
+Efectivo"; 1.7.0). El `<label>` que envuelve a un boton le pone su texto como
+nombre y tapa el de adentro: el lector de pantalla decia "Cuenta" y nunca lo
+elegido. `Campo` pasa el id de su etiqueta por contexto (`campoContexto.ts`) y
+el selector usa `aria-labelledby`. Lo mismo `SelectorEtiquetas`.
+
 ### Presentacion modal: `Hoja`
 
 Un unico componente decide la presentacion segun el layout (nunca se copia y
@@ -709,7 +715,13 @@ Un estado vacio sin salida es un callejon.
 - **Progreso**: anillo con el porcentaje al centro.
 
 Los datos que el usuario lee no se animan al montar (ver 8): toda serie de
-recharts va con `isAnimationActive={false}`. Y donde el tamano del grafico es
+recharts va con `isAnimationActive={false}`. El **tooltip** usa los tokens del
+tema (fondo `card`, borde `border`, la fecha en `muted-foreground` y el valor en
+`card-foreground`), con una regla global en `styles/index.css`: el de fabrica era
+blanco con el valor del color de la serie y en oscuro no se leia (1.7.0). Una
+serie cuyo cero no dice nada (una cotizacion) lleva el eje Y oculto con dominio
+de minimo a maximo, y un resumen escrito debajo que tambien es el texto del
+grafico para el lector de pantalla. Y donde el tamano del grafico es
 fijo (las donas) no se usa `ResponsiveContainer`: su ciclo de medicion deja el
 area vacia un instante y no aporta nada (decision 0008).
 

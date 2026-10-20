@@ -22,8 +22,8 @@ El mail sirve para probar que sos dueño de una dirección, algo que importa con
 registro abierto. Acá el admin crea las cuentas y ya sabe quién es cada uno, así
 que la identidad es **username + clave**. La columna `email` se renombró a
 `username` por expandir/contraer (0012): se agregó `username`, se rellenó desde
-la parte local del email, `email` quedó opcional y se borra en un release
-futuro. Login case-insensitive en el username.
+la parte local del email, `email` quedó opcional y se borró en la 1.7.0
+(contraer). Login case-insensitive en el username.
 
 ### Clave: Argon2id
 
@@ -87,5 +87,5 @@ pide el PIN; cerrar sesión borra los datos locales y exige la clave de nuevo.
 - No publicar la API fuera del tailnet: el login mitiga, pero el transporte en
   LAN pelada sigue en claro hasta que haya TLS o se entre por Tailscale también
   desde casa.
-- El primer caso real de expandir/contraer (0012) es este renombre: un release
-  futuro borra `email`.
+- El primer caso real de expandir/contraer (0012) es este renombre: la 1.7.0
+  borró `email`.

@@ -102,7 +102,6 @@ async def api() -> AsyncGenerator[SimpleNamespace, None]:
     user = User(
         id=owner_id,
         username=f"test-{owner_id}",
-        email=f"{owner_id}@test.local",
         password_hash="!",
         display_name="Test",
     )

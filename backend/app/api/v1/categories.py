@@ -52,9 +52,13 @@ async def delete_category(
     session: AsyncSession = Depends(get_session),
     owner_id: uuid.UUID = Depends(get_current_user_id),
 ) -> None:
-    category = await crud.get_category(session, owner_id, category_id)
+    category = await crud.get_category(session, owner_id, category_id, incluso_borrado=True)
     if category is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoria no encontrada")
+    # Idempotente (1.7.0): lo ya borrado da 204, no un 404 que iria a
+    # "Rechazados". Lo ajeno sigue en 404.
+    if category.deleted_at is not None:
+        return
     try:
         await crud.soft_delete_category(session, category)
     except DomainError as exc:

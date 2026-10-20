@@ -64,7 +64,9 @@ export function DetalleMovimiento() {
   const volverDePantalla = useVolver(rutaEspacio(espacio, "movimientos"))
   // En el panel de escritorio, guardar o borrar cierra el panel (la lista
   // queda como estaba); como pantalla, vuelve.
-  const volver = usePanel()?.cerrar ?? volverDePantalla
+  const panel = usePanel()
+  const volver = panel?.cerrar ?? volverDePantalla
+  const Titulo = panel ? "h2" : "h1"
   const db = usePowerSync()
 
   const { data: filas } = useQuery<Tx>("SELECT * FROM transactions WHERE id = ?", [id ?? ""])
@@ -158,6 +160,8 @@ export function DetalleMovimiento() {
   // efecto: el efecto corria mientras las consultas llegaban de a una y, con las
   // categorias todavia sin llegar, abria el detalle con la categoria borrada.
   function cambiarGrupo(g: string) {
+    // Las etiquetas son del espacio (1.7.0): al cambiarlo, las del otro se quitan.
+    if (g !== grupoId) setEtiquetas([])
     setGrupoId(g)
     const valida = categorias.some(
       (c) => c.id === categoriaId && (g ? c.group_id === g : !c.group_id),
@@ -272,7 +276,8 @@ export function DetalleMovimiento() {
     <div className="mx-auto max-w-md space-y-4 p-4">
       <header className="flex items-center gap-2">
         <BotonSalir volver={volver} />
-        <h1 className="text-2xl font-semibold">{KIND_LABEL[tx.kind]}</h1>
+        {/* En el panel de escritorio la pagina ya tiene su h1 (Movimientos). */}
+        <Titulo className="text-2xl font-semibold">{KIND_LABEL[tx.kind]}</Titulo>
         {grupo && <EtiquetaGrupo nombre={grupo.name} color={grupo.color} />}
       </header>
 
@@ -373,7 +378,11 @@ export function DetalleMovimiento() {
       </Campo>
 
       <Campo etiqueta="Etiquetas">
-        <SelectorEtiquetas seleccionadas={etiquetas} onCambio={setEtiquetas} />
+        <SelectorEtiquetas
+          seleccionadas={etiquetas}
+          onCambio={setEtiquetas}
+          grupo={grupoId || null}
+        />
       </Campo>
 
       <Adjuntos transactionId={tx.id} />

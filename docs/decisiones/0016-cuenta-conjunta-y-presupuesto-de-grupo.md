@@ -50,6 +50,12 @@ tope mensual sobre una **categoria del grupo**, contra lo que el grupo gasto ese
 mes. Lo pone/edita **cualquier miembro**; baja por `grupo` (por `group_id`). Es
 el mismo modelo de sobres que el personal (0004), con ambito de grupo.
 
+Lo gastado cuenta **solo lo de la moneda del tope** (1.7.0): el sobre es de una
+moneda (0005), como el personal. Antes se sumaban los montos de todas las monedas
+como si fueran de la del tope. El mes va de la medianoche del 1, hora local, a la
+del 1 siguiente. Cuando lo gastado pasa el tope, el servidor avisa una vez a
+todos los miembros (`presupuesto_excedido`, 0019).
+
 ## Consecuencias
 
 - `accounts.owner_id` nullable; `transactions.paid_from_group` nuevo (los dos

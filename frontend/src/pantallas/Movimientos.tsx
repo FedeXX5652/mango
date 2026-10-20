@@ -618,9 +618,10 @@ export function Movimientos() {
               <div className="space-y-4">
                 {grupos.map(([clave, filas]) => (
                   <section key={clave}>
-                    <h3 className="mb-2 px-1 text-xs font-medium text-muted-foreground">
+                    {/* h2: la pagina tiene h1 y nada en el medio (axe, 1.7.0). */}
+                    <h2 className="mb-2 px-1 text-xs font-medium text-muted-foreground">
                       {etiquetaDia(filas[0].occurred_at)}
-                    </h3>
+                    </h2>
                     <ListaInset>
                       {filas.map((f) => {
                         // El icono de la categoria dice mas que el del tipo, que

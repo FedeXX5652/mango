@@ -227,11 +227,15 @@ export function FormularioMovimiento({
     const g = t === "transfer" ? "" : grupoElegido
     if (categoriaId && !enAmbito(categoriaId, t, g)) setCategoriaId("")
     if (cuentaId && !cuentaValida(cuentaId, t, g)) setCuentaId("")
+    // Una transferencia es personal: las etiquetas del grupo no valen (1.7.0).
+    if (g !== grupoId) setEtiquetas([])
   }
   function cambiarGrupo(g: string) {
     setGrupoId(g)
     if (categoriaId && !enAmbito(categoriaId, tipo, g)) setCategoriaId("")
     if (cuentaId && !cuentaValida(cuentaId, tipo, g)) setCuentaId("")
+    // Las etiquetas son del espacio (1.7.0): las del otro no valen.
+    if (g !== grupoElegido) setEtiquetas([])
   }
 
   const aplicarPlantilla = useCallback((t: PlantillaLocal) => {
@@ -563,7 +567,11 @@ export function FormularioMovimiento({
           </Campo>
 
           <Campo etiqueta="Etiquetas (opcional)">
-            <SelectorEtiquetas seleccionadas={etiquetas} onCambio={setEtiquetas} />
+            <SelectorEtiquetas
+              seleccionadas={etiquetas}
+              onCambio={setEtiquetas}
+              grupo={grupoId || null}
+            />
           </Campo>
 
           {/* CTA fija: en un form largo el boton queda a mano sin scrollear. */}

@@ -11,9 +11,9 @@ Un fixture es una **secuencia** de escrituras auto-contenida: primero las
 entidades que hacen falta (cuenta, categoria) y despues lo que las referencia,
 en orden. Asi se puede reproducir contra una base limpia sin datos de apoyo.
 
-Cuando en fase 3 llegue un cambio no aditivo (el renombre email->username), se
-agrega un fixture con la forma vieja y se verifica que el servidor nuevo lo
-sigue aceptando (cara "expandir"), o que el normalizador lo traduce.
+Cuando llegue un cambio no aditivo, se agrega un fixture con la forma vieja y se
+verifica que el servidor nuevo lo sigue aceptando (cara "expandir"), o que el
+normalizador lo traduce.
 """
 
 import json
@@ -25,7 +25,8 @@ from httpx import Response
 
 PAYLOADS = Path(__file__).parent / "payloads"
 
-# Mismo mapa que el conector del cliente: tabla local -> recurso REST.
+# Mismo mapa que el conector del cliente: tabla local -> recurso REST. Que sean
+# iguales lo verifica test_compat (test_el_mapa_es_el_del_conector).
 RUTA = {
     "transactions": "/transactions",
     "accounts": "/accounts",
@@ -35,10 +36,17 @@ RUTA = {
     "budget_rules": "/budget-rules",
     "tags": "/tags",
     "transaction_tags": "/transaction-tags",
+    "transaction_splits": "/transaction-splits",
+    "settlements": "/settlements",
     "templates": "/templates",
     "recurring_rules": "/recurring",
+    "goals": "/goals",
+    "debts": "/debts",
+    "reminders": "/reminders",
+    "reminder_cycles": "/reminder-cycles",
     "exchange_rates": "/exchange-rates",
     "users": "/users",
+    "notifications": "/notifications",
 }
 
 
@@ -64,7 +72,10 @@ async def reproducir_una(api: SimpleNamespace, e: Escritura) -> Response:
     base = "/api/v1"
 
     if e.tabla == "payment_method_accounts":
-        # Recurso anidado: (medio, moneda) -> cuenta.
+        # Recurso anidado: (medio, moneda) -> cuenta. Se crea bajo su medio y se
+        # borra por su id (1.7.0).
+        if e.op == "DELETE":
+            return await api.client.delete(f"{base}/payment-method-accounts/{e.id}")
         pm = e.datos["payment_method_id"]
         return await api.client.post(
             f"{base}/payment-methods/{pm}/accounts",

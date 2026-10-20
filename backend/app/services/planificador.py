@@ -10,10 +10,12 @@ Tareas:
 - `avisos`: despacha por push los avisos de la bandeja que todavia no salieron.
   Lo que tiene mas de `push_max_antiguedad_h` (heimdall estuvo apagado) se marca
   sin mandar: queda en la bandeja y no hay catarata al volver.
-- `cotizaciones`: la cotizacion del dia de cada usuario (0005), aunque nadie
-  abra la app. Hoy la serie solo crecia los dias en que se abria.
+- `cotizaciones`: la serie de cotizaciones contra el dolar (0031): completa la
+  historia que falte y trae lo del dia, aunque nadie abra la app.
 - `recordatorios`: los avisos del calendario de pagos (0030), a su hora y con el
   seguimiento si no se responde.
+- `grupos`: un gasto compartido nuevo y un tope del grupo superado (1.7.0, ver
+  aviso_grupos).
 """
 
 import asyncio
@@ -29,8 +31,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.db import SessionLocal, engine
-from app.models.user import Notification, User
-from app.services import aviso_recordatorios, push
+from app.models.user import Notification
+from app.services import aviso_grupos, aviso_recordatorios, push
 from app.services import fx as servicio_fx
 
 log = logging.getLogger(__name__)
@@ -79,17 +81,6 @@ async def despachar_avisos(session: AsyncSession) -> int:
     return len(pendientes)
 
 
-async def cotizaciones_del_dia(session: AsyncSession) -> int:
-    """La cotizacion de hoy para cada usuario. Idempotente por fecha: una vez que
-    esta, no se vuelve a pedir."""
-    usuarios = (
-        (await session.execute(select(User.id).where(User.deleted_at.is_(None)))).scalars().all()
-    )
-    for user_id in usuarios:
-        await servicio_fx.refrescar(session, user_id)
-    return len(usuarios)
-
-
 @dataclass(frozen=True)
 class Tarea:
     nombre: str
@@ -101,10 +92,13 @@ class Tarea:
 
 TAREAS = (
     Tarea("avisos", 60, despachar_avisos, al_despertar=True),
-    Tarea("cotizaciones", 3600, cotizaciones_del_dia),
+    Tarea("cotizaciones", 3600, servicio_fx.tarea),
     # Calendario de pagos (0030): crea los avisos de los vencimientos; los manda
     # `avisos` en la vuelta siguiente (o al toque: despiertan al confirmarse).
     Tarea("recordatorios", 60, aviso_recordatorios.avisar),
+    # Gasto compartido nuevo y tope superado (1.7.0): mismo camino, los manda
+    # `avisos`.
+    Tarea("grupos", 60, aviso_grupos.avisar),
 )
 
 

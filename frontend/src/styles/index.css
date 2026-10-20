@@ -22,3 +22,22 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* El tooltip de recharts con los tokens del tema (1.7.0). El de fabrica es
+   blanco, con la fecha en gris claro y el valor del color de la serie: en oscuro
+   (y con el amarillo de la marca) no se leia. Va aca y no en cada grafico para
+   que todos queden iguales. Fuera de `@layer`: Tailwind descarta lo de una capa
+   si la clase no aparece en el codigo, y estas las pone recharts. `!important`
+   porque recharts pone estilos en linea. */
+.recharts-default-tooltip {
+  background-color: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+}
+.recharts-default-tooltip .recharts-tooltip-label {
+  color: var(--muted-foreground);
+}
+.recharts-default-tooltip .recharts-tooltip-item {
+  color: var(--card-foreground) !important;
+}

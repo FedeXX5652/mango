@@ -4,6 +4,62 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.7.0] - 2026-10-12
+
+### Agregado
+
+- **Los dólares argentinos, solos y con su historia** (0031): oficial, MEP, blue
+  y tarjeta, el valor de venta, día por día desde hace dos años (o desde tu
+  primer movimiento, si es más viejo).
+  - Las demás monedas van contra el dólar, con el Banco Central Europeo; el peso
+    uruguayo y el chileno, con el oficial del BNA.
+  - Se actualizan solas cada hora, aunque nadie abra la app.
+- **Cada moneda elige con qué dólar se convierte**, MEP por defecto, en
+  Cotizaciones. Ahí ves cuánto vale hoy, cuánto daría con cada dólar y un gráfico
+  de cómo vino (mes, 3 meses, año o todo).
+  - Lo que pagaste de verdad se carga a mano y gana en su fecha. "A mano" pasa
+    la moneda entera a lo que cargues vos.
+  - Cambiar la moneda base no obliga a regenerar nada.
+- **Elegir qué avisos llegan a cada dispositivo**, en Ajustes › Notificaciones:
+  Vencimientos, Gastos del grupo y Grupos.
+- **Avisos nuevos:**
+  - "Gasto nuevo", cuando alguien carga un gasto del grupo en el que tenés parte,
+    con cuánto te toca;
+  - "Se pasaron del tope", una vez, cuando lo gastado en una categoría del grupo
+    pasa su tope del mes;
+  - "Te sacaron del grupo".
+- **Etiquetas del grupo**, en Ajustes del grupo. Un gasto del grupo usa las del
+  grupo, y uno personal, las tuyas.
+- **Ver y corregir un cambio rechazado** antes de reintentarlo, o volver a lo
+  que se subió primero.
+
+### Cambiado
+
+- **El CSV** trae la fecha como en la app (dd/mm/aaaa) y la hora en una columna
+  aparte, las dos en hora de Argentina.
+- El tope del presupuesto del grupo cuenta solo los gastos en su moneda.
+- Las cotizaciones automáticas no se editan ni se borran: son las mismas para
+  todos. Para otro valor, se carga una a mano.
+
+### Corregido
+
+- **Borrar algo dos veces** (desde dos dispositivos, o en un reintento) ya no
+  termina en "Rechazados". Borrar la cuenta de un medio de pago tampoco.
+- Reintentar lo rechazado va en el orden en que se cargó, no al revés.
+- Abrir la app ya no pisa los avisos que se eligieron para el dispositivo.
+- En el CSV, la categoría de un gasto del grupo y la cuenta conjunta salían
+  vacías, y lo cargado a la noche aparecía con la fecha del día siguiente.
+- Un movimiento de las 22 del 31 se convertía con el dólar del 1.
+- El lector de pantalla anuncia lo elegido en los selectores ("Cuenta,
+  Efectivo"). Los títulos de cada día de Movimientos siguen el orden de la
+  página, y el detalle de un movimiento en el panel de escritorio (personal o del
+  grupo) ya no repite el título principal.
+- El cuadro que aparece al tocar un gráfico se lee en el tema oscuro.
+
+### Quitado
+
+- La columna `users.email`: el ingreso es por usuario desde la fase 3a.
+
 ## [1.6.1] - 2026-10-12
 
 ### Corregido

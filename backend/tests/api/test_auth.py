@@ -40,7 +40,6 @@ async def entorno() -> AsyncGenerator[SimpleNamespace, None]:
         User(
             id=uid,
             username=username,
-            email=f"{uid}@test.local",
             password_hash=hashear("clave-correcta"),
             display_name="Test",
         )

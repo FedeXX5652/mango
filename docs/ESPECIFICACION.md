@@ -272,6 +272,10 @@ Las tablas `tags` y `transaction_tags` estan en el esquema desde ahora; la
 gestion de etiquetas vive en Ajustes, con las mismas reglas que el resto de las
 listas (orden alfabetico, archivar como regla, borrar solo si no se uso).
 
+**Un grupo tiene sus etiquetas** (1.7.0, ver 0014): las crea y las edita
+cualquier miembro, en Ajustes del grupo, y un gasto compartido lleva etiquetas
+de su grupo. El alta ofrece las del espacio donde se carga.
+
 **El informe que las justifica.** En Estadisticas, "Gasto por etiqueta" suma el
 gasto confirmado de cada etiqueta. El alcance por defecto es el **acumulado**,
 no el mes: un proyecto cruza meses y lo que se quiere saber es cuanto costo el
@@ -451,27 +455,30 @@ un filtro de la lista de movimientos, "N movimientos sin el monto debitado", que
 solo aparece si hay alguno. La exportacion a CSV lleva las dos columnas
 (`monto_debitado`, `cotizacion`), vacias cuando no hubo conversion.
 
-**Las cotizaciones se cargan en Ajustes > Cotizaciones**, una por moneda, fecha
-y fuente ('oficial', 'mep', 'tarjeta'...). La carga es local-first como todo lo
-demas: se puede cargar sin conexion y sube despues. La pantalla dice lo que
-importa: la cotizacion sirve para **ver** (convierte el patrimonio), y nunca
-cambia un movimiento ya cargado, que conserva la que se le aplico.
+**Las cotizaciones se traen solas, todas contra el dolar** (1.7.0, ver 0031):
+los cuatro dolares argentinos (oficial, MEP, blue y tarjeta, el valor de venta)
+de ArgentinaDatos, y las demas monedas contra el dolar del Banco Central Europeo
+(Frankfurter); el peso uruguayo y el chileno, con el oficial del BNA. Con su
+historia: desde dos años atras, o desde el primer movimiento si es mas viejo. El
+planificador las actualiza cada hora (0029) aunque nadie abra la app, y el valor
+de los ultimos dias se corrige si la fuente lo cambio. Hay un boton para
+forzarlo.
 
-Una cotizacion se puede corregir (un dedazo) o dar de baja; se corrige el valor
-y la fuente, no el par ni la fecha, porque eso ya es otra cotizacion.
+**Cada moneda elige con que dolar se convierte a pesos**, MEP por defecto, en
+Ajustes > Cotizaciones: euro a pesos es euro -> dolar x dolar -> pesos, con el
+dolar del euro. Como todo va contra el dolar, cambiar la moneda base no obliga a
+regenerar nada: la conversion se arma al leer.
 
-**Las cotizaciones se traen solas** de una API publica, una vez por dia. Las pide
-el planificador del servidor cada hora aunque nadie abra la app (0029), y tambien
-la app al abrirse; hay un boton para forzarlo.
-El refresco es idempotente por fecha (ver 0005): pedirla de mas no duplica nada.
+**Tambien se puede cargar una a mano**, por moneda y fecha: el valor que se pago
+de verdad. La carga es local-first como todo lo demas. **La cargada a mano gana
+en su fecha**: a igual fecha manda ella, y despues vuelve la serie. Una moneda
+puede pasar entera a **"a mano"**: usa solo lo cargado a mano. Las automaticas
+no se editan ni se borran: son las mismas para todos.
 
-**La fuente automatica es la oficial, y es el estandar.** No se van a agregar
-fuentes alternativas (MEP, tarjeta): quien quiera otra, la carga a mano.
-
-**Cada moneda puede pasarse a manual** con un interruptor, y ese es el camino
-para el dolar en Argentina, donde lo que uno paga no es la oficial. La pantalla
-dice cual esta en automatico y cual a mano, y **a igual fecha la que cargo la
-persona gana** sobre la automatica.
+La pantalla dice lo que importa: la cotizacion sirve para **ver** (convierte el
+patrimonio y los informes), y nunca cambia un movimiento ya cargado, que conserva
+la que se le aplico. Muestra lo que vale cada moneda hoy y con que dolar, cuanto
+daria con cada uno, y un grafico de como vino la serie.
 
 ### 3.7 Recurrentes y plantillas
 
@@ -655,6 +662,10 @@ servidor. Si no, no se podria crear nada sin conexion.
   (`GET /transactions/export`). Se podria generar desde la base local, pero eso
   duplicaria el formato del CSV en dos lugares y se desincronizarian solos: se
   prefiere **una sola fuente de verdad** y avisar cuando no hay conexion.
+  Desde la 1.7.0 la fecha sale como en la app, dd/mm/aaaa, con la hora (HH:MM)
+  en una columna aparte, las dos en hora de Argentina; y la cuenta y la
+  categoria se nombran tambien cuando son del grupo (conjunta, categoria de un
+  gasto compartido).
 - **Traer cotizaciones** (`POST /exchange-rates/refresh`): sale a una API
   publica, asi que la conexion es inherente. Sin ella se usa la ultima
   cotizacion conocida, que para eso esta cacheada (ver 0005).
@@ -1162,8 +1173,11 @@ el pago, el cobro se borra si sigue pendiente; si ya se confirmo, queda.
 **Fase 3b.5 (notificaciones in-app): HECHA.** Ver 0019. Una **campanita** con
 contador de no leidos (header movil y barra de escritorio) abre la **bandeja** de
 avisos. Los crea el servidor en eventos (`pago_recibido`, `pago_deshecho`,
-`miembro_agregado`); bajan por `mio`; el cliente solo los marca leidos. Tocar un
-aviso lo marca leido y navega a su link.
+`miembro_agregado`; desde la 1.7.0 tambien `miembro_quitado`, `gasto_compartido`
+a quien tiene parte y `presupuesto_excedido` una vez por tope); bajan por `mio`;
+el cliente solo los marca leidos. Tocar un aviso lo marca leido y navega a su
+link. Cada dispositivo elige que familias le llegan por push (Vencimientos,
+Gastos del grupo, Grupos; ver 0029).
 
 **Fase 3b.6 (espacios): HECHA (etapas 1, 2 y 3).** Ver 0026. Personal y cada grupo
 son **espacios** con las mismas pantallas (Inicio, Movimientos, Presupuesto,
@@ -1261,9 +1275,11 @@ de grupo, que convive con el personal.
 
 ### Fase 4 - Multimoneda y reparto
 
-**Parte ya se adelanto** (ver 3.6.1, 3.6.2 y decision 0005): apenas aparecio una
-cuenta en dolares, los informes que sumaban monedas distintas pasaron a ser un
-error de correctitud, no una funcion faltante.
+**HECHA.** Parte se adelanto (ver 3.6.1, 3.6.2 y decision 0005): apenas aparecio
+una cuenta en dolares, los informes que sumaban monedas distintas pasaron a ser
+un error de correctitud, no una funcion faltante. El reparto y la liquidacion se
+hicieron en 3b; los tipos de cambio con historico, con los dolares argentinos y
+el dolar de cada moneda, en la 1.7.0 (decision 0031).
 
 Tipos de cambio con historico, reportes convertidos a moneda base, division de
 gastos entre personas, liquidacion de saldos.

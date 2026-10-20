@@ -7,10 +7,10 @@ import { Segmentado } from "@/componentes/ui/segmentado"
 import { useGrupo } from "@/hooks/useGrupo"
 import { formatearMonto } from "@/lib/dinero"
 import { resumenGrupo, type TxGrupo } from "@/lib/grupo"
+import { useCotizaciones } from "@/hooks/useCotizaciones"
 import { convertirTodos } from "@/lib/historico"
 import { iconoDe } from "@/lib/iconos"
 import { TX_GRUPO } from "@/lib/lente"
-import type { CotizacionConocida } from "@/lib/patrimonio"
 
 // Estadisticas del grupo (0026): cuanto gasto el grupo en el periodo, en que y
 // quien puso. Global = todo a la moneda del grupo con la cotizacion del momento
@@ -26,11 +26,6 @@ const MODOS: { valor: "global" | "moneda"; etiqueta: string }[] = [
   { valor: "global", etiqueta: "Global" },
   { valor: "moneda", etiqueta: "Por moneda" },
 ]
-
-const SQL_COTIZACIONES = `
-  SELECT base_currency, quote_currency, rate, rate_date
-  FROM exchange_rates WHERE deleted_at IS NULL
-  ORDER BY rate_date DESC, (source = 'auto') ASC, created_at DESC`
 
 // Fila del reporte: lo de TxGrupo mas lo que hace falta para convertir un gasto
 // a la moneda base (ver lib/historico). En los gastos de otros miembros,
@@ -75,14 +70,14 @@ export function ReporteGrupo({ groupId }: { groupId: string }) {
     [groupId],
   )
   const base = grupoRows[0]?.base_currency ?? "ARS"
-  const { data: cotizaciones } = useQuery<CotizacionConocida>(SQL_COTIZACIONES)
+  const { conv } = useCotizaciones()
 
   const reporte = useMemo(() => resumenGrupo(txsPeriodo, miembros), [txsPeriodo, miembros])
 
   // Reporte Global: todo convertido a la moneda base del grupo, con la cotizacion
   // del momento de cada gasto. Lo que no se pudo convertir queda afuera y se avisa.
   const global = useMemo(() => {
-    const { filas, sinCotizacion } = convertirTodos(txsPeriodo, base, cotizaciones)
+    const { filas, sinCotizacion } = convertirTodos(txsPeriodo, base, conv)
     let total = 0
     const porCat = new Map<string | null, number>()
     for (const { fila, convertido } of filas) {
@@ -94,7 +89,7 @@ export function ReporteGrupo({ groupId }: { groupId: string }) {
       .map(([category_id, t]) => ({ category_id, total: t }))
       .sort((a, b) => b.total - a.total)
     return { total, porCategoria, sinCotizacion }
-  }, [txsPeriodo, base, cotizaciones])
+  }, [txsPeriodo, base, conv])
 
   // Quien puso cuanto en el periodo (por moneda: no se mezclan sin convertir).
   const porMiembro = reporte.flatMap((r) =>

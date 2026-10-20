@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
+from app.crud._borrado import vivo
 from app.crud.group import membresia
 from app.models.transaction import Transaction, TransactionSplit
 from app.schemas.split import SplitCreate, SplitUpdate
@@ -33,7 +34,11 @@ async def _tx_compartida_propia(
 
 
 async def get_split(
-    session: AsyncSession, owner_id: uuid.UUID, split_id: uuid.UUID
+    session: AsyncSession,
+    owner_id: uuid.UUID,
+    split_id: uuid.UUID,
+    *,
+    incluso_borrado: bool = False,
 ) -> TransactionSplit | None:
     """El split si cuelga de un gasto del usuario. La propiedad se hereda del
     gasto: no hay owner_id propio en la tabla."""
@@ -42,7 +47,7 @@ async def get_split(
         .join(Transaction, Transaction.id == TransactionSplit.transaction_id)
         .where(
             TransactionSplit.id == split_id,
-            TransactionSplit.deleted_at.is_(None),
+            vivo(TransactionSplit, incluso_borrado),
             Transaction.owner_id == owner_id,
         )
     )

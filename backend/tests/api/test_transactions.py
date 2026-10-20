@@ -242,10 +242,10 @@ async def test_other_users_transaction_is_404(api: SimpleNamespace) -> None:
     other_tx = uuid.uuid4()
     await api.session.execute(
         text(
-            "INSERT INTO users (id, username, email, password_hash, display_name) "
-            "VALUES (:id, :email, :email, 'x', 'Otro')"
+            "INSERT INTO users (id, username, password_hash, display_name) "
+            "VALUES (:id, :u, 'x', 'Otro')"
         ),
-        {"id": other_user, "email": f"{other_user}@test.local"},
+        {"id": other_user, "u": f"{other_user}@test.local"},
     )
     await api.session.execute(
         text(
@@ -311,9 +311,12 @@ async def test_soft_delete_hides(api: SimpleNamespace) -> None:
         await api.client.post("/api/v1/transactions", json=_tx(account_id=acc, category_id=cat))
     ).json()
     assert (await api.client.delete(f"/api/v1/transactions/{created['id']}")).status_code == 204
-    # Borrado logico: la fila queda con deleted_at y la API no la deja tocar mas.
+    # Borrado logico: la fila queda con deleted_at y la API no la deja modificar.
+    # Borrarla otra vez no es un error (1.7.0).
     assert (await api.fila("transactions", created["id"]))["deleted_at"] is not None
-    assert (await api.client.delete(f"/api/v1/transactions/{created['id']}")).status_code == 404
+    r = await api.client.patch(f"/api/v1/transactions/{created['id']}", json={"amount": 1})
+    assert r.status_code == 404
+    assert (await api.client.delete(f"/api/v1/transactions/{created['id']}")).status_code == 204
 
 
 async def test_compra_en_dolares_con_cuenta_en_pesos_deduce_la_cotizacion(api) -> None:

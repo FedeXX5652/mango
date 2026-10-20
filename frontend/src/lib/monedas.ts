@@ -61,6 +61,11 @@ export function listarMonedas(enUso: string[] = []): MonedaListada[] {
   return [...propias, ...resto].map((codigo) => ({ codigo, nombre: nombrar(codigo) }))
 }
 
+// "Dólar estadounidense" para "USD". Si el navegador no la conoce, el codigo.
+export function nombreMoneda(codigo: string): string {
+  return nombrador()(codigo)
+}
+
 function nombrador(): (codigo: string) => string {
   try {
     const dn = new Intl.DisplayNames(["es-AR"], { type: "currency" })

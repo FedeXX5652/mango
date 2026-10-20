@@ -34,6 +34,12 @@ FAMILIA = {
     "pago_recibido": "grupos",
     "pago_deshecho": "grupos",
     "miembro_agregado": "grupos",
+    # 1.7.0 (0019): te sacaron de un grupo; el grupo paso un tope del mes.
+    "miembro_quitado": "grupos",
+    "presupuesto_excedido": "grupos",
+    # Un gasto compartido nuevo en el que tenes parte (1.7.0): su propia familia,
+    # porque es el que mas se repite y cada dispositivo puede no quererlo.
+    "gasto_compartido": "gastos",
     # Calendario de pagos (0030).
     "recordatorio": "recordatorios",
 }

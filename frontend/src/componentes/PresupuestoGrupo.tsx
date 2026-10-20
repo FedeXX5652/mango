@@ -51,13 +51,16 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
     "SELECT id, category_id, amount FROM budgets WHERE group_id = ? AND period_start = ? AND deleted_at IS NULL",
     [groupId, mes],
   )
-  // Gastado por categoria este mes (gastos compartidos del grupo).
+  // Gastado por categoria este mes (gastos compartidos del grupo), en la moneda
+  // del tope (0005: el sobre es de una moneda). El servidor cuenta igual para
+  // avisar que se paso (1.7.0, aviso_grupos). `occurred_at` se guarda en UTC: el
+  // mes va de la medianoche local del 1 a la del 1 siguiente, pasadas a UTC.
   const { data: gastado } = useQuery<{ category_id: string; total: number }>(
     `SELECT category_id, SUM(amount) AS total FROM ${TX_GRUPO}
      WHERE group_id = ? AND visibility = 'shared' AND kind = 'expense' AND deleted_at IS NULL
-       AND occurred_at >= ? AND occurred_at < ?
+       AND currency = ? AND occurred_at >= ? AND occurred_at < ?
      GROUP BY category_id`,
-    [groupId, `${mes.slice(0, 7)}-01T00:00:00.000`, finDeMes(mes)],
+    [groupId, moneda, inicioDeMes(mes), inicioDeMes(finDeMes(mes))],
   )
 
   const budgetDe = useMemo(() => new Map(budgets.map((b) => [b.category_id, b])), [budgets])
@@ -240,11 +243,18 @@ function HojaAgregarTope({
   )
 }
 
+// El primer dia del mes siguiente, YYYY-MM-01.
 function finDeMes(primerDia: string): string {
   const [y, m] = primerDia.split("-").map(Number)
   const finY = m === 12 ? y + 1 : y
   const finM = m === 12 ? 1 : m + 1
-  return `${finY}-${String(finM).padStart(2, "0")}-01T00:00:00.000`
+  return `${finY}-${String(finM).padStart(2, "0")}-01`
+}
+
+// La medianoche local de ese dia, en UTC como se guarda `occurred_at`.
+function inicioDeMes(primerDia: string): string {
+  const [y, m] = primerDia.split("-").map(Number)
+  return new Date(y, m - 1, 1).toISOString()
 }
 
 function ToqueMonto({

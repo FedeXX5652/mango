@@ -40,7 +40,10 @@ export function DetalleGastoGrupo() {
   const { id, grupo, cargando } = useGrupoDeRuta()
   const datos = useGrupo(id)
   const volverDePantalla = useVolver(`/grupos/${id}/movimientos`)
-  const volver = usePanel()?.cerrar ?? volverDePantalla
+  const panel = usePanel()
+  const volver = panel?.cerrar ?? volverDePantalla
+  // En el panel de escritorio la pagina ya tiene su h1 (Movimientos).
+  const Titulo = panel ? "h2" : "h1"
   const { data, isLoading } = useQuery<FilaGasto>(
     `SELECT t.id, t.owner_id, t.kind, t.amount, t.currency, t.category_id, t.payee, t.occurred_at,
             t.paid_from_group, c.name AS cuenta_conjunta,
@@ -57,7 +60,8 @@ export function DetalleGastoGrupo() {
   if (!grupo) return <GrupoNoEncontrado />
   if (tx && tx.owner_id === datos.miId) return <DetalleMovimiento />
 
-  if (tx?.kind === "transfer") return <AporteAjeno tx={tx} volver={volver} nombre={datos.nombre} />
+  if (tx?.kind === "transfer")
+    return <AporteAjeno tx={tx} volver={volver} nombre={datos.nombre} Titulo={Titulo} />
 
   const cat = tx?.category_id ? datos.categoria.get(tx.category_id) : undefined
   const splits = tx ? (datos.splitsDe.get(tx.id) ?? []) : []
@@ -66,9 +70,9 @@ export function DetalleGastoGrupo() {
     <div className="mx-auto max-w-md space-y-4 p-4">
       <header className="flex items-center gap-2">
         <BotonSalir volver={volver} />
-        <h1 className="min-w-0 truncate text-2xl font-semibold">
+        <Titulo className="min-w-0 truncate text-2xl font-semibold">
           {tx ? tx.payee || cat?.name || "Gasto" : "Gasto"}
-        </h1>
+        </Titulo>
       </header>
 
       {!tx ? (
@@ -122,19 +126,21 @@ function AporteAjeno({
   tx,
   volver,
   nombre,
+  Titulo,
 }: {
   tx: FilaGasto
   volver: () => void
   nombre: (userId: string) => string
+  Titulo: "h1" | "h2"
 }) {
   const entra = tx.sentido === "entra"
   return (
     <div className="mx-auto max-w-md space-y-4 p-4">
       <header className="flex items-center gap-2">
         <BotonSalir volver={volver} />
-        <h1 className="min-w-0 truncate text-2xl font-semibold">
+        <Titulo className="min-w-0 truncate text-2xl font-semibold">
           {entra ? "Aporte a la conjunta" : "Retiro de la conjunta"}
-        </h1>
+        </Titulo>
       </header>
       <Monto centavos={tx.amount} moneda={tx.currency} className="block text-3xl font-semibold" />
       <ListaInset>

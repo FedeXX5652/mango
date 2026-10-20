@@ -33,10 +33,11 @@ import {
   type GastoEtiquetaRow,
   agruparPorEtiqueta,
 } from "@/lib/etiquetas"
+import { useCotizaciones } from "@/hooks/useCotizaciones"
+import type { Conversor } from "@/lib/cotizaciones"
 import { type MovimientoConvertible, convertirTodos } from "@/lib/historico"
 import { monedaPorDefecto, ordenarMonedas } from "@/lib/monedas"
 import { type TipoPeriodo, correr, etiquetaCorta, serie, ventanaDe } from "@/lib/periodo"
-import type { CotizacionConocida } from "@/lib/patrimonio"
 import { PALETA } from "@/lib/paleta"
 import { cn } from "@/lib/utils"
 
@@ -117,21 +118,13 @@ const SQL_EVO = `
   WHERE t.kind IN ('income','expense') AND t.status='confirmed' AND t.deleted_at IS NULL
     AND t.occurred_at >= ?`
 
-// La serie COMPLETA, no una por par: un informe historico necesita poder elegir
-// la de cada fecha. A igual fecha gana lo cargado a mano sobre lo automatico
-// (ver 0005), y eso va escrito igual en el servidor y aca.
-const SQL_COTIZACIONES = `
-  SELECT base_currency, quote_currency, rate, rate_date
-  FROM exchange_rates WHERE deleted_at IS NULL
-  ORDER BY rate_date DESC, (source = 'auto') ASC, created_at DESC`
-
 // Pasa las filas a la moneda que se esta leyendo y descarta lo que no se pudo
 // convertir, diciendo que monedas quedaron afuera.
 function useValores<T extends MovimientoConvertible>(
   filas: T[],
   moneda: string,
   global: boolean,
-  cotizaciones: CotizacionConocida[],
+  conv: Conversor,
 ): { filas: (T & { valor: number })[]; sinCotizacion: string[] } {
   return useMemo(() => {
     if (!global) {
@@ -142,14 +135,14 @@ function useValores<T extends MovimientoConvertible>(
         sinCotizacion: [],
       }
     }
-    const { filas: convertidas, sinCotizacion } = convertirTodos(filas, moneda, cotizaciones)
+    const { filas: convertidas, sinCotizacion } = convertirTodos(filas, moneda, conv)
     return {
       filas: convertidas.flatMap(({ fila, convertido }) =>
         convertido === null ? [] : [{ ...fila, valor: convertido }],
       ),
       sinCotizacion,
     }
-  }, [filas, moneda, global, cotizaciones])
+  }, [filas, moneda, global, conv])
 }
 
 // Suma por categoria, en la forma que espera el grafico.
@@ -295,7 +288,9 @@ export function Estadisticas() {
     localStorage.setItem(LS_VISTA, v)
   }
 
-  const { data: cotizaciones } = useQuery<CotizacionConocida>(SQL_COTIZACIONES)
+  // La serie entera: un informe historico usa la de cada fecha, con el dolar
+  // elegido para cada moneda (0031).
+  const { conv } = useCotizaciones()
 
   const { data: categorias, isLoading: cargaCats } = useQuery<CatRow>(
     `SELECT c.id, c.name, c.parent_id, g.name AS grupo, g.color AS grupo_color
@@ -313,8 +308,8 @@ export function Estadisticas() {
   ])
   const { data: mesAnteriorRows } = useQuery<MovRow>(SQL_MES, [anterior.inicio, anterior.fin])
 
-  const valoresMes = useValores(mesRows, moneda, global, cotizaciones)
-  const valoresAnterior = useValores(mesAnteriorRows, moneda, global, cotizaciones)
+  const valoresMes = useValores(mesRows, moneda, global, conv)
+  const valoresAnterior = useValores(mesAnteriorRows, moneda, global, conv)
 
   const gastoRows = useMemo(
     () => porCategoria(valoresMes.filas.filter((f) => f.kind === "expense")),
@@ -488,7 +483,7 @@ export function Estadisticas() {
     "SELECT id, name, color, archived FROM tags WHERE deleted_at IS NULL",
   )
   const { data: etiquetaRows } = useQuery<TagRow>(SQL_ETIQUETAS, [desdeTags, hastaTags])
-  const valoresEtiquetas = useValores(etiquetaRows, moneda, global, cotizaciones)
+  const valoresEtiquetas = useValores(etiquetaRows, moneda, global, conv)
   const gastoEtiquetaRows = useMemo<GastoEtiquetaRow[]>(() => {
     const acc = new Map<string, GastoEtiquetaRow>()
     for (const f of valoresEtiquetas.filas) {
@@ -511,7 +506,7 @@ export function Estadisticas() {
   const periodosEvo = useMemo(() => serie(tipo, ancla, 6), [tipo, ancla])
   const inicioEvo = periodosEvo[0].inicio
   const { data: evoRowsCrudas } = useQuery<EvoRow>(SQL_EVO, [inicioEvo])
-  const valoresEvo = useValores(evoRowsCrudas, moneda, global, cotizaciones)
+  const valoresEvo = useValores(evoRowsCrudas, moneda, global, conv)
   const evoRows = valoresEvo.filas
   const evolucion = useMemo(() => {
     const cubos = periodosEvo.map((v) => ({

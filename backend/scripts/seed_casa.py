@@ -45,7 +45,6 @@ async def _asegurar_beto(session) -> None:
             User(
                 id=BETO_ID,
                 username="beto",
-                email="beto@mango.local",
                 # Misma clave temporal que el semilla ('mango'), pero ya usable:
                 # es un usuario de prueba, no forzamos el cambio.
                 password_hash=hashear(settings.seed_user_password),

@@ -55,7 +55,11 @@ async def delete_recurring(
     session: AsyncSession = Depends(get_session),
     owner_id: uuid.UUID = Depends(get_current_user_id),
 ) -> None:
-    rule = await crud.get_recurring(session, owner_id, rule_id)
+    rule = await crud.get_recurring(session, owner_id, rule_id, incluso_borrado=True)
     if rule is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
+    # Idempotente (1.7.0): lo ya borrado da 204, no un 404 que iria a
+    # "Rechazados". Lo ajeno sigue en 404.
+    if rule.deleted_at is not None:
+        return
     await crud.soft_delete_recurring(session, rule)

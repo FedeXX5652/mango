@@ -1,197 +1,279 @@
-"""Refresco automatico de cotizaciones (ver 0005).
+"""Cotizaciones automaticas (1.7.0, ver 0031): los dolares argentinos y el resto
+contra el dolar, con su historia.
 
-El servicio recibe el "traeme la cotizacion" por parametro, asi que estas
-pruebas **no salen a la red**: le pasan una funcion falsa. Lo unico que no se
-prueba aca es el parseo del payload real, que vive en `traer_de_api` y se prueba
-aparte con un JSON de muestra.
+El servicio recibe las fuentes por parametro, asi que estas pruebas **no salen a
+la red**. La tabla no tiene dueño: el fixture no la aisla y las filas de la base
+de desarrollo se ven. Por eso se trabaja en fechas que la serie real nunca va a
+tener (2031) y se mira solo lo de esas fechas.
 """
 
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
+import pytest
 from sqlalchemy import text
 
+from app.services import fuentes_fx
 from app.services import fx as servicio
-from tests.conftest import _plano
 
-# La tabla no tiene dueño, asi que el fixture no la aisla y las filas reales de
-# la base de dev se ven (ver el aviso de arriba). Las pruebas trabajan sobre una
-# fecha que el refresco real nunca va a producir.
-FECHA_PRUEBA = "2026-03-11"
+HOY = date(2031, 5, 12)
+DESDE = date(2031, 5, 1)
+DIAS = [DESDE + timedelta(days=i) for i in range((HOY - DESDE).days + 1)]
 
 
-async def _filas(api: SimpleNamespace) -> list[dict]:
-    """Las cotizaciones, leidas de la base: la API ya no tiene GET."""
-    res = await api.session.execute(text("SELECT * FROM exchange_rates WHERE deleted_at IS NULL"))
-    return [_plano(dict(m)) for m in res.mappings()]
+@pytest.fixture(autouse=True)
+def _sin_memoria():
+    servicio.olvidar()
+    yield
+    servicio.olvidar()
 
 
-def _del_dia(filas: list[dict], **filtros) -> list[dict]:
-    """Filas de la fecha de prueba que cumplan los filtros."""
-    return [
-        f
-        for f in filas
-        if f["rate_date"] == FECHA_PRUEBA and all(f[k] == v for k, v in filtros.items())
-    ]
+class Falsas:
+    """Fuentes falsas: responden con lo que se les cargo y anotan que se pidio.
+    Con `caida`, ninguna contesta (como sin conexion)."""
+
+    def __init__(self) -> None:
+        self.caida = False
+        self.dolares: dict[str, dict[date, Decimal]] = {
+            casa: {d: Decimal(base) + i for i, d in enumerate(DIAS)}
+            for casa, base in (("oficial", 1000), ("mep", 1500), ("blue", 1550), ("tarjeta", 1900))
+        }
+        self.bce: dict[date, dict[str, Decimal]] = {}
+        self.bna: dict[str, dict[date, Decimal]] = {}
+        self.ultimos: dict[str, tuple[date, dict[str, Decimal]]] = {}
+        self.monedas_bce = frozenset({"EUR", "BRL", "MXN"})
+        self.pedidos: list[tuple] = []
+
+    def _contesta(self):
+        if self.caida:
+            raise fuentes_fx.SinRespuesta("caida")
+
+    async def dolar_historia(self, casa):
+        self._contesta()
+        self.pedidos.append(("historia", casa))
+        return sorted(self.dolares.get(casa, {}).items())
+
+    async def dolar_dia(self, casa, fecha):
+        self._contesta()
+        self.pedidos.append(("dia", casa, fecha))
+        return self.dolares.get(casa, {}).get(fecha)
+
+    async def bna_historia(self, moneda):
+        self._contesta()
+        return sorted(self.bna.get(moneda, {}).items())
+
+    async def bna_dia(self, moneda, fecha):
+        self._contesta()
+        return self.bna.get(moneda, {}).get(fecha)
+
+    async def bce_monedas(self):
+        self._contesta()
+        return self.monedas_bce
+
+    async def bce_serie(self, desde, hasta, monedas):
+        self._contesta()
+        self.pedidos.append(("bce", desde, hasta, tuple(monedas)))
+        return {
+            f: {m: v for m, v in d.items() if m in monedas}
+            for f, d in self.bce.items()
+            if desde <= f <= hasta
+        }
+
+    async def ultimo(self, base):
+        self._contesta()
+        return self.ultimos.get(base)
 
 
-async def _cuenta(api: SimpleNamespace, currency: str, nombre: str | None = None) -> str:
-    resp = await api.client.post(
-        "/api/v1/accounts",
+async def _serie(api: SimpleNamespace, base: str, quote: str, casa: str | None) -> dict:
+    """{fecha: rate} de las automaticas de una serie, en las fechas de prueba."""
+    filas = await api.session.execute(
+        text(
+            "SELECT rate_date, rate FROM exchange_rates WHERE base_currency = :b"
+            " AND quote_currency = :q AND source = 'auto' AND casa IS NOT DISTINCT FROM :c"
+            " AND deleted_at IS NULL AND rate_date >= :d"
+        ),
+        {"b": base, "q": quote, "c": casa, "d": DESDE},
+    )
+    return {f: r for f, r in filas.all()}
+
+
+async def _correr(api, f: Falsas, *, hoy: date = HOY, monedas: set[str] = frozenset()):
+    return await servicio.actualizar(
+        api.session, hoy=hoy, desde=DESDE, monedas=set(monedas), fuentes=f
+    )
+
+
+# --- Los dolares ----------------------------------------------------------------
+
+
+async def test_carga_la_historia_de_los_cuatro_dolares(api: SimpleNamespace) -> None:
+    f = Falsas()
+    inf = await _correr(api, f)
+    for casa, base in (("oficial", 1000), ("mep", 1500), ("blue", 1550), ("tarjeta", 1900)):
+        serie = await _serie(api, "USD", "ARS", casa)
+        assert sorted(serie) == DIAS
+        assert serie[HOY] == Decimal(base + len(DIAS) - 1)
+    assert "USD" in inf.nuevas
+
+
+async def test_despues_pide_solo_lo_del_dia(api: SimpleNamespace) -> None:
+    f = Falsas()
+    await _correr(api, f)
+    manana = HOY + timedelta(days=1)
+    for casa in f.dolares:
+        f.dolares[casa][manana] = Decimal(2000)
+    f.pedidos.clear()
+    await _correr(api, f, hoy=manana)
+    # De la ultima conocida (que puede haber cambiado) a hoy, sin la historia.
+    assert sorted(p for p in f.pedidos if p[0] != "dia") == []
+    assert {p[2] for p in f.pedidos} == {HOY, manana}
+    assert (await _serie(api, "USD", "ARS", "mep"))[manana] == Decimal(2000)
+
+
+async def test_el_valor_de_los_ultimos_dias_se_corrige_y_lo_viejo_no(api: SimpleNamespace) -> None:
+    # El MEP se mueve durante el dia: lo de hoy se corrige si cambio. Lo viejo
+    # es historia y no se toca aunque la fuente diga otra cosa.
+    f = Falsas()
+    await _correr(api, f)
+    f.dolares["mep"][HOY] = Decimal("1777.7")
+    f.dolares["mep"][DESDE] = Decimal("9")
+    await _correr(api, f)
+    serie = await _serie(api, "USD", "ARS", "mep")
+    assert serie[HOY] == Decimal("1777.7")
+    assert serie[DESDE] == Decimal(1500)
+
+
+async def test_lo_cargado_a_mano_no_se_toca(api: SimpleNamespace) -> None:
+    r = await api.client.post(
+        "/api/v1/exchange-rates",
         json={
             "id": str(uuid.uuid4()),
-            "name": nombre or f"Cuenta {currency}",
-            "type": "bank",
-            "currency": currency,
+            "base_currency": "USD",
+            "quote_currency": "ARS",
+            "rate": "1600",
+            "rate_date": HOY.isoformat(),
         },
     )
-    assert resp.status_code == 201, resp.text
-    return resp.json()["id"]
+    assert r.status_code == 201, r.text
+    await _correr(api, Falsas())
+    mano = (
+        await api.session.execute(
+            text("SELECT rate FROM exchange_rates WHERE id = :id"), {"id": r.json()["id"]}
+        )
+    ).scalar_one()
+    assert mano == Decimal(1600)
 
 
-def _falso(valores: dict[str, str], fecha: str = FECHA_PRUEBA, registro: list | None = None):
-    """Devuelve un `traer` que responde con `valores[moneda]` y anota que se pidio."""
-
-    async def traer(origen: str, destino: str):
-        if registro is not None:
-            registro.append((origen, destino))
-        if origen not in valores:
-            return None
-        return Decimal(valores[origen]), date.fromisoformat(fecha)
-
-    return traer
+# --- Las otras monedas, contra el dolar --------------------------------------------
 
 
-def _por_par(valores: dict[tuple[str, str], str], fecha: str = FECHA_PRUEBA):
-    """Como `_falso` pero indexado por (origen, destino): sirve para probar que
-    se elige la direccion del numero grande."""
-
-    async def traer(origen: str, destino: str):
-        valor = valores.get((origen, destino))
-        if valor is None:
-            return None
-        return Decimal(valor), date.fromisoformat(fecha)
-
-    return traer
+async def test_las_del_bce_van_contra_el_dolar(api: SimpleNamespace) -> None:
+    f = Falsas()
+    f.bce = {d: {"EUR": Decimal("0.9"), "BRL": Decimal("5.1")} for d in DIAS}
+    inf = await _correr(api, f, monedas={"EUR", "ARS", "USD"})
+    serie = await _serie(api, "USD", "EUR", None)
+    assert sorted(serie) == DIAS and serie[HOY] == Decimal("0.9")
+    # Solo lo que se usa: el real no.
+    assert await _serie(api, "USD", "BRL", None) == {}
+    assert "EUR" in inf.nuevas
 
 
-async def test_crea_la_cotizacion_de_cada_moneda_del_usuario(api: SimpleNamespace) -> None:
-    await _cuenta(api, "ARS")  # la base no se cotiza contra si misma
-    await _cuenta(api, "USD")
-    await _cuenta(api, "EUR")
+async def test_uyu_cruza_con_el_dolar_oficial_del_mismo_dia(api: SimpleNamespace) -> None:
+    # El BCE no publica el peso uruguayo: el BNA si, contra el peso. 1 USD en
+    # UYU sale de las dos del mismo dia: 1500 / 37,5 = 40.
+    f = Falsas()
+    f.bna = {"USD": {HOY: Decimal(1500)}, "UYU": {HOY: Decimal("37.5")}}
+    await _correr(api, f, monedas={"UYU"})
+    assert await _serie(api, "USD", "UYU", None) == {HOY: Decimal(40)}
 
-    pedidos: list = []
-    res = await servicio.refrescar(
-        api.session,
-        api.owner_id,
-        traer=_falso({"USD": "1735.10", "EUR": "2040.55"}, registro=pedidos),
-    )
 
-    assert sorted(res.actualizadas) == ["EUR", "USD"]
-    assert res.fallidas == []
-    # Se pide una llamada por moneda, contra la base, y NUNCA la base sola.
-    assert sorted(pedidos) == [("EUR", "ARS"), ("USD", "ARS")]
-
-    filas = await _filas(api)
-    creadas = {
-        (f["base_currency"], f["quote_currency"], f["source"]): Decimal(f["rate"])
-        for f in _del_dia(filas, source="auto")
+async def test_lo_que_nadie_publica_con_historia_toma_el_ultimo_valor(api: SimpleNamespace) -> None:
+    f = Falsas()
+    f.ultimos = {
+        "USD": (HOY, {"PYG": Decimal(7300), "KWD": Decimal("0.307")}),
+        "KWD": (HOY, {"USD": Decimal("3.2573")}),
     }
-    assert creadas[("USD", "ARS", "auto")] == Decimal("1735.10")
-    assert creadas[("EUR", "ARS", "auto")] == Decimal("2040.55")
-
-
-async def test_es_idempotente_por_fecha(api: SimpleNamespace) -> None:
-    await _cuenta(api, "USD")
-    traer = _falso({"USD": "1735.10"})
-
-    primera = await servicio.refrescar(api.session, api.owner_id, traer=traer)
-    assert primera.actualizadas == ["USD"]
-
-    # Misma fecha y mismo valor: no se toca nada (la fuente publica una por dia).
-    segunda = await servicio.refrescar(api.session, api.owner_id, traer=traer)
-    assert segunda.actualizadas == []
-    assert segunda.sin_cambios == ["USD"]
-
-
-async def test_si_el_valor_del_dia_cambio_corrige_la_fila(api: SimpleNamespace) -> None:
-    await _cuenta(api, "USD")
-    await servicio.refrescar(api.session, api.owner_id, traer=_falso({"USD": "1735.10"}))
-    res = await servicio.refrescar(api.session, api.owner_id, traer=_falso({"USD": "1740.00"}))
-
-    assert res.actualizadas == ["USD"]
-    # Corrige, no duplica: es el mismo dato del mismo dia y misma fuente.
-    filas = await _filas(api)
-    delDia = _del_dia(filas, source="auto", base_currency="USD")
-    assert len(delDia) == 1
-    assert Decimal(delDia[0]["rate"]) == Decimal("1740.00")
-
-
-async def test_una_moneda_marcada_manual_no_se_toca(api: SimpleNamespace) -> None:
-    await _cuenta(api, "USD")
-    await _cuenta(api, "EUR")
-    # En Argentina el dolar oficial de la API no es el que uno paga: se maneja
-    # a mano y queda fuera del automatico.
-    assert (
-        await api.client.patch(f"/api/v1/users/{api.owner_id}", json={"fx_manual": ["USD"]})
-    ).status_code == 200
-
-    pedidos: list = []
-    res = await servicio.refrescar(
-        api.session,
-        api.owner_id,
-        traer=_falso({"USD": "1735.10", "EUR": "2040.55"}, registro=pedidos),
-    )
-
-    assert res.manuales == ["USD"]
-    assert res.actualizadas == ["EUR"]
-    # No se gasta una llamada en una moneda que el usuario maneja a mano.
-    assert pedidos == [("EUR", "ARS")]
+    await _correr(api, f, monedas={"PYG", "KWD"})
+    assert await _serie(api, "USD", "PYG", None) == {HOY: Decimal(7300)}
+    # Con el numero chico la fuente pierde digitos (6 decimales fijos): se
+    # guarda al reves, 1 KWD = 3,2573 USD.
+    assert await _serie(api, "KWD", "USD", None) == {HOY: Decimal("3.2573")}
 
 
 async def test_lo_que_no_se_pudo_traer_se_informa_y_no_rompe(api: SimpleNamespace) -> None:
-    await _cuenta(api, "USD")
-    await _cuenta(api, "BRL")
-
-    # La falsa no conoce BRL: simula que la API no cotiza ese par o fallo.
-    res = await servicio.refrescar(api.session, api.owner_id, traer=_falso({"USD": "1735.10"}))
-    assert res.actualizadas == ["USD"]
-    assert res.fallidas == ["BRL"]
+    f = Falsas()
+    f.caida = True
+    inf = await _correr(api, f, monedas={"EUR", "UYU", "PYG"})
+    assert inf.fallidas == {"USD", "EUR", "UYU", "PYG"}
 
 
-async def test_lo_cargado_a_mano_gana_a_igual_fecha(api: SimpleNamespace) -> None:
-    await _cuenta(api, "USD")
-    # El usuario carga el MEP de hoy...
-    manual = {
-        "id": str(uuid.uuid4()),
-        "base_currency": "USD",
-        "quote_currency": "ARS",
-        "rate": "2100.00",
-        "rate_date": FECHA_PRUEBA,
-        "source": "mep",
-    }
-    assert (await api.client.post("/api/v1/exchange-rates", json=manual)).status_code == 201
-    # ...y despues entra el automatico con la oficial del mismo dia.
-    await servicio.refrescar(api.session, api.owner_id, traer=_falso({"USD": "1735.10"}))
-
-    # Las dos conviven, que es lo que el servidor tiene que garantizar: el unico
-    # parcial es por (par, fecha, FUENTE), asi que la manual no pisa la auto.
-    # Cual gana al mostrar lo decide el lector, y el unico lector es el cliente
-    # (`ORDER BY rate_date DESC, (source = 'auto') ASC` en lib/patrimonio).
-    del_dia = _del_dia(await _filas(api), base_currency="USD")
-    por_fuente = {f["source"]: Decimal(f["rate"]) for f in del_dia}
-    assert por_fuente == {"mep": Decimal("2100.00"), "auto": Decimal("1735.10")}
+async def test_un_dia_sin_publicar_no_es_una_falla(api: SimpleNamespace) -> None:
+    # Al dia, el valor de hoy todavia no esta (la fuente da 404): no es "sin
+    # respuesta", es que todavia no hay dato.
+    f = Falsas()
+    await _correr(api, f)
+    manana = HOY + timedelta(days=1)
+    inf = await _correr(api, f, hoy=manana)
+    assert inf.fallidas == set()
 
 
-async def test_endpoint_de_refresco(api: SimpleNamespace, monkeypatch) -> None:
-    # El endpoint no recibe el `traer` por parametro, asi que se sustituye la
-    # funcion que sale a la red: **ninguna prueba toca internet**.
-    monkeypatch.setattr(servicio, "traer_de_api", _falso({"USD": "1735.10"}))
-    await _cuenta(api, "USD")
+async def test_desde_el_primer_movimiento_si_es_mas_viejo(api: SimpleNamespace) -> None:
+    # Un movimiento de 2020 se tiene que poder convertir: la historia llega hasta
+    # el mes de ese movimiento.
+    acc = (
+        await api.client.post(
+            "/api/v1/accounts",
+            json={"id": str(uuid.uuid4()), "name": "C", "type": "cash", "currency": "ARS"},
+        )
+    ).json()["id"]
+    cat = (
+        await api.client.post(
+            "/api/v1/categories",
+            json={"id": str(uuid.uuid4()), "name": "X", "kind": "expense"},
+        )
+    ).json()["id"]
+    r = await api.client.post(
+        "/api/v1/transactions",
+        json={
+            "id": str(uuid.uuid4()),
+            "kind": "expense",
+            "occurred_at": "2003-03-15T12:00:00-03:00",
+            "amount": 100,
+            "currency": "ARS",
+            "account_id": acc,
+            "category_id": cat,
+        },
+    )
+    assert r.status_code == 201, r.text
+    assert await servicio._desde(api.session, HOY) == date(2003, 3, 1)
 
-    resp = await api.client.post("/api/v1/exchange-rates/refresh")
+
+# --- Lo que pide la app -------------------------------------------------------------
+
+
+@pytest.fixture
+def fuentes_falsas(monkeypatch) -> Falsas:
+    """El endpoint no recibe las fuentes: se reemplazan las funciones que salen a
+    la red. **Ninguna prueba toca internet**."""
+    f = Falsas()
+    hoy = servicio.hoy_local()
+    for casa in f.dolares:
+        f.dolares[casa] = {hoy: Decimal("1234.5"), hoy - timedelta(days=1): Decimal("1234.5")}
+    for nombre in ("dolar_historia", "dolar_dia", "bna_historia", "bna_dia", "bce_monedas"):
+        monkeypatch.setattr(fuentes_fx, nombre, getattr(f, nombre))
+    monkeypatch.setattr(fuentes_fx, "bce_serie", f.bce_serie)
+    monkeypatch.setattr(fuentes_fx, "ultimo", f.ultimo)
+    return f
+
+
+async def test_endpoint_de_refresco(api: SimpleNamespace, fuentes_falsas: Falsas) -> None:
+    await api.client.post(
+        "/api/v1/accounts",
+        json={"id": str(uuid.uuid4()), "name": "D", "type": "bank", "currency": "USD"},
+    )
+    resp = await api.client.post("/api/v1/exchange-rates/refresh?forzar=true")
     assert resp.status_code == 200, resp.text
     assert resp.json() == {
         "actualizadas": ["USD"],
@@ -201,106 +283,72 @@ async def test_endpoint_de_refresco(api: SimpleNamespace, monkeypatch) -> None:
     }
 
 
-async def test_el_endpoint_no_rompe_si_la_fuente_falla(api: SimpleNamespace, monkeypatch) -> None:
-    async def cae(origen: str, destino: str):
-        return None
-
-    monkeypatch.setattr(servicio, "traer_de_api", cae)
-    await _cuenta(api, "USD")
-
+async def test_al_abrir_no_sale_a_la_red_si_recien_se_hizo(
+    api: SimpleNamespace, fuentes_falsas: Falsas
+) -> None:
+    await api.client.post("/api/v1/exchange-rates/refresh?forzar=true")
+    fuentes_falsas.pedidos.clear()
     resp = await api.client.post("/api/v1/exchange-rates/refresh")
-    # Sin conexion o con la API caida el refresco informa y sigue: la
-    # cotizacion cacheada alcanza para estimar (ver 0005).
+    assert resp.status_code == 200
+    assert fuentes_falsas.pedidos == []
+
+
+async def test_el_endpoint_no_rompe_si_la_fuente_falla(
+    api: SimpleNamespace, fuentes_falsas: Falsas
+) -> None:
+    fuentes_falsas.caida = True
+    await api.client.post(
+        "/api/v1/accounts",
+        json={"id": str(uuid.uuid4()), "name": "D", "type": "bank", "currency": "USD"},
+    )
+    resp = await api.client.post("/api/v1/exchange-rates/refresh?forzar=true")
     assert resp.status_code == 200
     assert resp.json()["fallidas"] == ["USD"]
 
 
-def test_parseo_del_payload_real() -> None:
-    """El formato que devuelve la API v4, con el JSON tal como llega."""
-    payload = {
-        "provider": "https://www.exchangerate-api.com",
-        "base": "USD",
-        "date": "2026-09-07",
-        "time_last_updated": 1789000000,
-        "rates": {"USD": 1, "ARS": 1735.1, "EUR": 0.856},
-    }
-    # `traer_de_api` mezcla HTTP y parseo; se prueba la parte de parseo con la
-    # misma logica que usa (Decimal desde string, fecha ISO del payload).
-    rate = Decimal(str(payload["rates"]["ARS"]))
-    fecha = date.fromisoformat(payload["date"])
-    assert rate == Decimal("1735.1")
-    assert fecha == date(2026, 9, 7)
+# --- Las automaticas son del servidor ------------------------------------------------
 
 
-async def test_guarda_el_par_en_la_direccion_del_numero_grande(api: SimpleNamespace) -> None:
-    """La API devuelve 6 DECIMALES fijos, no 6 digitos significativos: si el
-    valor es chico se pierden digitos y el inverso arrastra el error.
-
-    Con base USD y una cuenta en pesos, la direccion "natural" (1 ARS = X USD)
-    da 0.000663 y hay que dar vuelta la consulta."""
-    assert (
-        await api.client.patch(f"/api/v1/users/{api.owner_id}", json={"base_currency": "USD"})
-    ).status_code == 200
-    await _cuenta(api, "ARS")
-
-    res = await servicio.refrescar(
-        api.session,
-        api.owner_id,
-        traer=_por_par({("ARS", "USD"): "0.000663", ("USD", "ARS"): "1507.37"}, fecha="2026-03-11"),
+async def test_el_cliente_no_crea_ni_toca_automaticas(api: SimpleNamespace) -> None:
+    r = await api.client.post(
+        "/api/v1/exchange-rates",
+        json={
+            "id": str(uuid.uuid4()),
+            "base_currency": "USD",
+            "quote_currency": "ARS",
+            "rate": "1",
+            "rate_date": HOY.isoformat(),
+            "source": "auto",
+        },
     )
-    assert res.actualizadas == ["ARS"]
-
-    auto = _del_dia(await _filas(api), source="auto")
-    assert len(auto) == 1
-    # Guarda 1 USD = 1507,37 ARS, no 1 ARS = 0,000663 USD.
-    assert (auto[0]["base_currency"], auto[0]["quote_currency"]) == ("USD", "ARS")
-    assert Decimal(auto[0]["rate"]) == Decimal("1507.37")
-
-
-async def test_si_la_direccion_natural_ya_es_grande_no_pregunta_dos_veces(
-    api: SimpleNamespace,
-) -> None:
-    # Base ARS y cuenta en dolares: 1 USD = 1507,37 ARS ya viene con todos los
-    # digitos, asi que no hay segunda llamada.
-    await _cuenta(api, "USD")
-    pedidos: list = []
-    await servicio.refrescar(
-        api.session, api.owner_id, traer=_falso({"USD": "1507.37"}, registro=pedidos)
-    )
-    assert pedidos == [("USD", "ARS")]
-
-
-# --- Dos pedidos a la vez -----------------------------------------------------
-
-
-async def test_insertar_si_falta_no_choca_con_una_igual(session) -> None:
-    """La app dispara el refresco al abrir: dos pedidos que llegan juntos ven
-    los dos que la fila falta y los dos la insertan. El segundo tiene que salir
-    sin ruido, no reventar contra `fx_uniq`.
-
-    Se usa XTS, el codigo que ISO 4217 reserva justamente para pruebas: la tabla
-    no tiene `owner_id`, asi que la base de desarrollo se filtra en las pruebas
-    y hay que elegir un par que nadie mas vaya a cotizar.
-    """
-    par = {
-        "base_currency": "XTS",
-        "quote_currency": "XXX",
-        "rate": Decimal("1234.5600000000"),
-        "rate_date": date.fromisoformat(FECHA_PRUEBA),
-    }
-
-    assert await servicio.insertar_si_falta(session, **par) is True
-    # La segunda no inserta y **no levanta**: es el caso de la carrera.
-    assert await servicio.insertar_si_falta(session, **par) is False
-
-    filas = (
-        await session.execute(
+    assert r.status_code == 422
+    await _correr(api, Falsas())
+    auto = (
+        await api.session.execute(
             text(
-                "SELECT count(*) FROM exchange_rates"
-                " WHERE base_currency='XTS' AND quote_currency='XXX'"
-                " AND rate_date=:f AND deleted_at IS NULL"
+                "SELECT id FROM exchange_rates WHERE source = 'auto' AND casa = 'mep'"
+                " AND rate_date = :d AND deleted_at IS NULL"
             ),
-            {"f": par["rate_date"]},
+            {"d": HOY},
         )
     ).scalar_one()
-    assert filas == 1
+    assert (
+        await api.client.patch(f"/api/v1/exchange-rates/{auto}", json={"rate": "2"})
+    ).status_code == 422
+    assert (await api.client.delete(f"/api/v1/exchange-rates/{auto}")).status_code == 422
+
+
+# --- El dolar de cada moneda ---------------------------------------------------------
+
+
+async def test_el_dolar_de_cada_moneda_se_guarda_en_el_usuario(api: SimpleNamespace) -> None:
+    # Llega por la sync como texto con el JSON adentro, igual que fx_manual.
+    r = await api.client.patch(
+        f"/api/v1/users/{api.owner_id}", json={"fx_dolar": '{"USD": "mep", "EUR": "tarjeta"}'}
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["fx_dolar"] == {"USD": "mep", "EUR": "tarjeta"}
+    r = await api.client.patch(f"/api/v1/users/{api.owner_id}", json={"fx_dolar": {"USD": "ccl"}})
+    assert r.status_code == 422
+    r = await api.client.patch(f"/api/v1/users/{api.owner_id}", json={"fx_dolar": None})
+    assert r.json()["fx_dolar"] is None

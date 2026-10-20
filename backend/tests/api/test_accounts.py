@@ -68,10 +68,10 @@ async def test_other_users_account_is_404(api: SimpleNamespace) -> None:
     other_acc = uuid.uuid4()
     await api.session.execute(
         text(
-            "INSERT INTO users (id, username, email, password_hash, display_name) "
-            "VALUES (:id, :email, :email, 'x', 'Otro')"
+            "INSERT INTO users (id, username, password_hash, display_name) "
+            "VALUES (:id, :u, 'x', 'Otro')"
         ),
-        {"id": other_user, "email": f"{other_user}@test.local"},
+        {"id": other_user, "u": f"{other_user}@test.local"},
     )
     await api.session.execute(
         text(
@@ -106,10 +106,12 @@ async def test_soft_delete_marca_deleted_at(api: SimpleNamespace) -> None:
     assert resp.status_code == 204
 
     # Sigue en la base con deleted_at (borrado logico, regla 3) y la API ya no
-    # la deja tocar: un segundo borrado no la encuentra.
+    # la deja modificar. Borrarla otra vez no es un error (1.7.0): es lo mismo.
     fila = await api.fila("accounts", acc_id)
     assert fila["deleted_at"] is not None
-    assert (await api.client.delete(f"/api/v1/accounts/{acc_id}")).status_code == 404
+    r = await api.client.patch(f"/api/v1/accounts/{acc_id}", json={"name": "Otra"})
+    assert r.status_code == 404
+    assert (await api.client.delete(f"/api/v1/accounts/{acc_id}")).status_code == 204
 
 
 async def test_duplicate_id_returns_409(api: SimpleNamespace) -> None:

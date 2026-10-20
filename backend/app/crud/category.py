@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
+from app.crud._borrado import vivo
 from app.crud.group import membresia
 from app.models.category import Category
 from app.schemas.category import CategoryCreate, CategoryUpdate
@@ -26,7 +27,11 @@ def _mismo_ambito(a: Category, b: Category) -> bool:
 
 
 async def _accesible(
-    session: AsyncSession, user_id: uuid.UUID, category_id: uuid.UUID
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    category_id: uuid.UUID,
+    *,
+    incluso_borrado: bool = False,
 ) -> Category | None:
     """La categoria si el usuario la puede tocar: es personal suya, o es de un
     grupo del que es miembro. None si no."""
@@ -34,7 +39,7 @@ async def _accesible(
         await session.execute(
             select(Category).where(
                 Category.id == category_id,
-                Category.deleted_at.is_(None),
+                vivo(Category, incluso_borrado),
             )
         )
     ).scalar_one_or_none()
@@ -80,9 +85,13 @@ async def create_category(
 
 
 async def get_category(
-    session: AsyncSession, user_id: uuid.UUID, category_id: uuid.UUID
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    category_id: uuid.UUID,
+    *,
+    incluso_borrado: bool = False,
 ) -> Category | None:
-    return await _accesible(session, user_id, category_id)
+    return await _accesible(session, user_id, category_id, incluso_borrado=incluso_borrado)
 
 
 async def update_category(

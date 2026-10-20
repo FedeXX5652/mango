@@ -321,7 +321,10 @@ const exchange_rates = new Table(
     quote_currency: column.text,
     rate: column.text,
     rate_date: column.text,
+    // 'auto' la trajo el servidor; cualquier otro valor, cargada a mano.
     source: column.text,
+    // Que dolar es una USD -> ARS automatica (0031). NULL en el resto.
+    casa: column.text,
     created_at: column.text,
     updated_at: column.text,
     deleted_at: column.text,
@@ -345,6 +348,8 @@ const users = new Table({
   home_shortcuts: column.text,
   // "Más tarde" desde el botón del aviso (0030): 1h, 3h o manana. NULL = 3 horas.
   snooze_default: column.text,
+  // El dolar de cada moneda (0031): {moneda: casa}, JSON en texto. NULL = MEP.
+  fx_dolar: column.text,
 })
 
 // --- Proyecciones del grupo (0021) -------------------------------------------
@@ -511,6 +516,8 @@ const subidas_rechazadas = new Table(
     op: column.text,
     fila_id: column.text,
     datos: column.text,
+    // Lo que se subio la primera vez, si despues se edito (1.7.0): para volver.
+    datos_original: column.text,
     motivo: column.text,
     rechazada_en: column.text,
   },

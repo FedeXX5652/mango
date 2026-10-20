@@ -1,4 +1,5 @@
-import { type CotizacionConocida, buscarCotizacion, convertir } from "@/lib/patrimonio"
+import type { Conversor } from "@/lib/cotizaciones"
+import { convertir } from "@/lib/patrimonio"
 
 // Informes historicos: cuanto gaste, expresado en UNA moneda, con la cotizacion
 // **del momento de cada movimiento** (ver decision 0005 punto 3).
@@ -14,7 +15,8 @@ import { type CotizacionConocida, buscarCotizacion, convertir } from "@/lib/patr
 //   1. propia      el movimiento ya esta en la moneda pedida -> `amount`
 //   2. movimiento  la cuenta debitada esta en la moneda pedida y hay
 //                  `amount_account` -> ese monto, que es el del resumen del banco
-//   3. serie       `exchange_rates` a la fecha del movimiento
+//   3. serie       `exchange_rates` a la fecha del movimiento, con el dolar
+//                  elegido para esa moneda (ver lib/cotizaciones, 0031)
 //   4. nada        queda AFUERA del total y se informa (no se estima)
 //
 // El caso 2 es lo que paga el tipo de cambio por movimiento: alguien en pesos
@@ -51,7 +53,7 @@ export interface Convertido {
 export function convertirMovimiento(
   mov: MovimientoConvertible,
   destino: string,
-  cotizaciones: CotizacionConocida[],
+  conv: Conversor,
 ): Convertido | null {
   const objetivo = destino.trim().toUpperCase()
   const moneda = mov.currency.trim().toUpperCase()
@@ -68,7 +70,7 @@ export function convertirMovimiento(
   }
 
   // A la fecha del movimiento, nunca la ultima conocida.
-  const cot = buscarCotizacion(moneda, objetivo, cotizaciones, mov.occurred_at)
+  const cot = conv(moneda, objetivo, mov.occurred_at)
   if (!cot) return null
 
   return {
@@ -97,11 +99,11 @@ export interface ListaConvertida<T> {
 export function convertirTodos<T extends MovimientoConvertible>(
   movimientos: T[],
   destino: string,
-  cotizaciones: CotizacionConocida[],
+  conv: Conversor,
 ): ListaConvertida<T> {
   const sin = new Set<string>()
   const filas = movimientos.map((fila) => {
-    const r = convertirMovimiento(fila, destino, cotizaciones)
+    const r = convertirMovimiento(fila, destino, conv)
     if (r === null) sin.add(fila.currency.trim().toUpperCase())
     return { fila, convertido: r?.centavos ?? null }
   })

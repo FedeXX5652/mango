@@ -152,12 +152,19 @@ export const api = {
   // llamarlo al abrir la app.
   // Avisos push (1.4.0): la suscripcion de este dispositivo vive en el servidor.
   configPush: () => pedir<{ disponible: boolean; clave_publica: string | null }>("/push/config"),
+  // `tipos` (1.7.0): las familias que acepta. Sin el campo, el servidor deja las
+  // que habia; null = todas.
   suscribirPush: (sub: {
     id: string
     endpoint: string
     keys: { p256dh: string; auth: string }
     dispositivo: string
-  }) => pedir<{ id: string }>("/push/subscriptions", { method: "POST", body: JSON.stringify(sub) }),
+    tipos?: string[] | null
+  }) =>
+    pedir<{ id: string; tipos: string[] | null }>("/push/subscriptions", {
+      method: "POST",
+      body: JSON.stringify(sub),
+    }),
   bajaPush: (endpoint: string) =>
     pedir<void>("/push/subscriptions", { method: "DELETE", body: JSON.stringify({ endpoint }) }),
   probarPush: (endpoint: string) =>

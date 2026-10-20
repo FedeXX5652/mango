@@ -48,6 +48,27 @@ describe("subir: autenticacion de las escrituras", () => {
     expect(headersDe().Authorization).toBe("Bearer tok-123")
   })
 
+  it("una asociacion de medio se borra por su id (1.7.0)", async () => {
+    // El DELETE de la cola no trae el medio: antes iba siempre a "Rechazados".
+    const r = await subir({
+      tabla: "payment_method_accounts",
+      op: UpdateType.DELETE,
+      id: "x",
+      datos: {},
+    })
+    expect(r).toEqual({ ok: true })
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/v1\/payment-method-accounts\/x$/)
+    expect((fetchMock.mock.calls[0][1] as RequestInit).method).toBe("DELETE")
+    // Modificarla no existe: se borra y se crea otra.
+    const p = await subir({
+      tabla: "payment_method_accounts",
+      op: UpdateType.PATCH,
+      id: "x",
+      datos: {},
+    })
+    expect(p).toEqual({ ok: false, motivo: "Operación no soportada" })
+  })
+
   it("un 401 NO descarta el cambio: borra la sesion y relanza para reintentar", async () => {
     fetchMock.mockResolvedValueOnce(respuesta(401, { detail: "No autenticado" }))
     await expect(

@@ -2,7 +2,18 @@ import { useEffect, useState } from "react"
 
 import { Button } from "@/componentes/ui/button"
 import { Interruptor } from "@/componentes/ui/interruptor"
-import { type EstadoPush, activarPush, desactivarPush, estadoPush, probarPush } from "@/lib/push"
+import {
+  type EstadoPush,
+  FAMILIAS,
+  type Familia,
+  activarPush,
+  conFamilia,
+  desactivarPush,
+  elegirFamilias,
+  estadoPush,
+  probarPush,
+  tiposGuardados,
+} from "@/lib/push"
 
 // "Avisos en este dispositivo" (1.4.0): prender o apagar el push de ESTE
 // navegador, y probar que llega. Sin heimdall no hay push: los avisos se ven en
@@ -97,6 +108,7 @@ export function AvisosDispositivo() {
               : TEXTO[estado]}
         </p>
       )}
+      {estado === "activo" && <Familias />}
       {estado === "activo" && (
         <Button variant="outline" size="sm" disabled={enviando} onClick={() => void probar()}>
           {enviando ? "Enviando…" : "Mandar un aviso de prueba"}
@@ -108,5 +120,63 @@ export function AvisosDispositivo() {
         </p>
       )}
     </div>
+  )
+}
+
+// Que avisos le llegan a este dispositivo (1.7.0): uno puede querer los gastos del
+// grupo en la compu y no en el celular. Lo que se apaga aca sigue en la campanita.
+function Familias() {
+  const [tipos, setTipos] = useState<Familia[] | null>(tiposGuardados)
+  const [error, setError] = useState("")
+
+  async function cambiar(familia: Familia, prendida: boolean) {
+    const antes = tipos
+    const nuevos = conFamilia(tipos, familia, prendida)
+    setTipos(nuevos)
+    setError("")
+    try {
+      await elegirFamilias(nuevos)
+    } catch {
+      setTipos(antes)
+      setError("No se pudo cambiar. ¿Hay conexión?")
+    }
+  }
+
+  const prendidas = tipos ?? FAMILIAS.map((f) => f.id)
+  return (
+    <fieldset className="space-y-2">
+      <legend className="mb-2 text-sm text-muted-foreground">Qué avisos llegan acá</legend>
+      <div className="divide-y divide-border rounded-md border border-border bg-card">
+        {FAMILIAS.map((f) => {
+          const prendida = prendidas.includes(f.id)
+          // Apagarlas todas es apagar los avisos: eso es el interruptor de arriba.
+          const ultima = prendida && prendidas.length === 1
+          return (
+            <div key={f.id} className="flex min-h-11 items-center justify-between gap-3 px-4 py-2">
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">{f.nombre}</span>
+                <span className="block text-xs text-muted-foreground">{f.detalle}</span>
+              </span>
+              <Interruptor
+                encendido={prendida}
+                etiqueta={f.nombre}
+                disabled={ultima}
+                onCambio={(v) => void cambiar(f.id, v)}
+              />
+            </div>
+          )
+        })}
+      </div>
+      {prendidas.length === 1 && (
+        <p className="text-xs text-muted-foreground">
+          Para no recibir ninguno, apagá los avisos en este dispositivo.
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
+    </fieldset>
   )
 }

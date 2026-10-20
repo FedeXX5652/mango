@@ -1,8 +1,9 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { Check, ChevronRight, Plus } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useId, useMemo, useState } from "react"
 
 import { Button } from "@/componentes/ui/button"
+import { useEtiquetaDeCampo } from "@/componentes/ui/campoContexto"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
@@ -19,17 +20,28 @@ interface EtiquetaOpcion {
 // etiquetas, mostrarlas todas inline inunda el formulario: se resume en una
 // linea y la eleccion pasa a un dialogo con buscador (sheet en movil, modal en
 // escritorio). Si no hay etiquetas creadas no renderiza nada.
+//
+// Las del espacio donde se carga (1.7.0): en un grupo, las del grupo; si no, las
+// personales. La que se crea aca queda en ese espacio.
 export function SelectorEtiquetas({
   seleccionadas,
   onCambio,
+  grupo = null,
 }: {
   seleccionadas: string[]
   onCambio: (ids: string[]) => void
+  grupo?: string | null
 }) {
   const { data: etiquetas } = useQuery<EtiquetaOpcion>(
-    "SELECT id, name, color FROM tags WHERE deleted_at IS NULL AND archived = 0",
+    grupo
+      ? "SELECT id, name, color FROM tags WHERE deleted_at IS NULL AND archived = 0 AND group_id = ?"
+      : "SELECT id, name, color FROM tags WHERE deleted_at IS NULL AND archived = 0 AND group_id IS NULL",
+    grupo ? [grupo] : [],
   )
   const db = usePowerSync()
+  // Nombre accesible: la etiqueta del `Campo` mas las elegidas (1.7.0).
+  const idEtiqueta = useEtiquetaDeCampo()
+  const idValor = useId()
   const [abierto, setAbierto] = useState(false)
   const [busqueda, setBusqueda] = useState("")
 
@@ -57,11 +69,10 @@ export function SelectorEtiquetas({
       return
     }
     const id = uuidv4()
-    await db.execute("INSERT INTO tags (id, name, color, archived) VALUES (?, ?, ?, 0)", [
-      id,
-      texto,
-      PALETA[orden.length % PALETA.length],
-    ])
+    await db.execute(
+      "INSERT INTO tags (id, name, color, archived, group_id) VALUES (?, ?, ?, 0, ?)",
+      [id, texto, PALETA[orden.length % PALETA.length], grupo],
+    )
     onCambio([...seleccionadas, id])
     setBusqueda("")
   }
@@ -76,13 +87,16 @@ export function SelectorEtiquetas({
     <>
       <button
         type="button"
+        aria-labelledby={idEtiqueta ? `${idEtiqueta} ${idValor}` : undefined}
         onClick={() => setAbierto(true)}
         className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-left text-sm transition-colors hover:bg-muted lg:min-h-10"
       >
         {elegidas.length === 0 ? (
-          <span className="text-muted-foreground">Ninguna</span>
+          <span id={idValor} className="text-muted-foreground">
+            Ninguna
+          </span>
         ) : (
-          <span className="flex min-w-0 flex-wrap items-center gap-2">
+          <span id={idValor} className="flex min-w-0 flex-wrap items-center gap-2">
             {elegidas.map((e) => (
               <span
                 key={e.id}

@@ -25,7 +25,7 @@ class PushSubscription(Base, IdMixin, TimestampMixin):
     auth: Mapped[str] = mapped_column(Text, nullable=False)
     # Para reconocerlo en una lista ("Chrome en Android"). Opcional.
     dispositivo: Mapped[str | None] = mapped_column(Text)
-    # Que tipos de aviso acepta este dispositivo ("grupos", "recordatorios").
+    # Que tipos de aviso acepta este dispositivo ("grupos", "gastos", "recordatorios").
     # NULL = todos.
     tipos: Mapped[list[str] | None] = mapped_column(JSONB(none_as_null=True))
 

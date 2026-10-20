@@ -1,3 +1,4 @@
+import { CASAS, type Casa } from "@/lib/cotizaciones"
 import { db } from "@/lib/powersync/db"
 import { usuarioActualId } from "@/lib/sesion"
 
@@ -22,6 +23,8 @@ export interface Preferencias {
   // Monedas que el usuario carga a mano (ver 0005). En Postgres es JSONB, asi
   // que baja como texto y se parsea aca.
   fx_manual: string[]
+  // El dolar de cada moneda (0031). {} = MEP para todas.
+  fx_dolar: Record<string, Casa>
   // Accesos del panel de Inicio, en orden (0024). null = los de fabrica. Se
   // valida contra el catalogo en componentes/accesos (`normalizarAccesos`).
   home_shortcuts: string[] | null
@@ -34,6 +37,7 @@ interface Fila {
   theme_id: string
   color_scheme: string
   fx_manual: string | null
+  fx_dolar: string | null
   home_shortcuts: string | null
 }
 
@@ -41,7 +45,7 @@ interface Fila {
 // fila (los perfiles de los demas estan en `member_profiles`), pero el WHERE se
 // queda: es lo que garantiza que un UPDATE nunca toque la fila de otra persona.
 const SQL =
-  "SELECT id, display_name, base_currency, theme_id, color_scheme, fx_manual, home_shortcuts FROM users WHERE id = ?"
+  "SELECT id, display_name, base_currency, theme_id, color_scheme, fx_manual, fx_dolar, home_shortcuts FROM users WHERE id = ?"
 
 // Una lista de strings guardada como JSON, o null si no hay o no es JSON.
 export function listaJson(texto: string | null): string[] | null {
@@ -56,6 +60,22 @@ export function listaJson(texto: string | null): string[] | null {
   }
 }
 
+// {moneda: dolar} guardado como JSON. Lo que no es un dolar conocido se ignora:
+// esa moneda cae al de por defecto.
+export function dolarJson(texto: string | null): Record<string, Casa> {
+  if (!texto) return {}
+  try {
+    const x = JSON.parse(texto)
+    if (x === null || typeof x !== "object" || Array.isArray(x)) return {}
+    const validas = new Set<string>(CASAS.map((c) => c.id))
+    return Object.fromEntries(
+      Object.entries(x).filter(([, v]) => typeof v === "string" && validas.has(v)),
+    ) as Record<string, Casa>
+  } catch {
+    return {}
+  }
+}
+
 function aPreferencias(f: Fila): Preferencias {
   return {
     id: f.id,
@@ -66,6 +86,7 @@ function aPreferencias(f: Fila): Preferencias {
       ? (f.color_scheme as EsquemaColor)
       : "system",
     fx_manual: listaJson(f.fx_manual) ?? [],
+    fx_dolar: dolarJson(f.fx_dolar),
     home_shortcuts: listaJson(f.home_shortcuts),
   }
 }
@@ -102,6 +123,8 @@ export function observarPreferencias(alCambiar: (p: Preferencias) => void): () =
 type Campos = Partial<Pick<Preferencias, "display_name" | "base_currency" | "theme_id">> & {
   color_scheme?: EsquemaColor
   fx_manual?: string[]
+  // null = MEP para todas.
+  fx_dolar?: Record<string, Casa> | null
   // null = volver a los de fabrica.
   home_shortcuts?: string[] | null
   // "Más tarde" desde el botón del aviso (0030). null = 3 horas.
@@ -117,9 +140,10 @@ export async function guardarPreferencias(campos: Campos): Promise<void> {
   if (entradas.length === 0) return
 
   const sets = entradas.map(([k]) => `${k} = ?`).join(", ")
-  // Las listas van como texto JSON (en SQLite no hay arrays); null queda null.
+  // Las listas y los objetos van como texto JSON (en SQLite no hay ni uno ni
+  // otro); null queda null.
   const valores = entradas.map(([k, v]) =>
-    k === "fx_manual" || k === "home_shortcuts"
+    k === "fx_manual" || k === "home_shortcuts" || k === "fx_dolar"
       ? v === null
         ? null
         : JSON.stringify(v)

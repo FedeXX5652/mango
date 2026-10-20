@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import DomainError
 from app.crud import category as categorias
 from app.crud import notification as notif
+from app.crud._borrado import vivo
 from app.crud.group import membresia
 from app.models.account import Account, PaymentMethod
 from app.models.transaction import Transaction
@@ -110,13 +111,17 @@ async def create_settlement(
 
 
 async def get_settlement(
-    session: AsyncSession, user_id: uuid.UUID, settlement_id: uuid.UUID
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    settlement_id: uuid.UUID,
+    *,
+    incluso_borrado: bool = False,
 ) -> Settlement | None:
     """El pago si el usuario es miembro de su grupo (cualquiera lo puede deshacer)."""
     pago = (
         await session.execute(
             select(Settlement).where(
-                Settlement.id == settlement_id, Settlement.deleted_at.is_(None)
+                Settlement.id == settlement_id, vivo(Settlement, incluso_borrado)
             )
         )
     ).scalar_one_or_none()

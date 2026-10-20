@@ -88,7 +88,11 @@ async def delete_transaction(
     session: AsyncSession = Depends(get_session),
     owner_id: uuid.UUID = Depends(get_current_user_id),
 ) -> None:
-    tx = await crud.get_transaction(session, owner_id, tx_id)
+    tx = await crud.get_transaction(session, owner_id, tx_id, incluso_borrado=True)
     if tx is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
+    # Idempotente (1.7.0): lo ya borrado da 204, no un 404 que iria a
+    # "Rechazados". Lo ajeno sigue en 404.
+    if tx.deleted_at is not None:
+        return
     await crud.soft_delete_transaction(session, tx)

@@ -64,6 +64,19 @@ reintentar es preguntar "¿ya se puede?" (el servidor se arreglo, el dato cambio
 La que entra se borra de la bandeja; la que vuelve a fallar actualiza su motivo.
 Sin conexion no se puede reintentar y el boton se apaga; descartar si.
 
+**Se puede ver y corregir antes de reintentar** (1.7.0). Tocar un rechazo (en
+escritorio, su lapiz: el click de la fila selecciona) abre sus datos, cada uno
+con su tipo: un numero sigue siendo numero (los montos van en centavos y lo
+dice), un si/no sigue siendo si/no, y una lista o un objeto se edita como su
+JSON. El dato que nombra el motivo de un 422 queda marcado. La primera edicion
+guarda el original (`datos_original`), y "Volver a lo original" lo trae. Editar
+no sube nada: la tabla es local hasta reintentar.
+
+**Se reintenta en el orden en que se rechazo**, como en la cola: el alta de una
+fila antes que su cambio. La pantalla muestra lo ultimo arriba, pero el reintento
+ordena por fecha. Un reintento que falla cambia el motivo y no la fecha: si no,
+el orden se perdia.
+
 ### Multiseleccion
 
 La bandeja permite elegir varios, con el modelo de un explorador de archivos:
@@ -71,6 +84,18 @@ click / Ctrl+click (toggle) / Shift+click (rango) en escritorio, toque largo +
 toggle en movil. La logica —el ancla del rango, el toggle— vive en
 `lib/seleccion`, pura y probada aparte de la interfaz, porque es la parte con
 casos de borde.
+
+### Lo que no tiene que llegar a la bandeja (1.7.0)
+
+- **Borrar dos veces no es un rechazo.** Pasa cuando dos dispositivos borran lo
+  mismo sin conexion, o cuando la sync reintenta un DELETE que ya se aplico.
+  Todos los DELETE son idempotentes: lo ya borrado da 204; lo de otra persona
+  sigue en 404. Los getters aceptan `incluso_borrado` (`crud/_borrado.py`) y la
+  ruta borra solo si sigue vivo. Los recordatorios ya lo hacian desde la 1.5.0.
+- **Una asociacion medio de pago -> cuenta se borra por su id**
+  (`DELETE /payment-method-accounts/{id}`): la operacion de la cola no trae el
+  medio, y el conector la mandaba siempre a la bandeja ("Operacion no
+  soportada"). Pasaba al reasignar o borrar un medio o una cuenta.
 
 ## Consecuencias
 

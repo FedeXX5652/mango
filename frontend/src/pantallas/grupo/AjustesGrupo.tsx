@@ -4,6 +4,7 @@ import { useState } from "react"
 
 import { GrupoCategorias } from "@/componentes/GrupoCategorias"
 import { PaletaColor } from "@/componentes/PaletaColor"
+import { GrupoEtiquetas } from "@/componentes/grupo/GrupoEtiquetas"
 import { PlantillasDelGrupo } from "@/componentes/grupo/PlantillasDelGrupo"
 import { RepartoDelGrupo } from "@/componentes/grupo/RepartoDelGrupo"
 import { Button } from "@/componentes/ui/button"
@@ -160,6 +161,10 @@ export function AjustesGrupo() {
 
       <div id="plantillas" className="scroll-mt-4">
         <PlantillasDelGrupo groupId={id} moneda={grupo.base_currency} />
+      </div>
+
+      <div id="etiquetas" className="scroll-mt-4">
+        <GrupoEtiquetas groupId={id} />
       </div>
 
       <div id="categorias" className="scroll-mt-4">

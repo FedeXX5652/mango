@@ -15,6 +15,7 @@ from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
+from app.crud._borrado import vivo
 from app.crud.group import membresia
 from app.models.account import Account, PaymentMethod
 from app.models.category import Category
@@ -78,7 +79,11 @@ async def create_template(
 
 
 async def get_template(
-    session: AsyncSession, user_id: uuid.UUID, template_id: uuid.UUID
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    template_id: uuid.UUID,
+    *,
+    incluso_borrado: bool = False,
 ) -> Template | None:
     """La plantilla, si es mia (personal) o de un grupo del que soy miembro."""
     mis_grupos = select(GroupMember.group_id).where(
@@ -86,7 +91,7 @@ async def get_template(
     )
     stmt = select(Template).where(
         Template.id == template_id,
-        Template.deleted_at.is_(None),
+        vivo(Template, incluso_borrado),
         or_(
             and_(Template.group_id.is_(None), Template.owner_id == user_id),
             Template.group_id.in_(mis_grupos),

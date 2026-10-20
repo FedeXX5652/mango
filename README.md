@@ -20,8 +20,8 @@ decide compartir**, con reparto de gastos estilo Splitwise incluido.
 ![PowerSync](https://img.shields.io/badge/PowerSync-offline--first-1c1c1c)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalable-5A0FC8?logo=pwa&logoColor=white)
-![Versión](https://img.shields.io/badge/versión-1.6.1-FDBE02)
-![Tests](https://img.shields.io/badge/tests-768%20verdes-2EA043)
+![Versión](https://img.shields.io/badge/versión-1.7.0-FDBE02)
+![Tests](https://img.shields.io/badge/tests-833%20verdes-2EA043)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED?logo=docker&logoColor=white)
 
 </div>
@@ -60,6 +60,10 @@ de un hogar, con tres convicciones:
 - **Presupuesto por sobres** mensual, con arrastre.
 - **Multimoneda**: cada movimiento en su moneda; conversión a la moneda de la
   cuenta con la cotización guardada (el peso físico nunca se distorsiona).
+- **Cotizaciones solas y con historia**: los cuatro dólares argentinos (oficial,
+  MEP, blue y tarjeta) y el resto de las monedas contra el dólar. Cada moneda
+  elige con qué dólar se convierte (MEP por defecto), con su gráfico; lo que
+  pagaste de verdad se carga a mano y gana en su fecha.
 - **Plantillas** y **movimientos recurrentes** que se generan solos en el
   dispositivo.
 - **Calendario de pagos**: lo que tenés que pagar, cuándo vence y cada cuánto se
@@ -99,9 +103,11 @@ de un hogar, con tres convicciones:
 - **Cuenta conjunta**: plata que ya es de todos; lo que se paga con ella no genera
   deuda. **Poner** o **sacar plata** es una transferencia con la conjunta ya
   elegida.
-- **Presupuesto del grupo** y **avisos** de lo que pasa: en la campanita de la
-  app y, si lo activás, en el teléfono aunque la app esté cerrada (push). Cada
-  aviso dice de qué grupo es y al tocarlo abre su pantalla.
+- **Presupuesto del grupo** y **avisos** de lo que pasa (un pago, un gasto nuevo
+  en el que tenés parte, un tope superado, que te sumaron o te sacaron): en la
+  campanita de la app y, si lo activás, en el teléfono aunque la app esté cerrada
+  (push), eligiendo qué avisos llegan a cada dispositivo. Cada aviso dice de qué
+  grupo es y al tocarlo abre su pantalla.
 
 ### 📲 App instalable
 - **PWA**: se instala desde el navegador en Android, iOS y escritorio, y anda sin
@@ -188,7 +194,7 @@ por **una sola puerta** (nginx), así que se expone un único puerto.
   cliente una versión atrás.
 - **Decisiones de arquitectura documentadas** (29 ADRs en
   [`docs/decisiones/`](docs/decisiones)) — nada importante se decide dos veces.
-- **Incrementos chicos con pruebas**: **768** pruebas (backend + frontend) en
+- **Incrementos chicos con pruebas**: **833** pruebas (backend + frontend) en
   verde, más un banco de compatibilidad para detectar regresiones de esquema.
 - **Deploy por imágenes**: el servidor no tiene el código; baja imágenes
   publicadas, y la base migra sola al arrancar.
@@ -272,7 +278,7 @@ Seis contenedores, **un solo puerto** publicado:
 | Contenedor | Qué hace |
 |---|---|
 | `mango-frontend` | La PWA y la **puerta de entrada**: nginx sirve la app y hace de proxy a `/api` y `/powersync`. Único puerto expuesto (`MANGO_PORT`, 8081) |
-| `mango-backend` | API FastAPI. Valida el dominio, **migra la base al arrancar** y corre el **planificador** (avisos push, cotización del día) |
+| `mango-backend` | API FastAPI. Valida el dominio, **migra la base al arrancar** y corre el **planificador** (avisos push, cotizaciones con su historia) |
 | `mango-powersync` | Sincronización, con la configuración de Mango incluida en la imagen |
 | `mango-postgres` | La base de la app (PostgreSQL 16, WAL lógico) |
 | `mango-powersync-storage` | Buckets de sincronización (cache derivada, se reconstruye sola) |
@@ -354,7 +360,7 @@ Uso personal y compartido: **funcionando**. Resumen del roadmap (detalle en
 | Extras (metas, deudas, adjuntos, fechas de tarjeta) | ✅ |
 | Notificaciones push + planificador en el servidor | ✅ |
 | Calendario de pagos con avisos (personal, de grupo, tarjetas y deudas) | ✅ |
-| Multimoneda: histórico de cotización + reportes en moneda base | 🚧 en camino |
+| Multimoneda: histórico de cotización, dólares argentinos + reportes en moneda base | ✅ |
 | Ingesta automática desde correo + sugerencias de IA | 🗓️ después |
 
 ---

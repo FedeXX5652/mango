@@ -21,11 +21,9 @@ from app.models._base import IdMixin, TimestampMixin
 class User(Base, IdMixin, TimestampMixin):
     __tablename__ = "users"
 
-    # `username` reemplaza a `email` como identidad de login (fase 3a). Renombre
-    # por expandir/contraer (0012): se agrega y se rellena desde `email`, que
-    # queda opcional hasta el release que lo borre. El login usa `username`.
+    # Identidad de login (fase 3a). Reemplazo a `email` por expandir/contraer
+    # (0012): se agrego y relleno desde `email`, y `email` se borro en la 1.7.0.
     username: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-    email: Mapped[str | None] = mapped_column(Text, unique=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     # true = clave temporal puesta por el admin; el cliente obliga a cambiarla
     # antes de hacer nada (reset sin mail, ver ESPECIFICACION §7).
@@ -47,6 +45,12 @@ class User(Base, IdMixin, TimestampMixin):
     # que uno paga. Lista de codigos ISO; vacia o NULL = todas automaticas.
     # `none_as_null`: "volver a lo de fabrica" deja NULL de SQL, no JSON `null`.
     fx_manual: Mapped[list[str] | None] = mapped_column(JSONB(none_as_null=True))
+
+    # Con que dolar se convierte cada moneda a pesos (0031): {moneda: casa},
+    # casa en oficial, mep, blue, tarjeta. NULL, o la moneda sin clave, es MEP.
+    # La clave es la moneda que no es el peso: con base ARS, USD y EUR; con base
+    # USD y cuentas en pesos, la del USD. Viaja con la sync, como el tema.
+    fx_dolar: Mapped[dict[str, str] | None] = mapped_column(JSONB(none_as_null=True))
 
     # Accesos de Inicio (0024): que atajos van en el panel de Inicio y en que
     # orden. Lista de ids del catalogo del cliente (frontend/src/componentes/accesos.ts);

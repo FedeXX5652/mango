@@ -49,7 +49,11 @@ async def delete_account(
     session: AsyncSession = Depends(get_session),
     owner_id: uuid.UUID = Depends(get_current_user_id),
 ) -> None:
-    account = await crud.get_account(session, owner_id, account_id)
+    account = await crud.get_account(session, owner_id, account_id, incluso_borrado=True)
     if account is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cuenta no encontrada")
+    # Idempotente (1.7.0): lo ya borrado da 204, no un 404 que iria a
+    # "Rechazados". Lo ajeno sigue en 404.
+    if account.deleted_at is not None:
+        return
     await crud.soft_delete_account(session, account)

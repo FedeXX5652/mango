@@ -10,10 +10,10 @@ async def _otro_usuario(api: SimpleNamespace, username: str) -> str:
     uid = str(uuid.uuid4())
     await api.session.execute(
         text(
-            "INSERT INTO users (id, username, email, password_hash, display_name) "
-            "VALUES (:id, :u, :e, '!', :u)"
+            "INSERT INTO users (id, username, password_hash, display_name) "
+            "VALUES (:id, :u, '!', :u)"
         ),
-        {"id": uid, "u": username, "e": f"{uid}@test.local"},
+        {"id": uid, "u": username},
     )
     await api.session.flush()
     return uid
@@ -129,3 +129,13 @@ async def test_marcar_todas_leidas(api: SimpleNamespace) -> None:
     assert r.status_code == 204
     avisos = await _avisos_de(api, str(api.owner_id))
     assert all(a["read_at"] is not None for a in avisos)
+
+
+async def test_sacar_del_grupo_avisa_al_que_sacaron(api: SimpleNamespace) -> None:
+    # 1.7.0: el grupo desaparece de su app; el aviso dice por que.
+    gid, otro = await _grupo_con_miembro(api)
+    r = await api.client.delete(f"/api/v1/groups/{gid}/members/{otro}")
+    assert r.status_code == 204
+    [aviso] = [a for a in await _avisos_de(api, otro) if a["type"] == "miembro_quitado"]
+    assert aviso["title"] == "Casa · Te sacaron del grupo"
+    assert aviso["body"].startswith("Ya no sos parte de Casa.")

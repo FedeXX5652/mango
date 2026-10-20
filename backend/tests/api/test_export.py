@@ -54,6 +54,65 @@ async def test_export_has_header_and_readable_amounts(api: SimpleNamespace) -> N
     assert row["comercio"] == "SUBE"
     assert row["tipo"] == "expense"
     assert row["estado"] == "confirmed"
+    # Fecha y hora de Argentina, como en la app (1.7.0).
+    assert row["fecha"] == "15/08/2026"
+    assert row["hora"] == "12:00"
+
+
+async def test_export_fecha_en_hora_de_argentina(api: SimpleNamespace) -> None:
+    # 01:30 UTC del 1 de septiembre son las 22:30 del 31 de agosto en Argentina.
+    acc = await _account(api)
+    cat = await _category(api, "Comida")
+    await _tx(
+        api,
+        kind="expense",
+        amount=100,
+        account_id=acc,
+        category_id=cat,
+        occurred_at="2026-09-01T01:30:00Z",
+    )
+    [row] = _rows((await api.client.get("/api/v1/transactions/export")).text)
+    assert (row["fecha"], row["hora"]) == ("31/08/2026", "22:30")
+
+
+async def test_export_nombra_la_categoria_del_grupo_y_la_cuenta_conjunta(
+    api: SimpleNamespace,
+) -> None:
+    # No son del usuario (una es del grupo, la otra no tiene dueño): antes
+    # salian vacias.
+    gid = str(uuid.uuid4())
+    assert (
+        await api.client.post("/api/v1/groups", json={"id": gid, "name": "Casa"})
+    ).status_code == 201
+    conjunta = (
+        await api.client.post(
+            "/api/v1/accounts",
+            json={
+                "id": str(uuid.uuid4()),
+                "name": "Caja común",
+                "type": "cash",
+                "currency": "ARS",
+                "group_id": gid,
+            },
+        )
+    ).json()["id"]
+    cat = (
+        await api.client.post(
+            "/api/v1/categories",
+            json={"id": str(uuid.uuid4()), "name": "Súper", "kind": "expense", "group_id": gid},
+        )
+    ).json()["id"]
+    await _tx(
+        api,
+        kind="expense",
+        amount=10000,
+        account_id=conjunta,
+        category_id=cat,
+        visibility="shared",
+        group_id=gid,
+    )
+    [row] = _rows((await api.client.get("/api/v1/transactions/export")).text)
+    assert (row["cuenta"], row["categoria"]) == ("Caja común", "Súper")
 
 
 async def test_export_amount_formatting_small(api: SimpleNamespace) -> None:
@@ -93,7 +152,7 @@ async def test_export_empty_is_just_header(api: SimpleNamespace) -> None:
     resp = await api.client.get("/api/v1/transactions/export")
     assert resp.status_code == 200
     assert _rows(resp.text) == []
-    assert resp.text.splitlines()[0].startswith("fecha,tipo,monto")
+    assert resp.text.splitlines()[0].startswith("fecha,hora,tipo,monto")
 
 
 async def test_export_incluye_la_conversion(api: SimpleNamespace) -> None:
@@ -167,3 +226,14 @@ async def test_export_deja_vacia_la_conversion_cuando_no_hay(api: SimpleNamespac
     resp = await api.client.get("/api/v1/transactions/export")
     fila = next(linea for linea in resp.text.splitlines() if "Kiosco" in linea)
     assert "1000.00,ARS,,," in fila
+
+
+def test_formato_del_monto_con_signo() -> None:
+    # La division entera de Python redondea hacia abajo: sin el signo aparte,
+    # -230272 salia "-2303.28".
+    from app.services.export import _format_amount
+
+    assert _format_amount(230272) == "2302.72"
+    assert _format_amount(-230272) == "-2302.72"
+    assert _format_amount(5) == "0.05"
+    assert _format_amount(-5) == "-0.05"

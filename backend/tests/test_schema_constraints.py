@@ -27,10 +27,10 @@ async def _seed(conn: AsyncConnection) -> dict[str, uuid.UUID]:
     }
     await conn.execute(
         text(
-            "INSERT INTO users (id, username, email, password_hash, display_name) "
-            "VALUES (:id, :email, :email, 'x', 'Test')"
+            "INSERT INTO users (id, username, password_hash, display_name) "
+            "VALUES (:id, :u, 'x', 'Test')"
         ),
-        {"id": ids["user"], "email": f"{ids['user']}@test.local"},
+        {"id": ids["user"], "u": f"{ids['user']}@test.local"},
     )
     for key in ("acc", "acc2"):
         await conn.execute(

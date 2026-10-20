@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { aBytes, esRutaDeLaApp, nombreDispositivo } from "@/lib/push"
+import { aBytes, conFamilia, esRutaDeLaApp, nombreDispositivo } from "@/lib/push"
 
 describe("clave publica VAPID", () => {
   it("base64url a bytes, con y sin relleno", () => {
@@ -48,5 +48,17 @@ describe("nombre del dispositivo", () => {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/129.0 Safari/537.36 Edg/129.0",
       ),
     ).toBe("Edge en Windows")
+  })
+})
+
+describe("familias de aviso del dispositivo (1.7.0)", () => {
+  it("apagar una de todas deja las otras, en orden", () => {
+    expect(conFamilia(null, "gastos", false)).toEqual(["recordatorios", "grupos"])
+  })
+  it("con todas prendidas vuelve a null: lo que se sume despues tambien llega", () => {
+    expect(conFamilia(["recordatorios", "grupos"], "gastos", true)).toBeNull()
+  })
+  it("prender una que ya estaba no la duplica", () => {
+    expect(conFamilia(["grupos"], "grupos", true)).toEqual(["grupos"])
   })
 })

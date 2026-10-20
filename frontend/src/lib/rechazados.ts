@@ -17,6 +17,8 @@ export interface Rechazada {
   op: string
   fila_id: string
   datos: string
+  // Lo que se subio la primera vez, si se edito (1.7.0).
+  datos_original: string | null
   motivo: string
   rechazada_en: string
 }
@@ -60,6 +62,38 @@ export async function descartar(db: AbstractPowerSyncDatabase, ids: string[]): P
   )
 }
 
+// Cambia lo que se va a reintentar (1.7.0): el servidor rechazo un dato y la
+// persona lo corrige. La primera vez guarda el original, para poder volver a el.
+// La tabla es local: editar no sube nada hasta reintentar.
+export async function editarRechazada(
+  db: AbstractPowerSyncDatabase,
+  id: string,
+  datos: Record<string, unknown>,
+): Promise<void> {
+  await db.execute(
+    `UPDATE subidas_rechazadas
+     SET datos_original = COALESCE(datos_original, datos), datos = ?
+     WHERE id = ?`,
+    [JSON.stringify(datos), id],
+  )
+}
+
+// Vuelve a lo que se subio la primera vez.
+export async function restaurarOriginal(db: AbstractPowerSyncDatabase, id: string): Promise<void> {
+  await db.execute(
+    `UPDATE subidas_rechazadas SET datos = datos_original, datos_original = NULL
+     WHERE id = ? AND datos_original IS NOT NULL`,
+    [id],
+  )
+}
+
+// El campo que nombra el motivo de un 422 ("amount: debe ser >= 0" -> "amount"),
+// para marcarlo al editar. Null si el motivo no nombra un campo de los datos.
+export function campoDelMotivo(motivo: string, datos: Record<string, unknown>): string | null {
+  const campo = motivo.split(":")[0].trim()
+  return campo in datos ? campo : null
+}
+
 export interface ResultadoReintento {
   reintentadas: number
   // Volvieron a fallar, con el motivo nuevo (el servidor puede decir otra cosa).
@@ -73,15 +107,24 @@ export interface ResultadoReintento {
 //
 // Un 5xx o la falta de conexion hacen que `subir` relance: se corta el reintento
 // y lo que quedaba sigue en la bandeja para otra vez.
+//
+// Van en el orden en que se rechazaron, como en la cola (1.7.0): el alta de una
+// fila antes que su cambio. La pantalla las muestra al reves (lo ultimo arriba).
+// Un reintento que falla cambia el motivo pero no la fecha: si no, el orden se
+// perdia.
 export async function reintentar(
   db: AbstractPowerSyncDatabase,
   ids: string[],
-  cuando: string = new Date().toISOString(),
 ): Promise<ResultadoReintento> {
   const res: ResultadoReintento = { reintentadas: 0, fallidas: 0 }
-  for (const id of ids) {
-    const fila = await db.get<Rechazada>("SELECT * FROM subidas_rechazadas WHERE id = ?", [id])
-    if (!fila) continue
+  if (ids.length === 0) return res
+  const filas = await db.getAll<Rechazada>(
+    `SELECT * FROM subidas_rechazadas WHERE id IN (${ids.map(() => "?").join(",")})
+     ORDER BY rechazada_en, id`,
+    ids,
+  )
+  for (const fila of filas) {
+    const id = fila.id
 
     const s: Subida = {
       tabla: fila.tabla,
@@ -95,11 +138,7 @@ export async function reintentar(
       await db.execute("DELETE FROM subidas_rechazadas WHERE id = ?", [id])
       res.reintentadas++
     } else {
-      await db.execute("UPDATE subidas_rechazadas SET motivo = ?, rechazada_en = ? WHERE id = ?", [
-        r.motivo,
-        cuando,
-        id,
-      ])
+      await db.execute("UPDATE subidas_rechazadas SET motivo = ? WHERE id = ?", [r.motivo, id])
       res.fallidas++
     }
   }

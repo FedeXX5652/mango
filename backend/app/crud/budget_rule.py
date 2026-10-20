@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
+from app.crud._borrado import vivo
 from app.models.budget import BudgetRule
 from app.models.category import Category
 from app.schemas.budget import BudgetRuleCreate, BudgetRuleUpdate
@@ -29,12 +30,12 @@ async def _category_kind(
 
 
 async def get_rule(
-    session: AsyncSession, owner_id: uuid.UUID, rule_id: uuid.UUID
+    session: AsyncSession, owner_id: uuid.UUID, rule_id: uuid.UUID, *, incluso_borrado: bool = False
 ) -> BudgetRule | None:
     stmt = select(BudgetRule).where(
         BudgetRule.id == rule_id,
         BudgetRule.owner_id == owner_id,
-        BudgetRule.deleted_at.is_(None),
+        vivo(BudgetRule, incluso_borrado),
     )
     return (await session.execute(stmt)).scalar_one_or_none()
 

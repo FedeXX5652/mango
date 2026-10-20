@@ -31,12 +31,18 @@ class Settings(BaseSettings):
         r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}):(5173|4173)"
     )
 
-    # Cotizaciones automaticas (ver 0005). El endpoint v4 de exchangerate-api
-    # es gratuito y sin clave, y publica UNA cotizacion por dia: por eso el
-    # refresco es idempotente por fecha y no hace falta un timer corto.
-    # `{base}` se reemplaza por el codigo ISO de la moneda de origen.
+    # Cotizaciones automaticas (1.7.0, ver 0031). Todas gratis y sin clave:
+    # ArgentinaDatos para los dolares argentinos (y el oficial del BNA de UYU y
+    # CLP), Frankfurter (BCE) para el resto contra el dolar, y exchangerate-api
+    # para el ultimo valor de lo que no cubren las otras dos. `{base}` se
+    # reemplaza por el codigo ISO de la moneda.
+    fx_argentinadatos_url: str = "https://api.argentinadatos.com/v1"
+    fx_frankfurter_url: str = "https://api.frankfurter.dev/v1"
     fx_api_url: str = "https://api.exchangerate-api.com/v4/latest/{base}"
-    fx_timeout_s: float = 8.0
+    fx_timeout_s: float = 20.0
+    # Cuanta historia se guarda: desde este numero de años atras, o desde el
+    # primer movimiento si es mas viejo. Toda la serie baja a cada dispositivo.
+    fx_historia_anios: int = 2
 
     # Zona del usuario. Decide en que dia cae una recurrente: generada a las
     # 23:50 del 31 tiene que quedar en el mes que corresponde (especificacion 8).
@@ -46,7 +52,6 @@ class Settings(BaseSettings):
     # Su id es fijo para que owner_id sea estable entre dispositivos y reinicios.
     # El codigo de acceso (PIN) vive en el cliente, no aca (ver fase 3 para auth real).
     seed_user_id: uuid.UUID = uuid.UUID("00000000-0000-0000-0000-000000000001")
-    seed_user_email: str = "yo@mango.local"
     seed_user_name: str = "Yo"
     # Identidad de login del usuario semilla (fase 3a). En una instalacion nueva,
     # el seed crea la cuenta con esta clave temporal y `must_change_password`:

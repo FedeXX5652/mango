@@ -16,6 +16,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
+from app.crud._borrado import vivo
 from app.crud.category import es_categoria_de_grupo
 from app.crud.group import membresia
 from app.models.account import Account, PaymentMethod
@@ -248,12 +249,12 @@ async def create_transaction(
 
 
 async def get_transaction(
-    session: AsyncSession, owner_id: uuid.UUID, tx_id: uuid.UUID
+    session: AsyncSession, owner_id: uuid.UUID, tx_id: uuid.UUID, *, incluso_borrado: bool = False
 ) -> Transaction | None:
     stmt = select(Transaction).where(
         Transaction.id == tx_id,
         Transaction.owner_id == owner_id,
-        Transaction.deleted_at.is_(None),
+        vivo(Transaction, incluso_borrado),
     )
     return (await session.execute(stmt)).scalar_one_or_none()
 

@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
+from app.crud._borrado import vivo
 from app.crud.group import membresia
 from app.models.account import Account
 from app.schemas.account import AccountCreate, AccountUpdate
@@ -34,13 +35,17 @@ async def create_account(
 
 
 async def get_account(
-    session: AsyncSession, owner_id: uuid.UUID, account_id: uuid.UUID
+    session: AsyncSession,
+    owner_id: uuid.UUID,
+    account_id: uuid.UUID,
+    *,
+    incluso_borrado: bool = False,
 ) -> Account | None:
     """La cuenta si el usuario la puede tocar: personal suya, o conjunta de un
     grupo del que es miembro (ver 0016)."""
     account = (
         await session.execute(
-            select(Account).where(Account.id == account_id, Account.deleted_at.is_(None))
+            select(Account).where(Account.id == account_id, vivo(Account, incluso_borrado))
         )
     ).scalar_one_or_none()
     if account is None:

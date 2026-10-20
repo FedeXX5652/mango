@@ -171,5 +171,17 @@ async def remove_member(
     if m.role == "owner":
         raise DomainError("El dueño del grupo no se puede quitar")
     m.deleted_at = func.now()
+    # Aviso al que sacaron (1.7.0, 0019): el grupo desaparece de su app y sin el
+    # aviso no sabria por que. El link va al inicio: el grupo ya no lo puede ver.
+    grupo = await session.get(Group, group_id)
+    nombre = grupo.name if grupo else "un grupo"
+    await notif.crear(
+        session,
+        user_id=user_id,
+        tipo="miembro_quitado",
+        title=notif.de_grupo(grupo.name if grupo else None, "Te sacaron del grupo"),
+        body=f"Ya no sos parte de {nombre}. Lo que cargaste ahí sigue en tus movimientos.",
+        link="/",
+    )
     await session.commit()
     return m

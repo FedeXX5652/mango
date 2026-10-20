@@ -35,4 +35,11 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
     },
   },
+  // El service worker de los avisos (public/sw-push.js) es JavaScript suelto,
+  // sin TypeScript que conozca sus globales: se declaran aca. Sin esto, `eslint .`
+  // fallaba con `no-undef` desde la 1.4.0.
+  {
+    files: ["public/**/*.js"],
+    languageOptions: { globals: { self: "readonly", URL: "readonly", fetch: "readonly" } },
+  },
 )

@@ -12,7 +12,7 @@
 // abrir la app (Android; iPhone no muestra botones).
 
 self.addEventListener("push", (event) => {
-  let d = {}
+  let d
   try {
     d = event.data ? event.data.json() : {}
   } catch {

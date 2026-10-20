@@ -9,8 +9,9 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 # El endpoint lo da el servicio de push del navegador; siempre es https.
 Endpoint = Annotated[str, StringConstraints(pattern=r"^https://", max_length=2048)]
 
-# Familias de aviso que un dispositivo puede aceptar o no.
-TipoAviso = Literal["grupos", "recordatorios"]
+# Familias de aviso que un dispositivo puede aceptar o no. "gastos" (1.7.0): un
+# gasto compartido nuevo en el que la persona tiene parte.
+TipoAviso = Literal["grupos", "gastos", "recordatorios"]
 
 
 class ClavesPush(BaseModel):
@@ -25,7 +26,8 @@ class PushSubscriptionCreate(BaseModel):
     endpoint: Endpoint
     keys: ClavesPush
     dispositivo: str | None = Field(default=None, max_length=120)
-    # NULL = todos los tipos.
+    # NULL = todos los tipos. Sin el campo, el dispositivo se queda con lo que
+    # habia elegido (1.7.0): la app se re-registra al abrir y no lo manda.
     tipos: list[TipoAviso] | None = None
 
 

@@ -6,16 +6,48 @@ expandir/contraer (0012) dice que un cliente una version atras tiene que seguir
 subiendo bien; este banco es donde eso se verifica.
 
 Hoy hay un solo fixture, el baseline (la forma actual). Cuando llegue un cambio
-no aditivo —el renombre email->username de fase 3a— se agrega el fixture con la
-forma vieja y una prueba que afirma que el servidor nuevo lo sigue aceptando (o
-que el normalizador lo traduce). El banco ya esta; solo se le suman casos.
+no aditivo se agrega el fixture con la forma vieja y una prueba que afirma que el
+servidor nuevo lo sigue aceptando (o que el normalizador lo traduce). El banco ya
+esta; solo se le suman casos.
 """
 
+import re
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from tests.compat.replay import cargar, reproducir
+from app.main import app
+from tests.compat.replay import RUTA, cargar, reproducir
+
+CONECTOR = (
+    Path(__file__).resolve().parents[3] / "frontend" / "src" / "lib" / "powersync" / "conector.ts"
+)
+
+
+def _ruta_del_conector() -> dict[str, str]:
+    """El mapa `RUTA` de conector.ts, leido del fuente."""
+    fuente = CONECTOR.read_text(encoding="utf-8")
+    bloque = re.search(r"const RUTA: Record<string, string> = \{(.*?)\n\}", fuente, re.S)
+    assert bloque, "no se encontro RUTA en conector.ts"
+    return dict(re.findall(r'^\s*(\w+): "(/[^"]*)"', bloque.group(1), re.M))
+
+
+@pytest.mark.skipif(not CONECTOR.exists(), reason="sin el frontend al lado")
+def test_el_mapa_es_el_del_conector() -> None:
+    # El reproductor tiene que subir por donde sube el cliente: una copia vieja
+    # del mapa (le faltaban metas, deudas, partes, pagos, avisos y el
+    # calendario) probaba otra cosa que la que pasa de verdad.
+    assert RUTA == _ruta_del_conector()
+
+
+def test_cada_ruta_existe_en_la_api() -> None:
+    # Y cada recurso del mapa existe: una tabla que sube a una ruta que no esta
+    # terminaria entera en "Rechazados" (404).
+    # Del esquema OpenAPI: `app.routes` no lista lo que entra por include_router.
+    rutas = set(app.openapi()["paths"])
+    for tabla, ruta in RUTA.items():
+        assert any(p.startswith(f"/api/v1{ruta}") for p in rutas), f"{tabla}: {ruta}"
 
 
 async def test_baseline_sube_entero(api: SimpleNamespace) -> None:

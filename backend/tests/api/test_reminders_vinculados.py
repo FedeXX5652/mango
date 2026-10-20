@@ -126,10 +126,10 @@ async def test_la_tarjeta_o_la_deuda_de_otro_no_se_vincula(api: SimpleNamespace)
     otro = uuid.uuid4()
     await api.session.execute(
         text(
-            "INSERT INTO users (id, username, email, password_hash, display_name) "
-            "VALUES (:id, :u, :e, '!', 'Otro')"
+            "INSERT INTO users (id, username, password_hash, display_name) "
+            "VALUES (:id, :u, '!', 'Otro')"
         ),
-        {"id": str(otro), "u": f"otro-{otro.hex[:6]}", "e": f"{otro}@test.local"},
+        {"id": str(otro), "u": f"otro-{otro.hex[:6]}"},
     )
     pm, debt = uuid.uuid4(), uuid.uuid4()
     await api.session.execute(

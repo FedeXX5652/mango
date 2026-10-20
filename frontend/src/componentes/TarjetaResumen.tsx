@@ -7,14 +7,10 @@ import { Monto } from "@/componentes/Monto"
 import { SelectorMoneda } from "@/componentes/SelectorMoneda"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { useRefrescoCotizaciones } from "@/hooks/refrescoCotizaciones"
+import { useCotizaciones } from "@/hooks/useCotizaciones"
 import { formatearFechaCorta } from "@/lib/fecha"
 import { ordenarMonedas } from "@/lib/monedas"
-import {
-  type CotizacionConocida,
-  type SaldoMoneda,
-  calcularPatrimonio,
-  ultimaPorPar,
-} from "@/lib/patrimonio"
+import { type SaldoMoneda, calcularPatrimonio } from "@/lib/patrimonio"
 import { cn } from "@/lib/utils"
 
 // Resumen de cuenta: el patrimonio y el movimiento del mes en una sola tarjeta,
@@ -65,15 +61,6 @@ const SQL_FLUJOS = `
   GROUP BY currency, tipo
 `
 
-// A igual fecha, **lo cargado a mano gana** sobre lo automatico: si el usuario
-// tipeo una cotizacion es porque la oficial que trae la API no es la que aplica
-// (en Argentina, MEP o tarjeta). Ver 0005.
-const SQL_COTIZACIONES = `
-  SELECT base_currency, quote_currency, rate, rate_date
-  FROM exchange_rates WHERE deleted_at IS NULL
-  ORDER BY rate_date DESC, (source = 'auto') ASC, created_at DESC
-`
-
 export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: string }) {
   const [vista, setVista] = useState<Vista>(
     () => (localStorage.getItem(LS_VISTA) as Vista) ?? "global",
@@ -90,11 +77,9 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
     ]
   }, [])
   const { data: flujoRows } = useQuery<FlujoRow>(SQL_FLUJOS, rangoMes)
-  const { data: cotizaRows } = useQuery<CotizacionConocida>(SQL_COTIZACIONES)
-
-  // Una por par, la ultima: la tarjeta entera se lee con esa. La serie completa
-  // la usa Estadisticas, que si necesita la de cada fecha.
-  const ultimas = useMemo(() => ultimaPorPar(cotizaRows), [cotizaRows])
+  // La ultima cotizacion de cada moneda, con el dolar elegido (0031): la tarjeta
+  // entera se lee con esa. Estadisticas usa la de cada fecha.
+  const { conv } = useCotizaciones()
 
   // Se puede leer el resumen en cualquier moneda que el usuario tenga, sea de
   // una cuenta o de un movimiento del mes.
@@ -105,10 +90,7 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
   )
   const moneda = monedaElegida && monedas.includes(monedaElegida) ? monedaElegida : base
 
-  const patrimonio = useMemo(
-    () => calcularPatrimonio(saldos, moneda, ultimas),
-    [saldos, moneda, ultimas],
-  )
+  const patrimonio = useMemo(() => calcularPatrimonio(saldos, moneda, conv), [saldos, moneda, conv])
 
   const flujos = useMemo(() => {
     const porMoneda = (tipo: FlujoRow["tipo"]): SaldoMoneda[] =>
@@ -128,9 +110,9 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
       }
     }
     // Misma operacion que el patrimonio: una sola cotizacion, la ultima.
-    const ing = calcularPatrimonio(porMoneda("income"), moneda, ultimas)
-    const rei = calcularPatrimonio(porMoneda("reintegro"), moneda, ultimas)
-    const egr = calcularPatrimonio(porMoneda("expense"), moneda, ultimas)
+    const ing = calcularPatrimonio(porMoneda("income"), moneda, conv)
+    const rei = calcularPatrimonio(porMoneda("reintegro"), moneda, conv)
+    const egr = calcularPatrimonio(porMoneda("expense"), moneda, conv)
     return {
       ingresos: ing.total,
       reintegros: rei.total,
@@ -139,7 +121,7 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
         ...new Set([...ing.sinCotizacion, ...rei.sinCotizacion, ...egr.sinCotizacion]),
       ].sort(),
     }
-  }, [flujoRows, ultimas, moneda, vista])
+  }, [flujoRows, conv, moneda, vista])
 
   // El resultado no cambia por separar los reintegros: la plata entro igual.
   const resultado = flujos.ingresos + flujos.reintegros - flujos.egresos

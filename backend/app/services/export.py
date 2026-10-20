@@ -9,16 +9,20 @@ import csv
 import io
 import uuid
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.crud.transaction import list_transactions
 from app.models.account import Account
 from app.models.category import Category
 
 _HEADER = [
+    # dd/mm/aaaa y HH:MM en la hora de Argentina, como en la app (1.7.0).
     "fecha",
+    "hora",
     "tipo",
     "monto",
     "moneda",
@@ -36,15 +40,29 @@ _HEADER = [
 
 
 def _format_amount(cents: int) -> str:
-    # Magnitud positiva en centavos -> "2302.72". Formateo entero, sin float.
-    return f"{cents // 100}.{cents % 100:02d}"
+    # Centavos -> "2302.72". Formateo entero, sin float. Con el signo aparte: la
+    # division entera de Python redondea hacia abajo, y -230272 daba -2303.28.
+    # Hoy los montos son magnitudes (>= 0), pero el formato no depende de eso.
+    signo = "-" if cents < 0 else ""
+    entero, resto = divmod(abs(cents), 100)
+    return f"{signo}{entero}.{resto:02d}"
 
 
-async def _name_map(session: AsyncSession, model, owner_id: uuid.UUID) -> dict[uuid.UUID, str]:
-    # Incluye borrados: una transaccion vieja puede apuntar a algo ya archivado.
-    rows = (
-        await session.execute(select(model.id, model.name).where(model.owner_id == owner_id))
-    ).all()
+def _fecha_y_hora(momento: datetime) -> tuple[str, str]:
+    """La fecha y la hora en Argentina (1.7.0). Antes salia el ISO en UTC: un
+    gasto de las 22:00 del 31 aparecia el 1 a la 01:00."""
+    local = momento.astimezone(ZoneInfo(settings.tz))
+    return local.strftime("%d/%m/%Y"), local.strftime("%H:%M")
+
+
+async def _nombres(session: AsyncSession, model, ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """El nombre de cada cuenta o categoria que usan los movimientos. Por id y no
+    por dueño: la categoria de un gasto compartido es del grupo y la cuenta
+    conjunta no tiene dueño (antes salian vacias). Incluye borrados: un
+    movimiento viejo puede apuntar a algo ya archivado."""
+    if not ids:
+        return {}
+    rows = (await session.execute(select(model.id, model.name).where(model.id.in_(ids)))).all()
     return {row[0]: row[1] for row in rows}
 
 
@@ -68,8 +86,12 @@ async def transactions_csv(
         date_to=date_to,
         limit=1_000_000,
     )
-    accounts = await _name_map(session, Account, owner_id)
-    categories = await _name_map(session, Category, owner_id)
+    accounts = await _nombres(
+        session,
+        Account,
+        ({tx.account_id for tx in txs} | {tx.transfer_account_id for tx in txs}) - {None},
+    )
+    categories = await _nombres(session, Category, {tx.category_id for tx in txs} - {None})
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)
@@ -77,7 +99,7 @@ async def transactions_csv(
     for tx in txs:
         writer.writerow(
             [
-                tx.occurred_at.isoformat(),
+                *_fecha_y_hora(tx.occurred_at),
                 tx.kind,
                 _format_amount(tx.amount),
                 tx.currency,
