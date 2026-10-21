@@ -8,6 +8,7 @@ import { Desplegable, useSalida } from "@/componentes/ui/desplegable"
 import { Insignia } from "@/componentes/ui/insignia"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { formatearMonto } from "@/lib/dinero"
+import { SIN_AJUSTE } from "@/lib/categorias"
 
 // Cobros por confirmar (fase 3b, ver 0018): ingresos PENDIENTES que genero un
 // pago de deuda de otro miembro ("Pago de X"). El acreedor elige a que cuenta
@@ -38,7 +39,7 @@ export function CobrosPorConfirmar() {
     parent_id: string | null
     icon: string | null
   }>(
-    "SELECT id, name, parent_id, icon FROM categories WHERE kind = 'income' AND group_id IS NULL AND deleted_at IS NULL AND archived = 0",
+    `SELECT id, name, parent_id, icon FROM categories WHERE kind = 'income' AND group_id IS NULL AND deleted_at IS NULL AND archived = 0 AND ${SIN_AJUSTE}`,
   )
 
   if (cobros.length === 0) return null

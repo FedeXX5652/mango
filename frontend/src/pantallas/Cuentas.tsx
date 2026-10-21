@@ -1,10 +1,12 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react"
+import { ArrowUpDown, ChevronDown, ChevronUp, Scale } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
+import { AjustarSaldo } from "@/componentes/AjustarSaldo"
 import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { HojaReasignar } from "@/componentes/HojaReasignar"
+import { Monto } from "@/componentes/Monto"
 import { Button } from "@/componentes/ui/button"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Campo } from "@/componentes/ui/campo"
@@ -16,8 +18,9 @@ import { Interruptor } from "@/componentes/ui/interruptor"
 import { useVolver } from "@/hooks/useVolver"
 import { iconoCuenta } from "@/lib/cuentas"
 import { moverEnOrden } from "@/lib/orden"
-import { aCentavos, aTextoEditable, formatearSaldo } from "@/lib/dinero"
+import { aCentavos, aTextoEditable } from "@/lib/dinero"
 import { planCuenta } from "@/lib/reasignar"
+import { saldoCuenta } from "@/lib/saldos"
 import { usuarioActualId } from "@/lib/sesion"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
@@ -30,6 +33,8 @@ interface Cuenta {
   opening_balance: number
   off_budget: number
   archived: number
+  // El saldo de hoy, con la formula de siempre (lib/saldos).
+  balance: number
 }
 
 const TIPOS: Record<string, string> = {
@@ -49,7 +54,10 @@ export function Cuentas() {
   const { data: cuentas } = useQuery<Cuenta>(
     // Solo personales: las cuentas conjuntas del grupo se administran en la
     // pantalla del grupo (owner_id NULL, ver 0016).
-    "SELECT id, name, type, currency, opening_balance, off_budget, archived FROM accounts WHERE deleted_at IS NULL AND owner_id IS NOT NULL ORDER BY archived, sort_order, created_at",
+    `SELECT a.id, a.name, a.type, a.currency, a.opening_balance, a.off_budget, a.archived,
+       ${saldoCuenta()} AS balance
+     FROM accounts a WHERE a.deleted_at IS NULL AND a.owner_id IS NOT NULL
+     ORDER BY a.archived, a.sort_order, a.created_at`,
   )
   // Cuentas referenciadas por algo: no se pueden eliminar (dejarian huerfano lo
   // que apunta a ellas). Se pueden archivar. El resto si se puede borrar.
@@ -78,6 +86,10 @@ export function Cuentas() {
     editando === "nuevo" || (editando !== null && cuentas.some((c) => c.id === editando.id))
   const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; c: Cuenta } | null>(null)
   const [reasignando, setReasignando] = useState<Cuenta | null>(null)
+  // Ajustar el saldo (0033), encima de la edicion. El saldo, el de la consulta:
+  // al dia aunque la hoja este abierta.
+  const [ajustando, setAjustando] = useState<string | null>(null)
+  const cuentaAjustada = cuentas.find((c) => c.id === ajustando)
   // Modo ordenar: las filas dejan de abrir la edicion y muestran flechas.
   const [ordenando, setOrdenando] = useState(false)
 
@@ -149,12 +161,21 @@ export function Cuentas() {
             <p className={cn("truncate font-medium", c.archived && "text-muted-foreground")}>
               {c.name}
             </p>
+            {/* El saldo de hoy va a la derecha; el inicial es un dato de la
+                edicion (1.10.0). */}
             <p className="truncate text-xs text-muted-foreground">
-              {TIPOS[c.type] ?? c.type} · {c.currency} ·{" "}
-              {formatearSaldo(c.opening_balance, c.currency)} inicial
+              {TIPOS[c.type] ?? c.type} · {c.currency}
             </p>
           </div>
         </div>
+        {!ordenable && (
+          <Monto
+            centavos={c.balance}
+            moneda={c.currency}
+            variante="lista"
+            className={cn("shrink-0 font-medium", c.balance < 0 && "text-expense")}
+          />
+        )}
         {ordenable && (
           <div className="flex shrink-0 items-center gap-1">
             <Button
@@ -233,9 +254,31 @@ export function Cuentas() {
               if (editando.archived) setEditando(null)
             }}
             onEliminar={() => alTacho(editando)}
-          />
+          >
+            {!editando.archived && (
+              <Button
+                variant="ghost"
+                className="justify-start"
+                onClick={() => setAjustando(editando.id)}
+              >
+                <Scale className="h-4 w-4" aria-hidden />
+                Ajustar saldo
+              </Button>
+            )}
+          </AccionesEdicion>
         )}
       </Hoja>
+      {cuentaAjustada && (
+        <AjustarSaldo
+          cuenta={cuentaAjustada}
+          saldo={cuentaAjustada.balance}
+          onCerrar={(ajustado) => {
+            setAjustando(null)
+            // Hecho el ajuste, no queda nada que editar.
+            if (ajustado) setEditando(null)
+          }}
+        />
+      )}
 
       {activas.length > 0 && <ListaInset>{activas.map((c, i) => filaCuenta(c, i))}</ListaInset>}
 

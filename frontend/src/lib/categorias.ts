@@ -26,3 +26,16 @@ export function ordenarJerarquico<T extends CatBase>(todas: T[], incluir?: Set<s
   for (const c of todas) if (!vistos.has(c.id)) agregar(c)
   return res
 }
+
+// El ajuste de saldo (0033): dos categorias del sistema, una por kind, que el
+// servidor crea para cada usuario. No se eligen ni se administran: van fuera de
+// los selectores y de la lista de Categorias. En los informes, si (son un gasto
+// o un ingreso mas).
+export const AJUSTE = { income: "ajuste_ingreso", expense: "ajuste_egreso" } as const
+
+export function esAjuste(systemKey: string | null | undefined): boolean {
+  return systemKey === AJUSTE.income || systemKey === AJUSTE.expense
+}
+
+// Para el WHERE de las consultas de categorias que se eligen o se administran.
+export const SIN_AJUSTE = `(system_key IS NULL OR system_key NOT IN ('${AJUSTE.income}', '${AJUSTE.expense}'))`

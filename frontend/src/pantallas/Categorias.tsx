@@ -16,7 +16,7 @@ import { planCategoria } from "@/lib/reasignar"
 import { uuidv4 } from "@/lib/uuid"
 import { SelectorIcono } from "@/componentes/SelectorIcono"
 import { useVolver } from "@/hooks/useVolver"
-import { ordenarJerarquico } from "@/lib/categorias"
+import { ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
 import { iconoDe } from "@/lib/iconos"
 import { cn } from "@/lib/utils"
 
@@ -36,7 +36,7 @@ export function Categorias() {
   const volver = useVolver("/ajustes")
   const db = usePowerSync()
   const { data: categorias } = useQuery<Categoria>(
-    "SELECT id, name, kind, parent_id, archived, icon, system_key FROM categories WHERE deleted_at IS NULL ORDER BY sort_order, name",
+    `SELECT id, name, kind, parent_id, archived, icon, system_key FROM categories WHERE deleted_at IS NULL AND ${SIN_AJUSTE} ORDER BY sort_order, name`,
   )
   const [mostrarForm, setMostrarForm] = useState(false)
   // Tocar una fila la edita (nombre e icono; archivar y eliminar, al pie). Se

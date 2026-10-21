@@ -4,6 +4,28 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.10.0] - 2026-10-21
+
+### Agregado
+
+- **Ajustar el saldo de una cuenta**, como en Money Manager (0033): en Cuentas,
+  tocá la cuenta y "Ajustar saldo". La calculadora arranca en el saldo que
+  calcula Mango; escribí el que de verdad tiene (o hacé la cuenta) y la
+  diferencia queda como un ingreso o un egreso "Ajuste de cuenta". Para el saldo
+  negativo de una tarjeta, la calculadora tiene la tecla "±".
+- **Cuentas muestra el saldo de hoy** de cada una.
+- **Íconos nuevos** para las categorías: carnicería, verdulería, panadería,
+  quesería, helado, agua, gas, expensas, muebles, psicología y suscripciones.
+
+### Cambiado
+
+- **El usuario no distingue mayúsculas**: "Ana" y "ana" son el mismo para
+  entrar, y ya no se pueden crear los dos.
+
+### Corregido
+
+- Al iniciar sesión, un `_` o un `%` en el usuario funcionaban como comodines.
+
 ## [1.9.0] - 2026-10-20
 
 ### Cambiado

@@ -11,6 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -19,6 +21,7 @@ from app.core.limite_intentos import MAX_INTENTOS, limite
 from app.core.seguridad import hashear
 from app.db import get_session
 from app.main import app
+from app.models.category import Category
 from app.models.user import User
 
 
@@ -155,3 +158,39 @@ async def test_nueva_clave_muy_corta_422(entorno: SimpleNamespace) -> None:
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 422
+
+
+async def test_login_no_toma_comodines(entorno: SimpleNamespace) -> None:
+    # Con `ilike`, "_" y "%" eran comodines: "%" entraba como cualquiera.
+    for intento in ("%", entorno.username[:-1] + "_"):
+        resp = await entorno.client.post(
+            "/api/v1/auth/login", json={"username": intento, "password": "clave-correcta"}
+        )
+        assert resp.status_code == 401, intento
+
+
+async def test_username_unico_sin_mayusculas(entorno: SimpleNamespace) -> None:
+    with pytest.raises(IntegrityError):
+        async with entorno.session.begin_nested():
+            entorno.session.add(
+                User(
+                    id=uuid.uuid4(),
+                    username=entorno.username.upper(),
+                    password_hash="!",
+                    display_name="Copia",
+                )
+            )
+            await entorno.session.flush()
+
+
+async def test_login_asegura_las_categorias_del_ajuste(entorno: SimpleNamespace) -> None:
+    resp = await _login(entorno, "clave-correcta")
+    assert resp.status_code == 200
+    claves = (
+        await entorno.session.execute(
+            select(Category.system_key).where(
+                Category.owner_id == entorno.uid, Category.system_key.is_not(None)
+            )
+        )
+    ).scalars()
+    assert sorted(claves) == ["ajuste_egreso", "ajuste_ingreso"]

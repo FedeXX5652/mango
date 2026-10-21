@@ -20,7 +20,7 @@ import { useMonedaBase } from "@/hooks/monedaBase"
 import { useVolver } from "@/hooks/useVolver"
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
-import { ordenarJerarquico } from "@/lib/categorias"
+import { ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
 import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
 import { tipoDesdeParametro, type TipoMovimiento } from "@/lib/atajos"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
@@ -98,7 +98,7 @@ export function FormularioMovimiento({
     "SELECT id, name, currency, group_id FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
   )
   const { data: categorias } = useQuery<CategoriaLocal>(
-    "SELECT id, name, kind, parent_id, icon, group_id FROM categories WHERE deleted_at IS NULL AND archived = 0",
+    `SELECT id, name, kind, parent_id, icon, group_id FROM categories WHERE deleted_at IS NULL AND archived = 0 AND ${SIN_AJUSTE}`,
   )
   const { data: medios } = useQuery<MedioLocal>(
     "SELECT id, name FROM payment_methods WHERE deleted_at IS NULL AND archived = 0",

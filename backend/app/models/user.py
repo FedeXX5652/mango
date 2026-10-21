@@ -7,6 +7,7 @@ from sqlalchemy import (
     BigInteger,
     CheckConstraint,
     ForeignKey,
+    Index,
     Text,
     UniqueConstraint,
     text,
@@ -23,7 +24,9 @@ class User(Base, IdMixin, TimestampMixin):
 
     # Identidad de login (fase 3a). Reemplazo a `email` por expandir/contraer
     # (0012): se agrego y relleno desde `email`, y `email` se borro en la 1.7.0.
-    username: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    # Unico SIN distinguir mayusculas (1.10.0, indice abajo): "Ana" y "ana"
+    # son la misma persona, para entrar y para no poder crear las dos.
+    username: Mapped[str] = mapped_column(Text, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     # true = clave temporal puesta por el admin; el cliente obliga a cambiarla
     # antes de hacer nada (reset sin mail, ver ESPECIFICACION §7).
@@ -63,6 +66,7 @@ class User(Base, IdMixin, TimestampMixin):
     snooze_default: Mapped[str | None] = mapped_column(Text)
 
     __table_args__ = (
+        Index("users_username_lower_uniq", text("lower(username)"), unique=True),
         CheckConstraint("color_scheme IN ('light','dark','system')", name="users_color_scheme_chk"),
         CheckConstraint(
             "snooze_default IS NULL OR snooze_default IN ('1h','3h','manana')",

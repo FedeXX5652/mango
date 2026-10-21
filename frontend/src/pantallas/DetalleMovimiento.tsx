@@ -1,5 +1,5 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { Trash2 } from "lucide-react"
+import { Scale, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
 
@@ -18,7 +18,7 @@ import { Input } from "@/componentes/ui/input"
 import { useEspacio } from "@/hooks/useEspacio"
 import { usePanel } from "@/hooks/usePanel"
 import { useVolver } from "@/hooks/useVolver"
-import { ordenarJerarquico } from "@/lib/categorias"
+import { esAjuste, ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
@@ -88,8 +88,15 @@ export function DetalleMovimiento() {
   const { data: cuentas } = useQuery<Opcion>(
     "SELECT id, name, currency, group_id FROM accounts WHERE deleted_at IS NULL ORDER BY name",
   )
+  // La categoria del movimiento: si es un ajuste de saldo (0033), no se cambia
+  // ni se pasa a un grupo.
+  const { data: categoriaActual } = useQuery<{ system_key: string | null }>(
+    "SELECT system_key FROM categories WHERE id = ?",
+    [tx?.category_id ?? ""],
+  )
+  const deAjuste = esAjuste(categoriaActual[0]?.system_key)
   const { data: categorias } = useQuery<Opcion>(
-    "SELECT id, name, kind, parent_id, icon, group_id FROM categories WHERE deleted_at IS NULL AND archived = 0",
+    `SELECT id, name, kind, parent_id, icon, group_id FROM categories WHERE deleted_at IS NULL AND archived = 0 AND ${SIN_AJUSTE}`,
   )
 
   // Etiquetas ya asociadas a este movimiento (ver 3.5.1).
@@ -245,8 +252,13 @@ export function DetalleMovimiento() {
       return setError("Lo que puso la conjunta va en su línea, no como tu cuenta")
     if (!grupoId && pagadoresActuales.length > 0)
       return setError("Lo pusieron entre varios: para dejar de compartirlo, sacá a los demás")
-    // Fuera de ambito cuenta como no elegida (0014).
-    if (tx!.kind !== "transfer" && !categoriasDelTipo.some((c) => c.id === categoriaId))
+    // Fuera de ambito cuenta como no elegida (0014). Un ajuste de saldo (0033)
+    // conserva la suya, que no esta entre las que se eligen.
+    if (
+      tx!.kind !== "transfer" &&
+      !deAjuste &&
+      !categoriasDelTipo.some((c) => c.id === categoriaId)
+    )
       return setError("Elegí una categoría")
     if (tx!.kind === "transfer" && !destinoId) return setError("Elegí la cuenta de destino")
     if (tx!.kind === "transfer" && destinoId === cuentaId)
@@ -396,9 +408,22 @@ export function DetalleMovimiento() {
 
       {/* Compartir antes de la categoria: define el ambito de las categorias
           ofrecidas (personales o del grupo, ver 0014). */}
-      {tx.kind !== "transfer" && <EspacioDelMovimiento valor={grupoId} onCambio={cambiarGrupo} />}
+      {tx.kind !== "transfer" && !deAjuste && (
+        <EspacioDelMovimiento valor={grupoId} onCambio={cambiarGrupo} />
+      )}
 
-      {tx.kind !== "transfer" && (
+      {deAjuste && (
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">Categoría</p>
+          <p className="flex min-h-11 items-center gap-2 text-sm">
+            <Scale className="h-4 w-4 text-muted-foreground" aria-hidden />
+            Ajuste de cuenta
+            <span className="text-muted-foreground">· la anota la app al ajustar el saldo</span>
+          </p>
+        </div>
+      )}
+
+      {tx.kind !== "transfer" && !deAjuste && (
         <Campo etiqueta="Categoría">
           <SelectorCategoria
             categorias={categoriasDelTipo.map((c) => ({

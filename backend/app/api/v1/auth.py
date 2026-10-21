@@ -14,6 +14,7 @@ from app.core.limite_intentos import limite
 from app.core.seguridad import hashear, necesita_rehash, verificar
 from app.core.sesion import firmar_sesion
 from app.crud import user as crud
+from app.crud.category import asegurar_ajustes
 from app.db import get_session
 from app.models.user import User
 
@@ -65,6 +66,11 @@ async def login(data: LoginIn, session: AsyncSession = Depends(get_session)) -> 
 
     assert user is not None
     limite.registrar_exito(clave_limite)
+
+    # El ajuste de saldo (0033) necesita sus categorias del sistema ya
+    # sincronizadas: un usuario creado por fuera de la migracion las recibe aca.
+    await asegurar_ajustes(session, user.id)
+    await session.commit()
 
     # Los defaults de argon2 suben con el tiempo: si el hash quedo viejo, se
     # regenera ahora que tenemos la clave en claro.

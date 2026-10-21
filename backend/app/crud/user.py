@@ -1,6 +1,6 @@
 """Operaciones sobre el propio usuario (preferencias, apariencia, auth)."""
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -8,9 +8,12 @@ from app.schemas.user import UserUpdate
 
 
 async def por_username(session: AsyncSession, username: str) -> User | None:
-    """Busca por username para el login. Case-insensitive: 'Yo' y 'yo' son el
-    mismo, que es lo que espera cualquiera al escribir su nombre."""
-    stmt = select(User).where(User.username.ilike(username.strip()))
+    """Busca por username para el login y para sumar a un grupo. Sin distinguir
+    mayusculas: 'Yo' y 'yo' son el mismo, que es lo que espera cualquiera al
+    escribir su nombre. Igualdad exacta en minusculas, no `ilike`: con `ilike`,
+    `_` y `%` eran comodines y "an_" entraba como "ana" (1.10.0). El indice
+    unico sobre lower(username) garantiza que haya a lo sumo uno."""
+    stmt = select(User).where(func.lower(User.username) == username.strip().lower())
     return (await session.execute(stmt)).scalar_one_or_none()
 
 

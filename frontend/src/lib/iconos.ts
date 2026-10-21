@@ -1,12 +1,16 @@
 import {
   Baby,
   Banknote,
+  Beef,
   Bike,
   BookOpen,
+  Brain,
   Briefcase,
+  Building2,
   Bus,
   Cake,
   Car,
+  Carrot,
   Cat,
   Church,
   Cigarette,
@@ -14,9 +18,12 @@ import {
   Coffee,
   Coins,
   CreditCard,
+  Croissant,
   Dog,
   Drill,
+  Droplets,
   Dumbbell,
+  Flame,
   Fuel,
   Gamepad2,
   Gift,
@@ -27,12 +34,14 @@ import {
   HeartPulse,
   Home,
   Hotel,
-  type LucideIcon,
+  IceCreamCone,
   Landmark,
   Laptop,
   Leaf,
   Lightbulb,
+  type LucideIcon,
   Martini,
+  Milk,
   Music,
   Package,
   PawPrint,
@@ -40,11 +49,14 @@ import {
   Pill,
   Plane,
   Receipt,
+  Repeat,
+  Scale,
   Scissors,
   Shirt,
   ShoppingBag,
   ShoppingCart,
   Smartphone,
+  Sofa,
   Sparkles,
   Stethoscope,
   Tag,
@@ -96,6 +108,11 @@ const CATALOGO: { grupo: string; iconos: [string, LucideIcon, string][] }[] = [
       ["copa", Wine, "vino bebida alcohol vinoteca"],
       ["trago", Martini, "trago salida boliche bar"],
       ["torta", Cake, "torta postre cumpleaños panaderia"],
+      ["carne", Beef, "carniceria carne asado pollo"],
+      ["verdura", Carrot, "verduleria verdura fruta"],
+      ["pan", Croissant, "panaderia pan facturas medialunas"],
+      ["lacteos", Milk, "queseria queso lacteos leche fiambreria"],
+      ["helado", IceCreamCone, "helado heladeria postre dulces"],
       ["bolsa", ShoppingBag, "compras shopping tienda"],
     ],
   },
@@ -115,6 +132,10 @@ const CATALOGO: { grupo: string; iconos: [string, LucideIcon, string][] }[] = [
     iconos: [
       ["casa", Home, "casa alquiler hogar expensas"],
       ["luz", Lightbulb, "luz electricidad edesur edenor"],
+      ["agua", Droplets, "agua aysa"],
+      ["gas", Flame, "gas metrogas garrafa"],
+      ["edificio", Building2, "expensas edificio consorcio"],
+      ["sillon", Sofa, "muebles hogar decoracion bazar"],
       ["wifi", Wifi, "wifi internet cable fibra"],
       ["celular", Smartphone, "celular telefono linea datos"],
       ["llave", Wrench, "plomero gasista arreglo mantenimiento"],
@@ -130,6 +151,7 @@ const CATALOGO: { grupo: string; iconos: [string, LucideIcon, string][] }[] = [
       ["salud", HeartPulse, "salud medico prepaga obra social"],
       ["remedio", Pill, "remedio farmacia medicamento"],
       ["consulta", Stethoscope, "consulta medico turno estudio"],
+      ["cerebro", Brain, "psicologo psicologia terapia psiquiatra"],
       ["gimnasio", Dumbbell, "gimnasio gym entrenamiento deporte"],
       ["peluqueria", Scissors, "peluqueria barberia corte"],
       ["belleza", Sparkles, "belleza cosmetica uñas spa"],
@@ -143,6 +165,7 @@ const CATALOGO: { grupo: string; iconos: [string, LucideIcon, string][] }[] = [
       ["streaming", Tv, "streaming netflix suscripcion tele"],
       ["juego", Gamepad2, "juego videojuego consola"],
       ["musica", Music, "musica spotify recital"],
+      ["suscripcion", Repeat, "suscripcion mensual spotify chatgpt"],
       ["entrada", Ticket, "entrada recital evento partido"],
       ["hotel", Hotel, "hotel hospedaje vacaciones"],
       ["trofeo", Trophy, "club deporte torneo"],
@@ -194,7 +217,12 @@ export const GRUPOS_ICONOS = CATALOGO.map((g) => ({
   iconos: g.iconos.map(([clave, Icono, busqueda]) => ({ clave, Icono, busqueda })),
 }))
 
-const POR_CLAVE = new Map(ICONOS.map((i) => [i.clave, i.Icono]))
+// Los de las categorias del sistema que no se eligen: no estan en el
+// catalogo (nadie puede ponerselo a otra categoria), pero se resuelven.
+// `ajuste`: el ajuste de saldo (0033).
+const DEL_SISTEMA: [string, LucideIcon][] = [["ajuste", Scale]]
+
+const POR_CLAVE = new Map([...ICONOS.map((i) => [i.clave, i.Icono] as const), ...DEL_SISTEMA])
 
 // El de una categoria sin icono elegido, y el de una clave que ya no existe.
 export const ICONO_POR_DEFECTO = Tag

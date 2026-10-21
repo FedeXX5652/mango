@@ -20,8 +20,9 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE users (
     id              UUID PRIMARY KEY,
     -- Identidad de login (fase 3a, ver 0013). Reemplazo a `email` por
-    -- expandir/contraer (0012); `email` se borro en la 1.7.0.
-    username        TEXT NOT NULL UNIQUE,
+    -- expandir/contraer (0012); `email` se borro en la 1.7.0. Unico sin
+    -- distinguir mayusculas (indice abajo, 1.10.0).
+    username        TEXT NOT NULL,
     password_hash   TEXT NOT NULL,
     -- Clave temporal puesta por el admin: el cliente obliga a cambiarla antes
     -- de hacer nada (reset sin mail).
@@ -62,6 +63,10 @@ CREATE TABLE users (
     CONSTRAINT users_snooze_default_chk
         CHECK (snooze_default IS NULL OR snooze_default IN ('1h','3h','manana'))
 );
+
+-- "Ana" y "ana" son la misma persona: para entrar y para no poder crear las
+-- dos (1.10.0). El login compara en minusculas, sin comodines.
+CREATE UNIQUE INDEX users_username_lower_uniq ON users (lower(username));
 
 -- Un grupo es un hogar, una pareja, un viaje compartido.
 CREATE TABLE groups (
@@ -345,9 +350,11 @@ CREATE TABLE categories (
     -- rollover: el saldo arrastra al mes siguiente (sobre de ahorro). La
     -- asignacion recurrente va por el sistema de recurrentes, no aca.
     rollover        BOOLEAN NOT NULL DEFAULT false,
-    -- Categoria del sistema (0026, etapa 3): 'reintegros_grupo'. La crea el
-    -- servidor; la app la reconoce por esta clave, no por el nombre. No se
-    -- borra ni se archiva. NULL = comun.
+    -- Categoria del sistema (0026, etapa 3): 'reintegros_grupo', y las del
+    -- ajuste de saldo 'ajuste_ingreso' / 'ajuste_egreso' (0033, una por kind,
+    -- que no se ven ni se editan). Las crea el servidor; la app las reconoce
+    -- por esta clave, no por el nombre. No se borran ni se archivan. NULL =
+    -- comun.
     system_key      TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),

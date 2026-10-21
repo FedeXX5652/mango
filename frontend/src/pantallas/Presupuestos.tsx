@@ -24,7 +24,7 @@ import { Input } from "@/componentes/ui/input"
 import { Interruptor } from "@/componentes/ui/interruptor"
 import { CabeceraPestana } from "@/componentes/SelectorEspacio"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
-import { ordenarJerarquico } from "@/lib/categorias"
+import { ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
 import { aCentavos, aTextoEditable, formatearCentavos, formatearMonto } from "@/lib/dinero"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { mesAnio } from "@/lib/fecha"
@@ -98,7 +98,7 @@ export function Presupuestos() {
   // presupuestan en su pantalla (0016). Sin este filtro aparecian aca, con el
   // mismo nombre que los personales, y su asignado se restaba de mis fondos.
   const { data: categorias, isLoading: cargaCats } = useQuery<Cat>(
-    "SELECT id, name, parent_id, rollover, icon FROM categories WHERE kind='expense' AND group_id IS NULL AND deleted_at IS NULL AND archived = 0",
+    `SELECT id, name, parent_id, rollover, icon FROM categories WHERE kind='expense' AND group_id IS NULL AND deleted_at IS NULL AND archived = 0 AND ${SIN_AJUSTE}`,
   )
   const catById = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
   const { data: budgetRows, isLoading: cargaBudgets } = useQuery<BudgetRow>(

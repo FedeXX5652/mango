@@ -158,6 +158,16 @@ tanto **se sincroniza** (5.4 y 3.11). El resumen de Inicio muestra las primeras
 cuatro cuentas segun ese orden, asi que cambiarlo en la computadora cambia lo
 que se ve en el telefono.
 
+#### Ajuste de saldo
+
+Cuando una cuenta se descuadra por algo que no se puede identificar, en su
+edicion se **ajusta el saldo**: se escribe el que de verdad hay (con la
+calculadora, que arranca en el saldo que calcula la app) y la diferencia queda
+como un ingreso o un egreso de la categoria del sistema **"Ajuste de cuenta"**,
+con fecha de ese momento. Esa categoria no se ve en los selectores ni se edita;
+en los informes aparece como cualquier otra. El saldo inicial no se toca: queda
+para con cuanto arranco la cuenta. Ver 0033.
+
 Lo unico que queda **local al dispositivo a proposito** es el codigo de acceso
 (PIN) y la biometria: nunca salen del dispositivo (5.1 del PIN en DESIGN, y la
 decision de fase 1 de no mandarlo al servidor).

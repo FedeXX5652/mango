@@ -46,3 +46,7 @@ backend/storage/
 .claude/skills/*
 !.claude/skills/nueva-migracion/
 !.claude/skills/nuevo-endpoint/
+
+# Lo personal de quien usa la app (migraciones desde otra app, con sus cuentas,
+# saldos y reglas): nunca a GitHub. Al repo va solo lo que la app necesita.
+/privado/

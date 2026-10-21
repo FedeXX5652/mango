@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest"
 import {
   INICIAL,
   type EstadoCalc,
+  borrarUltimo,
+  cambiarSigno,
   coma,
   cuentaEnCurso,
   desdeCentavos,
@@ -72,9 +74,10 @@ describe("calculadora", () => {
   it("siembra un monto inicial desde centavos (plantilla)", () => {
     expect(valorCentavos(desdeCentavos(230272))).toBe(230272)
     expect(desdeCentavos(230272).entrada).toBe("2302,72")
-    // 0 o negativo -> inicial vacio, listo para escribir encima.
+    // 0 -> inicial vacio, listo para escribir encima. Un negativo (el saldo de
+    // una tarjeta, al ajustarlo) arranca negativo desde la 1.10.0.
     expect(desdeCentavos(0)).toEqual(INICIAL)
-    expect(desdeCentavos(-5)).toEqual(INICIAL)
+    expect(valorCentavos(desdeCentavos(-5))).toBe(-5)
   })
 
   it("encadena operaciones izquierda a derecha", () => {
@@ -145,5 +148,42 @@ describe("calculadora en una moneda sin decimales", () => {
     expect(desdeCentavos(500, "JPY").entrada).toBe("500")
     expect(desdeCentavos(125050, "ARS").entrada).toBe("1250,5")
     expect(desdeCentavos(150000, "ARS").entrada).toBe("1500")
+  })
+})
+
+// Ajustar el saldo (0033): la calculadora arranca en el saldo, que en una
+// tarjeta es negativo, y tiene que poder escribirse uno negativo.
+describe("calculadora con signo", () => {
+  it("arranca en un saldo negativo", () => {
+    const e = desdeCentavos(-1234567)
+    expect(e.entrada).toBe("-12345,67")
+    expect(valorCentavos(e)).toBe(-1234567)
+  })
+
+  it("± cambia el signo de lo que se ve, y otra vez lo devuelve", () => {
+    const e = cambiarSigno(desdeCentavos(150000))
+    expect(valorCentavos(e)).toBe(-150000)
+    expect(valorCentavos(cambiarSigno(e))).toBe(150000)
+  })
+
+  it("± sobre 0 no hace nada", () => {
+    expect(cambiarSigno(INICIAL)).toEqual(INICIAL)
+  })
+
+  it("se llega a un negativo restando", () => {
+    const e = tipear([
+      (s) => digito(s, "0"),
+      (s) => operador(s, "-"),
+      (s) => digito(s, "5"),
+      (s) => digito(s, "0"),
+      igual,
+    ])
+    expect(valorCentavos(e)).toBe(-5000)
+  })
+
+  it("borrar el ultimo digito de un negativo no deja un '-' suelto", () => {
+    const e = tipear([(s) => digito(s, "5"), cambiarSigno, borrarUltimo])
+    expect(e.entrada).toBe("0")
+    expect(valorCentavos(e)).toBe(0)
   })
 })

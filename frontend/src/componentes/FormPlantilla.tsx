@@ -7,7 +7,7 @@ import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
-import { ordenarJerarquico } from "@/lib/categorias"
+import { ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
 import { aCentavos, aTextoEditable } from "@/lib/dinero"
 import { TIPOS_PLANTILLA } from "@/lib/plantillas"
 import { uuidv4 } from "@/lib/uuid"
@@ -58,7 +58,7 @@ export function FormPlantilla({
   const { data: categorias } = useQuery<Opcion>(
     grupo
       ? "SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0 AND group_id = ?"
-      : "SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0 AND group_id IS NULL",
+      : `SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0 AND group_id IS NULL AND ${SIN_AJUSTE}`,
     grupo ? [grupo.id] : [],
   )
   const { data: medios } = useQuery<Opcion>(

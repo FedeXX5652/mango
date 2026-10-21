@@ -99,6 +99,11 @@ async def update_category(
 ) -> Category:
     campos = data.model_dump(exclude_unset=True)
 
+    # El ajuste de saldo (0033) no se toca: ni el nombre. No se ve en la lista
+    # de categorias ni en los selectores; es el registro de una diferencia.
+    if category.system_key in AJUSTES:
+        raise DomainError("Es el ajuste de saldo: no se puede editar")
+
     # La del sistema se puede renombrar o cambiarle el icono, pero no archivarla
     # ni moverla: la app la sigue usando aunque no se vea.
     if category.system_key is not None and (
@@ -150,8 +155,26 @@ async def soft_delete_category(session: AsyncSession, category: Category) -> Non
 # Categorias del sistema (0026, etapa 3): las crea el servidor cuando hacen
 # falta. Se reconocen por `system_key`; el nombre es solo el de arranque.
 REINTEGROS = "reintegros_grupo"
+# El ajuste de saldo (0033): la diferencia entre lo que la app calcula y lo que
+# de verdad hay en la cuenta, como ingreso o egreso. Una por kind: la clave es
+# unica por usuario. No se ven ni se editan; el cliente las busca por clave.
+AJUSTE_INGRESO = "ajuste_ingreso"
+AJUSTE_EGRESO = "ajuste_egreso"
+AJUSTES = (AJUSTE_INGRESO, AJUSTE_EGRESO)
 _SISTEMA = {
     REINTEGROS: {"name": "Reintegros de grupo", "kind": "income", "icon": "reintegro"},
+    AJUSTE_INGRESO: {
+        "name": "Ajuste de cuenta",
+        "kind": "income",
+        "icon": "ajuste",
+        "sort_order": 999,
+    },
+    AJUSTE_EGRESO: {
+        "name": "Ajuste de cuenta",
+        "kind": "expense",
+        "icon": "ajuste",
+        "sort_order": 999,
+    },
 }
 
 
@@ -176,6 +199,15 @@ async def asegurar_de_sistema(session: AsyncSession, owner_id: uuid.UUID, clave:
     session.add(nueva)
     await session.flush()
     return nueva
+
+
+async def asegurar_ajustes(session: AsyncSession, owner_id: uuid.UUID) -> None:
+    """Las dos categorias del ajuste de saldo (0033) del usuario. Tienen que
+    existir ANTES de que haga falta: el ajuste se carga sin conexion, con la
+    categoria que ya bajo la sincronizacion. Las crea la migracion para los
+    usuarios de antes y el login para cualquier otro. No hace commit."""
+    for clave in AJUSTES:
+        await asegurar_de_sistema(session, owner_id, clave)
 
 
 async def es_categoria_de_grupo(

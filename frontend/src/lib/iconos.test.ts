@@ -55,3 +55,20 @@ describe("filtrarIconos", () => {
     expect(filtrarIconos("zzzz")).toEqual([])
   })
 })
+
+describe("iconos del sistema", () => {
+  it("el del ajuste de saldo se resuelve pero no se elige", () => {
+    // Fuera del catalogo: nadie se lo puede poner a otra categoria (0033).
+    expect(ICONOS.some((i) => i.clave === "ajuste")).toBe(false)
+    expect(iconoDe("ajuste")).not.toBe(ICONO_POR_DEFECTO)
+  })
+
+  it("los de la casa (1.10.0) se encuentran por lo que son", () => {
+    const claves = (q: string) => filtrarIconos(q).map((i) => i.clave)
+    expect(claves("carniceria")).toContain("carne")
+    expect(claves("aysa")).toContain("agua")
+    expect(claves("metrogas")).toContain("gas")
+    expect(claves("expensas")).toContain("edificio")
+    expect(claves("psicologo")).toContain("cerebro")
+  })
+})

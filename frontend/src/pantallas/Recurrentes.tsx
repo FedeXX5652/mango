@@ -14,7 +14,7 @@ import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { useVolver } from "@/hooks/useVolver"
 import { formatearFechaCorta } from "@/lib/fecha"
 import { generarVencidas } from "@/lib/generar"
-import { ordenarJerarquico } from "@/lib/categorias"
+import { ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
@@ -186,7 +186,7 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
     "SELECT id, name, currency FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
   )
   const { data: categorias } = useQuery<Opcion>(
-    "SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0",
+    `SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0 AND ${SIN_AJUSTE}`,
   )
   const { data: medios } = useQuery<Opcion>(
     "SELECT id, name FROM payment_methods WHERE deleted_at IS NULL AND archived = 0",

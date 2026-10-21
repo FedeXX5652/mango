@@ -848,6 +848,29 @@ de gasto, y al editar el tipo no cambia (el servidor no lo deja).
   hacer zoom y el segundo se pierde.
 - Un monto largo **baja de tamaño** (3xl → 2xl → xl) antes que desbordar. Nunca
   se abrevia (0006).
+- **"±"** (`conSigno`, 1.10.0): solo donde un numero puede ser negativo (el
+  saldo de una tarjeta, al ajustarlo). Va entre "C" y "=", como en iOS. En el
+  alta no: un monto es siempre positivo.
+- **El teclado fisico es del dialogo de arriba**: con la calculadora en una hoja
+  apilada sobre otra, cuenta la ultima abierta.
+
+### Ajustar saldo
+
+En **Cuentas**, cada fila muestra el **saldo de hoy** a la derecha (el inicial es
+un dato de la edicion). En la edicion de una cuenta activa, arriba de archivar y
+eliminar, **"Ajustar saldo"** abre encima una hoja con:
+
+- el saldo que calcula Mango, en la frase de arriba;
+- la calculadora, arrancando en ese saldo y con "±";
+- lo que se va a anotar, en una linea que cambia al tipear ("Se anota un
+  ingreso de $ 1.500,00"; con el mismo saldo, "no hay nada que anotar" y el
+  boton apagado);
+- "Ajustar" (amarillo) y "Cancelar".
+
+Al ajustar se cierran las dos hojas: ya no queda nada que editar. Se dice
+**saldo**, no "balance": "Balance" es el de un grupo. La categoria "Ajuste de
+cuenta" no aparece en Categorias ni en los selectores, y en el detalle de un
+ajuste se muestra fija (0033).
 
 ### Selector de espacio
 

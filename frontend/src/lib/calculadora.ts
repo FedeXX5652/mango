@@ -68,7 +68,18 @@ export function igual(e: EstadoCalc): EstadoCalc {
 
 export function borrarUltimo(e: EstadoCalc): EstadoCalc {
   if (e.reiniciar || e.entrada.length <= 1) return { ...e, entrada: "0", reiniciar: false }
-  return { ...e, entrada: e.entrada.slice(0, -1) }
+  const resto = e.entrada.slice(0, -1)
+  // "-5" sin el 5 no es un numero: vuelve a 0.
+  return { ...e, entrada: resto === "-" ? "0" : resto }
+}
+
+// "±" (1.10.0): el saldo de una tarjeta es negativo, y al ajustarlo hay que
+// poder escribirlo. Cambia el signo de lo que se ve, como en la calculadora de
+// iOS; sobre un resultado, el proximo digito igual empieza un numero nuevo.
+export function cambiarSigno(e: EstadoCalc): EstadoCalc {
+  if (aNumero(e.entrada) === 0) return e
+  const entrada = e.entrada.startsWith("-") ? e.entrada.slice(1) : `-${e.entrada}`
+  return { ...e, entrada }
 }
 
 export function limpiar(): EstadoCalc {
@@ -99,9 +110,10 @@ export function cuentaEnCurso(e: EstadoCalc): { izquierda: string; op: Op } | nu
 }
 
 // Estado inicial sembrado con un monto (en centavos), p. ej. al aplicar una
-// plantilla. Con 0 o negativo, vuelve al inicial vacio.
+// plantilla o el saldo de una cuenta al ajustarlo. Con 0, el inicial vacio. Un
+// negativo (el saldo de una tarjeta) arranca negativo.
 export function desdeCentavos(centavos: number, moneda?: string): EstadoCalc {
-  if (!centavos || centavos <= 0) return INICIAL
+  if (!centavos) return INICIAL
   // El texto exacto, sin pasar por un decimal: 230272 -> "2302,72".
   // Sin ceros sobrantes, como lo que se tipea: "1250,50" -> "1250,5".
   const entrada = aTextoEditable(centavos, moneda)

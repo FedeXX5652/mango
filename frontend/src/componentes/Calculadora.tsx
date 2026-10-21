@@ -6,6 +6,7 @@ import {
   type Op,
   aEntrada,
   borrarUltimo,
+  cambiarSigno,
   coma,
   cuentaEnCurso,
   desdeCentavos,
@@ -21,15 +22,19 @@ import { cn } from "@/lib/utils"
 
 // Teclado de calculadora para el monto. El display muestra la entrada en curso;
 // el valor en centavos se comunica al padre en cada cambio. `inicial` (centavos)
-// siembra el monto de arranque, p. ej. al aplicar una plantilla.
+// siembra el monto de arranque, p. ej. al aplicar una plantilla. `conSigno`
+// suma la tecla "±" (ajustar el saldo de una tarjeta, que es negativo, 0033):
+// en el alta no va, un monto es siempre positivo.
 export function Calculadora({
   moneda,
   onCambio,
   inicial,
+  conSigno,
 }: {
   moneda: string
   onCambio: (centavos: number) => void
   inicial?: number
+  conSigno?: boolean
 }) {
   const [estado, setEstado] = useState(() => desdeCentavos(inicial ?? 0, moneda))
   // Los decimales de la moneda (0 en JPY o CLP): limitan lo que se tipea y el
@@ -53,10 +58,14 @@ export function Calculadora({
       if (foco === "INPUT" || foco === "TEXTAREA" || foco === "SELECT") return
       // Con una hoja abierta encima (elegir cuenta, categoria…) las teclas son
       // de la hoja: Escape la cierra y no tiene que borrar el monto, ni un
-      // numero tipeado ahi sumarse a la cuenta de atras.
+      // numero tipeado ahi sumarse a la cuenta de atras. Cuenta solo la de
+      // ARRIBA (la ultima en el documento): con la calculadora en una hoja
+      // apilada sobre otra (ajustar el saldo sobre la edicion de la cuenta), la
+      // de abajo no la contiene y el teclado no andaba.
       const yo = raiz.current
       const capas = document.querySelectorAll('[role="dialog"], [role="alertdialog"]')
-      if ([...capas].some((c) => !yo || !c.contains(yo))) return
+      const arriba = capas[capas.length - 1]
+      if (arriba && (!yo || !arriba.contains(yo))) return
       // Enter sobre un control de afuera (Guardar, un selector) es de ese
       // control: tomarlo como "=" le impedia activarse con el teclado.
       const destino = ev.target instanceof Element ? ev.target : null
@@ -177,7 +186,12 @@ export function Calculadora({
         <Tecla onClick={() => setEstado(limpiar)} aria-label="Borrar todo">
           C
         </Tecla>
-        <div className="col-span-3">
+        {conSigno && (
+          <Tecla onClick={() => setEstado(cambiarSigno)} aria-label="Cambiar el signo">
+            ±
+          </Tecla>
+        )}
+        <div className={conSigno ? "col-span-2" : "col-span-3"}>
           <Tecla variante="igual" onClick={() => setEstado(igual)} aria-label="Igual">
             =
           </Tecla>
