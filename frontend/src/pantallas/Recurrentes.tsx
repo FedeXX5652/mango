@@ -188,9 +188,6 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
   const { data: categorias } = useQuery<Opcion>(
     `SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0 AND ${SIN_AJUSTE}`,
   )
-  const { data: medios } = useQuery<Opcion>(
-    "SELECT id, name FROM payment_methods WHERE deleted_at IS NULL AND archived = 0",
-  )
 
   const [name, setName] = useState("")
   const [kind, setKind] = useState("expense")
@@ -198,7 +195,6 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
   const [cuentaId, setCuentaId] = useState("")
   const [cuentaDestinoId, setCuentaDestinoId] = useState("")
   const [categoriaId, setCategoriaId] = useState("")
-  const [medioId, setMedioId] = useState("")
   const [frequency, setFrequency] = useState("monthly")
   const [intervalo, setIntervalo] = useState("1")
   const [desde, setDesde] = useState(hoyISO)
@@ -231,10 +227,10 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
     try {
       await db.execute(
         `INSERT INTO recurring_rules
-           (id, name, kind, account_id, transfer_account_id, category_id, payment_method_id,
+           (id, name, kind, account_id, transfer_account_id, category_id,
             amount, currency, frequency, interval_count, start_date, next_run_date, end_date,
             active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
         [
           uuidv4(),
           name.trim(),
@@ -242,7 +238,6 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
           cuentaId,
           kind === "transfer" ? cuentaDestinoId : null,
           kind === "transfer" ? null : categoriaId,
-          medioId || null,
           centavos,
           moneda,
           frequency,
@@ -329,17 +324,6 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
           />
         </Campo>
       )}
-
-      <Campo etiqueta="Medio de pago (opcional)">
-        <SelectorEntidad
-          titulo="Medio de pago"
-          placeholder="Sin medio"
-          vacio="Sin medio"
-          opciones={medios.map((m) => ({ id: m.id, nombre: m.name }))}
-          valor={medioId}
-          onCambio={setMedioId}
-        />
-      </Campo>
 
       <div className="grid grid-cols-2 gap-3">
         <Campo etiqueta="Frecuencia">

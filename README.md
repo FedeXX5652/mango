@@ -20,8 +20,8 @@ decide compartir**, con reparto de gastos estilo Splitwise incluido.
 ![PowerSync](https://img.shields.io/badge/PowerSync-offline--first-1c1c1c)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalable-5A0FC8?logo=pwa&logoColor=white)
-![Versión](https://img.shields.io/badge/versión-1.10.0-FDBE02)
-![Tests](https://img.shields.io/badge/tests-877%20verdes-2EA043)
+![Versión](https://img.shields.io/badge/versión-1.11.0-FDBE02)
+![Tests](https://img.shields.io/badge/tests-911%20verdes-2EA043)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED?logo=docker&logoColor=white)
 
 </div>
@@ -53,8 +53,8 @@ de un hogar, con tres convicciones:
 ## Características
 
 ### 💸 Finanzas personales
-- Gastos, ingresos y transferencias sobre un modelo único, con **cuentas** y
-  **medios de pago**.
+- Gastos, ingresos y transferencias sobre un modelo único, con **cuentas**
+  (la tarjeta de crédito es una cuenta más, con sus datos).
 - **Categorías** de dos niveles, **etiquetas**, **comercios** (texto libre, algo
   distinto de la categoría).
 - **Presupuesto por sobres** mensual, con arrastre.
@@ -74,7 +74,9 @@ de un hogar, con tres convicciones:
   se ven en el calendario. Un grupo tiene sus recordatorios: avisan a todos y
   los paga cualquiera.
 - **Metas de ahorro**, **deudas y préstamos**, y **fotos de tickets** adjuntas.
-- Tarjetas de crédito con día de **cierre** y **vencimiento**.
+- **Tarjetas de crédito** con día de cierre y vencimiento, saldo en pesos y en
+  dólares, **compras en cuotas**, cuánto vence del resumen y cuánto queda
+  disponible. Se pagan desde cualquier cuenta, todo o una parte.
 
 ### 👥 Compartido (hogar / pareja)
 - **Espacios**: Personal y cada grupo tienen **las mismas pantallas** (Inicio,
@@ -197,7 +199,7 @@ por **una sola puerta** (nginx), así que se expone un único puerto.
   cliente una versión atrás.
 - **Decisiones de arquitectura documentadas** (29 ADRs en
   [`docs/decisiones/`](docs/decisiones)) — nada importante se decide dos veces.
-- **Incrementos chicos con pruebas**: **877** pruebas (backend + frontend) en
+- **Incrementos chicos con pruebas**: **911** pruebas (backend + frontend) en
   verde, más un banco de compatibilidad para detectar regresiones de esquema.
 - **Deploy por imágenes**: el servidor no tiene el código; baja imágenes
   publicadas, y la base migra sola al arrancar.

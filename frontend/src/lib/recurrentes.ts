@@ -25,7 +25,6 @@ export interface ReglaRecurrente {
   account_id: string
   transfer_account_id: string | null
   category_id: string | null
-  payment_method_id: string | null
   amount: number
   currency: string
   payee: string | null

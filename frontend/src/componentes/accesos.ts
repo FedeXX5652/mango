@@ -3,7 +3,6 @@ import {
   ArrowUpRight,
   CalendarClock,
   Coins,
-  CreditCard,
   Files,
   HandCoins,
   Landmark,
@@ -120,14 +119,6 @@ export const ACCESOS: Acceso[] = [
     corta: "Categorías",
     to: "/categorias",
     icono: Tags,
-    grupo: "configuracion",
-  },
-  {
-    id: "medios",
-    etiqueta: "Medios de pago",
-    corta: "Medios",
-    to: "/medios",
-    icono: CreditCard,
     grupo: "configuracion",
   },
   {

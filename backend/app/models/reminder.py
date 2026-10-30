@@ -76,6 +76,9 @@ class Reminder(Base, IdMixin, TimestampMixin):
     # `crud/reminder.py`, "Recordatorios vinculados".
     payment_method_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("payment_methods.id"))
     debt_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("debts.id"))
+    # La tarjeta es una cuenta (0034): el "Avisarme" de una tarjeta sigue a su
+    # cuenta. Reemplaza a `payment_method_id`, que queda para clientes 1.10.
+    account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
 
     __table_args__ = (
         CheckConstraint(
@@ -110,7 +113,13 @@ class Reminder(Base, IdMixin, TimestampMixin):
             name="reminders_followup_chk",
         ),
         CheckConstraint(
-            "payment_method_id IS NULL OR debt_id IS NULL", name="reminders_un_vinculo_chk"
+            "num_nonnulls(payment_method_id, debt_id, account_id) <= 1",
+            name="reminders_un_vinculo_chk",
+        ),
+        Index(
+            "reminders_account_idx",
+            "account_id",
+            postgresql_where=text("account_id IS NOT NULL"),
         ),
         # Para seguir a la tarjeta o a la deuda cuando cambian (crud/reminder.py).
         Index(

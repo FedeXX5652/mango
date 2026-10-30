@@ -4,6 +4,36 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.11.0] - 2026-10-30
+
+### Agregado
+
+- **La tarjeta de crédito es una cuenta** (0034). Su marca, los últimos 4, el día
+  de cierre, el de vencimiento y el límite se cargan en la tarjeta misma. Si
+  comprás en dólares, la tarjeta tiene un saldo aparte en dólares: un gasto con
+  la tarjeta en dólares va solo a ese saldo, sin pedir el monto debitado.
+- **Cada tarjeta tiene su hoja**: tocala en Cuentas y ves cuánto debés en cada
+  moneda, cuánto vence del último resumen y cuánto te queda disponible.
+- **Pagar la tarjeta**, desde cualquier cuenta: todo o solo el resumen, o la parte
+  que quieras con la calculadora. Los pesos y los dólares se pagan por separado;
+  los dólares se pueden pagar con pesos (propone el monto con el dólar tarjeta y
+  lo corregís con lo que cobró el banco). Antes de pagar, la hoja dice qué se va
+  a anotar y cuánto te queda.
+- **Compras en cuotas**: en un gasto con tarjeta elegís las cuotas y Mango te dice
+  cuánto es cada una. La compra cuenta entera ese día; las cuotas dicen en qué
+  resumen entra cada parte.
+- **El recordatorio del vencimiento de una tarjeta** ofrece "Pagar la tarjeta": lo
+  pagás desde ahí y el vencimiento queda marcado.
+
+### Cambiado
+
+- **Los medios de pago se fueron.** Para gastar con la tarjeta, elegís la tarjeta
+  como cuenta. Ya no está la pantalla Medios de pago ni el campo en el alta, las
+  plantillas, las recurrentes o al saldar un pago del grupo. Lo que tenías en un
+  medio de tarjeta de crédito pasó solo a su cuenta (datos y "Avisarme").
+- **"Avisarme" de una tarjeta** sigue a la cuenta de la tarjeta: si cambiás su día
+  de vencimiento, el recordatorio se corre solo.
+
 ## [1.10.0] - 2026-10-21
 
 ### Agregado

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { type Plan, planCategoria, planCuenta, planMedio } from "@/lib/reasignar"
+import { type Plan, planCategoria, planCuenta } from "@/lib/reasignar"
 
 // Lo que se prueba es la COBERTURA del plan: el error facil es olvidarse una
 // tabla que referencia la entidad, y entonces queda una fila apuntando a algo
@@ -69,13 +69,7 @@ describe("planCuenta", () => {
 
   it("cubre todo lo que referencia una cuenta, incluidas las dos puntas de una transferencia", () => {
     expect(new Set(tablas(plan))).toEqual(
-      new Set([
-        "transactions",
-        "templates",
-        "recurring_rules",
-        "payment_method_accounts",
-        "accounts",
-      ]),
+      new Set(["transactions", "templates", "recurring_rules", "accounts"]),
     )
     const puntas = plan.sentencias.filter((x) => x.sql.startsWith("UPDATE transactions"))
     expect(puntas.map((p) => p.sql.includes("transfer_account_id"))).toEqual([false, true])
@@ -86,29 +80,9 @@ describe("planCuenta", () => {
   })
 })
 
-describe("planMedio", () => {
-  const plan = planMedio("viejo", "nuevo")
-
-  it("cubre todo lo que referencia un medio de pago", () => {
-    expect(new Set(tablas(plan))).toEqual(
-      new Set([
-        "transactions",
-        "templates",
-        "recurring_rules",
-        "payment_method_accounts",
-        "payment_methods",
-      ]),
-    )
-  })
-
-  it("termina borrando el medio", () => {
-    expect(ultima(plan).sql).toBe("DELETE FROM payment_methods WHERE id = ?")
-  })
-})
-
-describe("los tres planes", () => {
+describe("los planes", () => {
   it("nunca dejan la entidad sin borrar y siempre la borran al final", () => {
-    for (const plan of [planCategoria("a", "b"), planCuenta("a", "b"), planMedio("a", "b")]) {
+    for (const plan of [planCategoria("a", "b"), planCuenta("a", "b")]) {
       const borrados = plan.sentencias.filter((s) => s.sql.startsWith("DELETE FROM"))
       expect(borrados.length).toBeGreaterThan(0)
       expect(ultima(plan).params).toEqual(["a"])
@@ -116,7 +90,7 @@ describe("los tres planes", () => {
   })
 
   it("ninguna sentencia apunta el destino contra si mismo", () => {
-    for (const plan of [planCategoria("a", "b"), planCuenta("a", "b"), planMedio("a", "b")]) {
+    for (const plan of [planCategoria("a", "b"), planCuenta("a", "b")]) {
       for (const s of plan.sentencias) {
         // El origen ("a") tiene que estar en toda sentencia: es lo que se busca.
         expect(s.params).toContain("a")

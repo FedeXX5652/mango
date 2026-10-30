@@ -18,11 +18,20 @@ const accounts = new Table(
     visibility: column.text,
     archived: column.integer,
     sort_order: column.integer,
+    // Tarjeta de credito (0034): sus datos viven en la cuenta. Solo en una
+    // tarjeta principal; el saldo en otra moneda (dolares) es otra cuenta con
+    // `parent_account_id` y hereda los datos de su tarjeta.
+    brand: column.text,
+    last4: column.text,
+    closing_day: column.integer,
+    due_day: column.integer,
+    credit_limit: column.integer,
+    parent_account_id: column.text,
     created_at: column.text,
     updated_at: column.text,
     deleted_at: column.text,
   },
-  { indexes: { por_grupo: ["group_id"] } },
+  { indexes: { por_grupo: ["group_id"], por_tarjeta: ["parent_account_id"] } },
 )
 
 const categories = new Table(
@@ -113,6 +122,8 @@ const transactions = new Table(
     // gasto que cargo otro apunta al gasto con `paid_for_id`.
     amount_owner: column.integer,
     paid_for_id: column.text,
+    // Compra en cuotas (0034): en cuantos resumenes se factura. NULL = una sola.
+    installments: column.integer,
     created_at: column.text,
     updated_at: column.text,
     deleted_at: column.text,
@@ -303,9 +314,11 @@ const reminders = new Table({
   track_from: column.text,
   alerts: column.text,
   followup_days: column.integer,
-  // "Avisarme" (1.6.0): la tarjeta o la deuda que sigue.
+  // "Avisarme" (1.6.0): la tarjeta o la deuda que sigue. La tarjeta es una cuenta
+  // (0034): `account_id`. `payment_method_id` queda de 1.10, hasta contraer.
   payment_method_id: column.text,
   debt_id: column.text,
+  account_id: column.text,
   created_at: column.text,
   updated_at: column.text,
   deleted_at: column.text,

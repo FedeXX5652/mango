@@ -18,7 +18,7 @@ type PlantillaDelGrupo = PlantillaEditable & { categoria: string | null }
 export function PlantillasDelGrupo({ groupId, moneda }: { groupId: string; moneda: string }) {
   const db = usePowerSync()
   const { data: plantillas } = useQuery<PlantillaDelGrupo>(
-    `SELECT t.id, t.name, t.kind, t.account_id, t.category_id, t.payment_method_id, t.amount,
+    `SELECT t.id, t.name, t.kind, t.account_id, t.category_id, t.amount,
             t.currency, t.payee, t.notes, c.name AS categoria
      FROM templates t LEFT JOIN categories c ON c.id = t.category_id
      WHERE t.group_id = ? AND t.deleted_at IS NULL ORDER BY t.sort_order, t.name`,

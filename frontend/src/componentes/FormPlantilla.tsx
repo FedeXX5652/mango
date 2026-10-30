@@ -14,8 +14,8 @@ import { uuidv4 } from "@/lib/uuid"
 
 // Alta y edicion de una plantilla, personal o de un grupo (1.6.0, T1).
 //
-// Una del grupo es de gasto, con una categoria del grupo y sin cuenta ni medio
-// de pago: cada uno paga con lo suyo. Su monto va en la moneda del grupo. El
+// Una del grupo es de gasto, con una categoria del grupo y sin cuenta: cada uno
+// paga con lo suyo. Su monto va en la moneda del grupo. El
 // tipo y el grupo se eligen al crearla: el servidor no los deja cambiar.
 
 export interface PlantillaEditable {
@@ -24,7 +24,6 @@ export interface PlantillaEditable {
   kind: string
   account_id: string | null
   category_id: string | null
-  payment_method_id: string | null
   amount: number | null
   currency: string | null
   payee: string | null
@@ -61,9 +60,6 @@ export function FormPlantilla({
       : `SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0 AND group_id IS NULL AND ${SIN_AJUSTE}`,
     grupo ? [grupo.id] : [],
   )
-  const { data: medios } = useQuery<Opcion>(
-    "SELECT id, name FROM payment_methods WHERE deleted_at IS NULL AND archived = 0",
-  )
 
   const [name, setName] = useState(inicial?.name ?? "")
   const [kind, setKind] = useState(grupo ? "expense" : (inicial?.kind ?? "expense"))
@@ -74,7 +70,6 @@ export function FormPlantilla({
   )
   const [cuentaId, setCuentaId] = useState(inicial?.account_id ?? "")
   const [categoriaId, setCategoriaId] = useState(inicial?.category_id ?? "")
-  const [medioId, setMedioId] = useState(inicial?.payment_method_id ?? "")
   const [payee, setPayee] = useState(inicial?.payee ?? "")
   const [notas, setNotas] = useState(inicial?.notes ?? "")
   const [error, setError] = useState("")
@@ -102,7 +97,6 @@ export function FormPlantilla({
       name.trim(),
       grupo ? null : cuentaId || null,
       kind === "transfer" ? null : categoriaId || null,
-      grupo ? null : medioId || null,
       importe,
       moneda,
       payee.trim() || null,
@@ -111,16 +105,16 @@ export function FormPlantilla({
     try {
       if (inicial) {
         await db.execute(
-          `UPDATE templates SET name = ?, account_id = ?, category_id = ?, payment_method_id = ?,
+          `UPDATE templates SET name = ?, account_id = ?, category_id = ?,
              amount = ?, currency = ?, payee = ?, notes = ? WHERE id = ?`,
           [...valores, inicial.id],
         )
       } else {
         await db.execute(
           `INSERT INTO templates
-             (name, account_id, category_id, payment_method_id, amount, currency, payee, notes,
+             (name, account_id, category_id, amount, currency, payee, notes,
               id, kind, group_id, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
           [...valores, uuidv4(), kind, grupo?.id ?? null],
         )
       }
@@ -206,18 +200,6 @@ export function FormPlantilla({
             onCambio={setCategoriaId}
             placeholder="Sin categoría"
             vacio="Sin categoría"
-          />
-        </Campo>
-      )}
-      {!grupo && (
-        <Campo etiqueta="Medio de pago (opcional)">
-          <SelectorEntidad
-            titulo="Medio de pago"
-            placeholder="Sin medio"
-            vacio="Sin medio"
-            opciones={medios.map((m) => ({ id: m.id, nombre: m.name }))}
-            valor={medioId}
-            onCambio={setMedioId}
           />
         </Campo>
       )}

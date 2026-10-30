@@ -25,7 +25,7 @@ export interface Generado {
 }
 
 const SQL_REGLAS = `
-  SELECT id, kind, account_id, transfer_account_id, category_id, payment_method_id,
+  SELECT id, kind, account_id, transfer_account_id, category_id,
          amount, currency, payee, notes, frequency, interval_count,
          start_date, next_run_date, end_date, active
   FROM recurring_rules
@@ -74,8 +74,8 @@ export async function generarVencidas(
       await tx.execute(
         `INSERT INTO transactions
            (id, owner_id, kind, occurred_at, amount, currency, account_id, transfer_account_id,
-            category_id, payment_method_id, payee, notes, source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'recurring')`,
+            category_id, payee, notes, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'recurring')`,
         [
           o.id,
           // Como en el alta: la fila local con su dueño (el servidor lo ignora).
@@ -87,7 +87,6 @@ export async function generarVencidas(
           r.account_id,
           r.kind === "transfer" ? r.transfer_account_id : null,
           r.kind === "transfer" ? null : r.category_id,
-          r.payment_method_id,
           r.payee,
           r.notes,
         ],

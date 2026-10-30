@@ -94,6 +94,27 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   propia. Evaluar despues de los espacios de grupo (y si hace falta una vista
   "Todo" que sume patrimonios).
 
+## Plan 1.11.0 a 1.13.0 (2026-10-30)
+
+- **1.11.0 - Tarjeta es una cuenta** (0034): tarjeta de credito como tipo de
+  cuenta con brand, last4, closing_day, due_day, credit_limit; saldo en otra
+  moneda como cuenta secundaria (parent_account_id); pagar tarjeta desde
+  cualquier cuenta, segmentado por moneda; cuotas (installments); "lo que
+  vences" (resumen) y disponible; "Avisarme" sigue la cuenta, no el medio;
+  migracion de medios de pago tarjeta a sus cuentas. Medios de pago en retiro
+  (servidor sigue aceptando 1.10; interfaz no los usa).
+- **1.12.0 - Pulido**: resumen del dia a la derecha en Movimientos; logo en
+  encabezados; transiciones suaves (numeros no cambian ante los ojos); accesos
+  del grupo con todo lo que existe (plantillas, presupuesto, estadisticas,
+  categorias, etiquetas, sacar plata, calendario); scroll, espacios y alineacion
+  entre pestañas; revision didactica de toda la app (cada toque dice que hizo y
+  por que).
+- **1.13.0 - Herramientas del grupo**: recurrentes, metas y plantillas del grupo
+  con pantalla propia; y todo lo demas que tenga lo personal (deudas, etc).
+- **Contraer medios de pago** (posterior): borrar `payment_methods`,
+  `payment_method_accounts` y las columnas `payment_method_id` (sin clientes
+  1.10). Ver 0034.
+
 ## Fases del roadmap que faltan (resumen; detalle en ESPECIFICACION §7)
 
 - **Fase 2 - Ingesta automatica.** n8n lee el correo, postea a la API, cae en la

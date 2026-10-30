@@ -25,6 +25,7 @@ import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
 import { tipoDesdeParametro, type TipoMovimiento } from "@/lib/atajos"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { PERSONAL, rutaEspacio } from "@/lib/espacios"
+import { opcionesCuotas, repartirCuotas } from "@/lib/tarjeta"
 import { formatearFechaCorta } from "@/lib/fecha"
 import { ordenarMonedas } from "@/lib/monedas"
 import { responderCiclo } from "@/lib/recordatorios"
@@ -38,6 +39,9 @@ interface CuentaLocal {
   name: string
   currency: string
   group_id: string | null
+  // Tarjeta de credito (0034): `type` y el saldo en otra moneda de una tarjeta.
+  type: string
+  parent_account_id: string | null
 }
 interface CategoriaLocal {
   id: string
@@ -47,10 +51,6 @@ interface CategoriaLocal {
   icon: string | null
   // Ambito (0014): con group_id es del grupo; sin el, personal.
   group_id: string | null
-}
-interface MedioLocal {
-  id: string
-  name: string
 }
 const TIPOS: { valor: TipoMovimiento; etiqueta: string }[] = [
   { valor: "expense", etiqueta: "Gasto" },
@@ -95,20 +95,17 @@ export function FormularioMovimiento({
   const db = usePowerSync()
 
   const { data: cuentas, isLoading } = useQuery<CuentaLocal>(
-    "SELECT id, name, currency, group_id FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
+    "SELECT id, name, currency, group_id, type, parent_account_id FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
   )
   const { data: categorias } = useQuery<CategoriaLocal>(
     `SELECT id, name, kind, parent_id, icon, group_id FROM categories WHERE deleted_at IS NULL AND archived = 0 AND ${SIN_AJUSTE}`,
-  )
-  const { data: medios } = useQuery<MedioLocal>(
-    "SELECT id, name FROM payment_methods WHERE deleted_at IS NULL AND archived = 0",
   )
   const { data: comerciosRows } = useQuery<{ payee: string }>(
     "SELECT DISTINCT payee FROM transactions WHERE payee IS NOT NULL AND deleted_at IS NULL ORDER BY payee",
   )
   const comercios = comerciosRows.map((r) => r.payee)
   const { data: plantillas } = useQuery<PlantillaLocal>(
-    "SELECT id, group_id, name, kind, account_id, category_id, payment_method_id, amount, currency, payee, notes FROM templates WHERE deleted_at IS NULL ORDER BY sort_order, name",
+    "SELECT id, group_id, name, kind, account_id, category_id, amount, currency, payee, notes FROM templates WHERE deleted_at IS NULL ORDER BY sort_order, name",
   )
 
   const [tipo, setTipo] = useState<TipoMovimiento>(tipoInicial)
@@ -116,7 +113,8 @@ export function FormularioMovimiento({
   const [cuentaId, setCuentaId] = useState(cuentaInicial)
   const [cuentaDestinoId, setCuentaDestinoId] = useState(destinoInicial)
   const [categoriaId, setCategoriaId] = useState("")
-  const [medioId, setMedioId] = useState("")
+  // Cuotas de un gasto con tarjeta (0034). 1 = sin cuotas.
+  const [cuotas, setCuotas] = useState(1)
   const [comercio, setComercio] = useState("")
   const [notas, setNotas] = useState("")
   const [cuando, setCuando] = useState(ahoraLocal)
@@ -164,21 +162,36 @@ export function FormularioMovimiento({
   // Cuentas que se ofrecen (0026): las propias y, en un grupo, la conjunta de
   // ESE grupo. En una transferencia, todas (poner plata en la conjunta es
   // eso). Pagar algo personal con la conjunta de un grupo no tiene sentido.
+  // El saldo en otra moneda de una tarjeta no se elige aparte en un gasto: se
+  // elige la tarjeta y la moneda lo lleva a ese saldo (0034). En una
+  // transferencia si se ofrece (pagar los dolares de la tarjeta).
   const cuentasDelEspacio = useMemo(
     () =>
-      tipo === "transfer" ? cuentas : cuentas.filter((c) => !c.group_id || c.group_id === grupoId),
+      tipo === "transfer"
+        ? cuentas
+        : cuentas.filter((c) => !c.parent_account_id && (!c.group_id || c.group_id === grupoId)),
     [cuentas, tipo, grupoId],
   )
   const cuentaValida = (id: string, t: TipoMovimiento, g: string) =>
     cuentas.some((c) => c.id === id && (t === "transfer" || !c.group_id || c.group_id === g))
 
   const base = useMonedaBase()
-  const cuentaSel = cuentas.find((c) => c.id === cuentaId)
-  const monedaCuenta = cuentaSel?.currency ?? base
+  const cuentaElegida = cuentas.find((c) => c.id === cuentaId)
   // La moneda del movimiento arranca en la de la cuenta, que es el 90% de los
   // casos, y se cambia en la misma linea del monto (ver 0005).
   const [monedaElegida, setMonedaElegida] = useState<string | null>(null)
-  const moneda = monedaElegida ?? monedaCuenta
+  const moneda = monedaElegida ?? cuentaElegida?.currency ?? base
+  // Un gasto con la tarjeta en la moneda de su otro saldo va a ese saldo (0034):
+  // en dolares, al saldo en dolares, sin monto debitado.
+  const esTarjeta = tipo !== "transfer" && cuentaElegida?.type === "credit_card"
+  const saldoEnMoneda =
+    esTarjeta && cuentaElegida && moneda !== cuentaElegida.currency
+      ? cuentas.find((c) => c.parent_account_id === cuentaElegida.id && c.currency === moneda)
+      : undefined
+  const cuentaSel = saldoEnMoneda ?? cuentaElegida
+  const monedaCuenta = cuentaSel?.currency ?? base
+  const cuentasConCuotas = tipo === "expense" && esTarjeta
+  const cuotasEfectivas = cuentasConCuotas ? cuotas : 1
   // Se ofrecen las monedas de las cuentas que tenga: no hay lista mundial.
   const monedas = useMemo(
     () =>
@@ -248,7 +261,6 @@ export function FormularioMovimiento({
     if (t.account_id) setCuentaId(t.account_id)
     setCuentaDestinoId("")
     setCategoriaId(t.category_id ?? "")
-    setMedioId(t.payment_method_id ?? "")
     setComercio(t.payee ?? "")
     setNotas(t.notes ?? "")
     if (t.amount && t.amount > 0) {
@@ -326,8 +338,8 @@ export function FormularioMovimiento({
       await db.execute(
         `INSERT INTO transactions
            (id, owner_id, kind, occurred_at, amount, currency, account_id, transfer_account_id,
-            category_id, payment_method_id, payee, notes, amount_account, exchange_rate,
-            visibility, group_id, amount_owner)
+            category_id, payee, notes, amount_account, exchange_rate,
+            visibility, group_id, amount_owner, installments)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           idTx,
@@ -336,10 +348,10 @@ export function FormularioMovimiento({
           new Date(cuando).toISOString(),
           centavos,
           moneda,
-          sinCuenta ? null : cuentaId,
+          // Con la tarjeta en dolares, su saldo en dolares (0034).
+          sinCuenta ? null : (cuentaSel?.id ?? cuentaId),
           tipo === "transfer" ? cuentaDestinoId : null,
           tipo === "transfer" ? null : categoriaId,
-          medioId || null,
           comercio || null,
           notas || null,
           // Sin conversion, los dos van en NULL. El movimiento es valido
@@ -350,6 +362,8 @@ export function FormularioMovimiento({
           grupoId || null,
           // Lo que puse yo, si pusieron otros (0032). NULL = lo pague entero.
           entreVarios ? pagadores.mio : null,
+          // Cuotas (0034): NULL = una sola.
+          cuotasEfectivas > 1 ? cuotasEfectivas : null,
         ],
       )
       // Una fila por etiqueta elegida (ver 3.5.1).
@@ -457,7 +471,6 @@ export function FormularioMovimiento({
           kind: tipo,
           account_id: cuentaId || null,
           category_id: categoriaId || null,
-          payment_method_id: medioId || null,
           amount: centavos > 0 ? centavos : null,
           currency: moneda,
           payee: comercio.trim() || null,
@@ -564,16 +577,24 @@ export function FormularioMovimiento({
             />
           )}
 
-          <Campo etiqueta="Medio de pago (opcional)">
-            <SelectorEntidad
-              titulo="Medio de pago"
-              placeholder="Sin medio"
-              vacio="Sin medio"
-              opciones={medios.map((m) => ({ id: m.id, nombre: m.name }))}
-              valor={medioId}
-              onCambio={setMedioId}
-            />
-          </Campo>
+          {/* Cuotas (0034): solo en un gasto con tarjeta. Se dice cuanto es
+              cada una, para que se entienda que la compra es una sola. */}
+          {cuentasConCuotas && (
+            <Campo etiqueta="Cuotas">
+              <SelectorEntidad
+                titulo="En cuántas cuotas"
+                placeholder="Sin cuotas"
+                opciones={opcionesCuotas(cuotas)}
+                valor={String(cuotas)}
+                onCambio={(v) => setCuotas(Number(v) || 1)}
+              />
+              {cuotas > 1 && centavos > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {textoCuotas(centavos, cuotas, monedaCuenta)}
+                </p>
+              )}
+            </Campo>
+          )}
 
           <Campo etiqueta="Comercio / contraparte (opcional)">
             <Input
@@ -624,6 +645,15 @@ export function FormularioMovimiento({
       )}
     </div>
   )
+}
+
+// "6 cuotas de $ 1.000", y la primera aparte si lleva los centavos que sobran.
+// La compra cuenta entera hoy; las cuotas dicen cuando se paga cada parte.
+function textoCuotas(total: number, n: number, moneda: string): string {
+  const [primera, resto] = repartirCuotas(total, n)
+  const cada = formatearMonto(resto, { moneda })
+  const extra = primera !== resto ? ` (la primera, ${formatearMonto(primera, { moneda })})` : ""
+  return `${n} cuotas de ${cada}${extra}, una en cada resumen. La compra cuenta entera hoy.`
 }
 
 // Ruta /nuevo: en movil es la pantalla focal (sin barra ni FAB, sube al entrar).

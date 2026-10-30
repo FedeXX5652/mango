@@ -17,7 +17,6 @@ export interface PlantillaLocal {
   kind: string
   account_id: string | null
   category_id: string | null
-  payment_method_id: string | null
   amount: number | null
   currency: string | null
   payee: string | null
@@ -31,7 +30,6 @@ export interface CargaActual {
   kind: string
   account_id: string | null
   category_id: string | null
-  payment_method_id: string | null
   amount: number | null
   currency: string
   payee: string | null
@@ -101,8 +99,8 @@ export function HojaPlantillas({
     try {
       await db.execute(
         `INSERT INTO templates
-           (id, name, kind, account_id, category_id, payment_method_id, amount, currency, payee, notes, sort_order, group_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+           (id, name, kind, account_id, category_id, amount, currency, payee, notes, sort_order, group_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
         [
           uuidv4(),
           limpio,
@@ -110,7 +108,6 @@ export function HojaPlantillas({
           grupo ? null : actual.account_id,
           // Una transferencia no lleva categoria (igual que en Plantillas).
           actual.kind === "transfer" ? null : actual.category_id,
-          grupo ? null : actual.payment_method_id,
           actual.amount,
           actual.currency,
           actual.payee,

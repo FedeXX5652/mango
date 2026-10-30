@@ -299,7 +299,7 @@ no encaja, se compone con otros o se crea uno nuevo al lado.
 | Formulario de alta en escritorio | `Sheet` (panel lateral) |
 | Formulario de alta en movil | Ruta a pantalla completa |
 | Confirmacion destructiva | `AlertDialog` |
-| Elegir cuenta, categoria, medio de pago | `Select` con busqueda si hay mas de 10 opciones |
+| Elegir cuenta, categoria | `Select` con busqueda si hay mas de 10 opciones |
 | Filtros en movil | `Drawer` (hoja inferior) |
 | Lista de movimientos en escritorio | `Table` |
 | Lista de movimientos en movil | `Card` apiladas |
@@ -872,6 +872,65 @@ Al ajustar se cierran las dos hojas: ya no queda nada que editar. Se dice
 cuenta" no aparece en Categorias ni en los selectores, y en el detalle de un
 ajuste se muestra fija (0033).
 
+### Fila de una tarjeta de credito en Cuentas
+
+Cada fila de una tarjeta muestra:
+
+- **Encabezado**: "Visa ···1234 · cierra el 24 · vence el 5", sin saltos de
+  linea. Los ultimos 4 digitos y los dias de cierre y vencimiento en un renglón.
+- **Saldos**: "Debés" arriba a la izquierda, luego los saldos en cada moneda que
+  tengan movimientos (ej. "Pesos: -$ 15.000,00 | Dolares: -$ 500,00"). Un saldo
+  en una sola moneda. Si no hay deuda, en lugar de la fila de monto va "Al día".
+- **Al tocar la fila:** se abre la hoja de la tarjeta (no se edita en línea).
+
+### Hoja de una tarjeta de credito
+
+Al abrir una tarjeta desde la lista de Cuentas, la hoja muestra (con el mismo
+encabezado de Ajustes, boton Volver):
+
+- **Arriba: resumen** — "Lo que vences" (el resumen, lo que hay que pagar este
+  ciclo) y "Disponible" (el límite menos las deudas, convertido si hay dolares).
+  Si el resumen es igual al total, se muestra solo en una linea. Si son
+  distintos (hay compras despues del cierre), dos lineas con "Todo" / "Resumen".
+- **Segmentado:** si hay dos saldos (pesos y dolares), "Pesos" / "Dolares"; si
+  solo uno, no aparece (siempre se muestra el que existe).
+- **Boton amarillo "Pagar tarjeta"** al final (el unico de la pantalla).
+- **"Avisarme del vencimiento"** con una campanita (sigue a la cuenta, 0034).
+- **Debajo**: "Editar tarjeta", "Archivar", "Eliminar" (en la hoja de edicion).
+- **Por cada saldo**: "Ajustar" (que abre la calculadora, el mismo que en
+  Cuentas).
+
+### Hoja "Pagar tarjeta"
+
+Al tocar "Pagar tarjeta", se abre una nueva hoja:
+
+- **Segmentado Pesos/Dolares**, solo si hay dos saldos.
+- **Segmentado Todo/Resumen** (si el resumen es distinto del total).
+- **Calculadora** arrancando en el monto que se debe de ese saldo. Se puede
+  cambiar para pagar una parte.
+- **"Desde"** (cuenta origen): cualquiera que no sea tarjeta. Sugiere la del
+  ultimo pago de ese saldo; si no hay, la primera activa en esa moneda.
+- **Si se paga en otra moneda**: campo "Monto debitado de [moneda]" (opcional),
+  propuesto con el dolar tarjeta (0031). Ahi se escribe lo que el banco cobro de
+  verdad. Es una transferencia entre monedas (0005).
+- **Fecha** del pago.
+- **Linea**: "Se va a anotar como una transferencia a Visa ···1234".
+- **"Pagar"** (amarillo, unico de la hoja).
+- Si queda otro saldo sin pagar en esa hoja (ej. dolares), sigue abierta en ese
+  saldo; si se pago todo, se cierra.
+
+### Cuotas en el alta
+
+En el formulario de alta, si el gasto es con una tarjeta de credito, un campo
+**"Cuotas"** aparece debajo del monto:
+
+- Por defecto "1 cuota" (una sola, el monto es hoy).
+- Al elegir otro numero, la linea dice: "3 cuotas de $ X, una en cada resumen.
+  La compra cuenta entera hoy" (fecha de hoy, consumiendo el sobre entero; solo
+  cambia cuando se factura cada parte). Los montos por cuota son iguales, salvo
+  la primera que lleva los centavos que sobran.
+- El campo solo aparece en un gasto con tarjeta.
+
 ### Selector de espacio
 
 Un **espacio** es Personal o un grupo, con las mismas pantallas (0026). El
@@ -1095,7 +1154,11 @@ de doscientos movimientos, animar cada fila marea.
 - Un boton con borde (`outline`): los secundarios son de relleno suave. El borde
   es de los campos.
 - Mas de un boton amarillo por pantalla. El amarillo es la accion principal;
-  crear en una pantalla de lista es el "+" de la cabecera (`BotonNuevo`).
+  crear en una pantalla de lista es el "+" de la cabecera (`BotonNuevo`). En la
+  hoja de una tarjeta, la accion principal es "Pagar tarjeta"; la edicion (Editar
+  tarjeta, Archivar, Eliminar) va en otra hoja. Si hay dos saldos en una tarjeta,
+  la hoja de pago tiene botones segmentados (Pesos/Dolares, Todo/Resumen) para
+  elegir, no amarillos.
 - Una tarjeta dentro de otra.
 - Texto en `primary` sobre fondo claro: en Mango da 1,7:1. Los enlaces van en
   `enlace`.

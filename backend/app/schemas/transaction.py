@@ -1,11 +1,20 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from app.schemas.account import Currency
+
+
+def _una_sola(cuotas: int | None) -> int | None:
+    """Una cuota es lo mismo que sin cuotas: se guarda NULL (0034)."""
+    return None if cuotas == 1 else cuotas
+
+
+# Compra en cuotas (0034): solo en un gasto de una tarjeta (lo valida el CRUD).
+Cuotas = Annotated[Annotated[int, Field(ge=1, le=99)] | None, AfterValidator(_una_sola)]
 
 TransactionKind = Literal["expense", "income", "transfer"]
 Visibility = Literal["private", "shared"]
@@ -47,6 +56,7 @@ class TransactionCreate(BaseModel):
     # Pagos en conjunto (0032): en un gasto compartido que pagaron varios, lo que
     # puso quien lo carga (`amount` es el total). NULL = lo pago entero.
     amount_owner: int | None = Field(default=None, ge=0)
+    installments: Cuotas = None
 
 
 class TransactionUpdate(BaseModel):
@@ -75,6 +85,7 @@ class TransactionUpdate(BaseModel):
     amount_account: int | None = Field(default=None, gt=0)
     exchange_rate: Decimal | None = Field(default=None, gt=0, max_digits=20, decimal_places=10)
     amount_owner: int | None = Field(default=None, ge=0)
+    installments: Cuotas = None
 
 
 class TransactionRead(BaseModel):
@@ -98,5 +109,6 @@ class TransactionRead(BaseModel):
     visibility: str
     amount_owner: int | None = None
     paid_for_id: uuid.UUID | None = None
+    installments: int | None = None
     created_at: datetime
     updated_at: datetime

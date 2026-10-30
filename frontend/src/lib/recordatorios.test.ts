@@ -57,6 +57,7 @@ function recordatorio(over: Partial<RecordatorioLocal> = {}): RecordatorioLocal 
     monto: null,
     moneda: null,
     payment_method_id: null,
+    account_id: null,
     debt_id: null,
     tarjeta: null,
     deuda_con: null,
@@ -240,7 +241,8 @@ describe("contra el SQLite del dispositivo", () => {
     sq = new DatabaseSync(":memory:")
     sq.exec(`
       CREATE TABLE reminders (id, owner_id, title, template_id, deleted_at,
-                              payment_method_id, debt_id, group_id);
+                              payment_method_id, debt_id, group_id, account_id);
+      CREATE TABLE accounts (id, name, deleted_at);
       CREATE TABLE templates (id, name, amount, currency, deleted_at);
       CREATE TABLE payment_methods (id, name, deleted_at);
       CREATE TABLE debts (id, counterparty, deleted_at);
@@ -291,9 +293,9 @@ describe("contra el SQLite del dispositivo", () => {
     sq.exec(`
       INSERT INTO templates VALUES ('t1', 'Alq', 50000000, 'ARS', NULL);
       INSERT INTO templates VALUES ('t2', 'Vieja', 1, 'ARS', '2026-01-01');
-      INSERT INTO reminders VALUES ('r1', 'yo', 'Alquiler', 't1', NULL, NULL, NULL, NULL);
-      INSERT INTO reminders VALUES ('r2', 'yo', 'Expensas', 't2', NULL, NULL, NULL, NULL);
-      INSERT INTO reminders VALUES ('r3', 'yo', 'Borrado', NULL, '2026-01-01', NULL, NULL, NULL);
+      INSERT INTO reminders VALUES ('r1', 'yo', 'Alquiler', 't1', NULL, NULL, NULL, NULL, NULL);
+      INSERT INTO reminders VALUES ('r2', 'yo', 'Expensas', 't2', NULL, NULL, NULL, NULL, NULL);
+      INSERT INTO reminders VALUES ('r3', 'yo', 'Borrado', NULL, '2026-01-01', NULL, NULL, NULL, NULL);
     `)
     const filas = sq.prepare(SQL_RECORDATORIOS).all() as {
       title: string
@@ -311,9 +313,11 @@ describe("contra el SQLite del dispositivo", () => {
       INSERT INTO payment_methods VALUES ('pm1', 'Visa', NULL);
       INSERT INTO debts VALUES ('d1', 'Beto', NULL);
       INSERT INTO debts VALUES ('d2', 'Borrada', '2026-01-01');
-      INSERT INTO reminders VALUES ('r1', 'yo', 'A', NULL, NULL, 'pm1', NULL, NULL);
-      INSERT INTO reminders VALUES ('r2', 'yo', 'B', NULL, NULL, NULL, 'd1', NULL);
-      INSERT INTO reminders VALUES ('r3', 'yo', 'C', NULL, NULL, NULL, 'd2', NULL);
+      INSERT INTO reminders VALUES ('r1', 'yo', 'A', NULL, NULL, 'pm1', NULL, NULL, NULL);
+      INSERT INTO reminders VALUES ('r2', 'yo', 'B', NULL, NULL, NULL, 'd1', NULL, NULL);
+      INSERT INTO reminders VALUES ('r3', 'yo', 'C', NULL, NULL, NULL, 'd2', NULL, NULL);
+      INSERT INTO accounts VALUES ('a1', 'Master', NULL);
+      INSERT INTO reminders VALUES ('r4', 'yo', 'D', NULL, NULL, NULL, NULL, NULL, 'a1');
     `)
     const filas = sq.prepare(SQL_RECORDATORIOS).all() as {
       title: string
@@ -324,6 +328,8 @@ describe("contra el SQLite del dispositivo", () => {
       ["A", "Visa", null],
       ["B", null, "Beto"],
       ["C", null, null],
+      // La tarjeta como cuenta (0034).
+      ["D", "Master", null],
     ])
   })
 
@@ -332,7 +338,7 @@ describe("contra el SQLite del dispositivo", () => {
       DROP TABLE reminders;
       CREATE TABLE reminders (title, notes, template_id, freq, interval_count, weekdays,
         month_mode, month_day, month_week, month_weekday, start_date, until_date, count,
-        weekend_shift, alerts, followup_days, track_from, id, owner_id, payment_method_id,
+        weekend_shift, alerts, followup_days, track_from, id, owner_id, account_id,
         debt_id, group_id);
     `)
     const s = semillaDeDeuda({
@@ -362,10 +368,10 @@ describe("contra el SQLite del dispositivo", () => {
 
   it("los personales y los de un grupo, cada uno en su espacio", () => {
     sq.exec(`
-      INSERT INTO reminders VALUES ('r1', 'yo', 'Mío', NULL, NULL, NULL, NULL, NULL);
-      INSERT INTO reminders VALUES ('r2', 'yo', 'Expensas', NULL, NULL, NULL, NULL, 'casa');
-      INSERT INTO reminders VALUES ('r3', 'beto', 'Luz', NULL, NULL, NULL, NULL, 'casa');
-      INSERT INTO reminders VALUES ('r4', 'ana', 'Club', NULL, NULL, NULL, NULL, 'otro');
+      INSERT INTO reminders VALUES ('r1', 'yo', 'Mío', NULL, NULL, NULL, NULL, NULL, NULL);
+      INSERT INTO reminders VALUES ('r2', 'yo', 'Expensas', NULL, NULL, NULL, NULL, 'casa', NULL);
+      INSERT INTO reminders VALUES ('r3', 'beto', 'Luz', NULL, NULL, NULL, NULL, 'casa', NULL);
+      INSERT INTO reminders VALUES ('r4', 'ana', 'Club', NULL, NULL, NULL, NULL, 'otro', NULL);
     `)
     const titulos = (sql: string, params: string[] = []) =>
       (sq.prepare(sql).all(...params) as { title: string }[]).map((f) => f.title)
@@ -414,9 +420,10 @@ describe("Avisarme en una tarjeta o una deuda", () => {
   })
 
   it("una tarjeta: todos los meses, el dia de vencimiento", () => {
-    const s = semillaDeTarjeta({ id: "pm1", name: "Visa", due_day: 5 }, "2026-10-09")
+    // La tarjeta es una cuenta (0034): el recordatorio sigue a su cuenta.
+    const s = semillaDeTarjeta({ id: "a1", name: "Visa", due_day: 5 }, "2026-10-09")
     expect(s.title).toBe("Visa")
-    expect(s.payment_method_id).toBe("pm1")
+    expect(s.account_id).toBe("a1")
     const regla = reglaDe(s.start_date, s.rep)
     expect([regla.freq, regla.month_mode, regla.month_day, regla.start_date]).toEqual([
       "monthly",

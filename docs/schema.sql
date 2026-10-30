@@ -192,19 +192,26 @@ CREATE TABLE reminders (
     -- [{"days_before": 0, "time": "09:00"}], a cualquier hora (1.5.1).
     alerts          JSONB NOT NULL DEFAULT '[{"days_before": 0, "time": "09:00"}]',
     followup_days   SMALLINT,                   -- NULL = hasta que responda
-    -- "Avisarme" (1.6.0): la tarjeta o la deuda que sigue; el servidor lo
-    -- mantiene al dia cuando ellas cambian.
+    -- "Avisarme" (1.6.0): sigue a la tarjeta de credito (account_id, 0034),
+    -- a una deuda, o a un medio de pago (payment_method_id, heredado, en retiro).
+    -- El servidor lo mantiene al dia cuando ellas cambian.
+    account_id      UUID REFERENCES accounts(id),
     payment_method_id UUID REFERENCES payment_methods(id),
     debt_id         UUID REFERENCES debts(id),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at      TIMESTAMPTZ,
     CONSTRAINT reminders_freq_chk CHECK (freq IN ('once','daily','weekly','monthly','yearly')),
-    CONSTRAINT reminders_un_vinculo_chk CHECK (payment_method_id IS NULL OR debt_id IS NULL),
+    -- Solo uno de los tres vinculos (cuenta tarjeta, medio de pago, deuda)
+    CONSTRAINT reminders_un_vinculo_chk CHECK (
+        (account_id IS NOT NULL)::INT + (payment_method_id IS NOT NULL)::INT + (debt_id IS NOT NULL)::INT <= 1
+    ),
     CONSTRAINT reminders_un_solo_fin_chk CHECK (count IS NULL OR until_date IS NULL),
     CONSTRAINT reminders_weekend_shift_chk CHECK (weekend_shift IN ('none','next','previous'))
     -- (mas los rangos de cada columna; la coherencia de la regla la valida el CRUD)
 );
+
+CREATE INDEX reminders_account_idx ON reminders (account_id) WHERE deleted_at IS NULL;
 
 -- Lo que paso con un vencimiento: tiene fila solo cuando se responde. El id es
 -- determinista, UUID v5 de "reminder_id:nominal_date": dos dispositivos que lo
@@ -272,20 +279,63 @@ CREATE TABLE accounts (
     icon                TEXT,
     sort_order          INTEGER NOT NULL DEFAULT 0,
     archived            BOOLEAN NOT NULL DEFAULT false,
+
+    -- Tarjeta de credito: datos de identificacion (0034)
+    brand               TEXT,                      -- Visa, Mastercard, etc
+    last4               TEXT,                      -- ultimos 4 digitos
+    closing_day         SMALLINT,                  -- dia de cierre (1-31)
+    due_day             SMALLINT,                  -- dia de vencimiento (1-31)
+    -- Limite de credito, en centavos. NULL = sin limite. Solo para credit_card.
+    credit_limit        BIGINT,
+
+    -- Saldo en otra moneda: parent_account_id -> cuenta principal (0034).
+    -- Una tarjeta tiene a lo sumo un saldo secundario por moneda.
+    parent_account_id   UUID REFERENCES accounts(id),
+
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at          TIMESTAMPTZ,
+
     CONSTRAINT accounts_type_chk CHECK (type IN ('cash','bank','credit_card','savings','investment','loan','other')),
-    CONSTRAINT accounts_visibility_chk CHECK (visibility IN ('private','shared'))
+    CONSTRAINT accounts_visibility_chk CHECK (visibility IN ('private','shared')),
+    -- Datos de tarjeta solo en credit_card
+    CONSTRAINT accounts_tarjeta_chk CHECK (
+        (type = 'credit_card' OR (brand IS NULL AND last4 IS NULL AND closing_day IS NULL AND due_day IS NULL AND credit_limit IS NULL))
+    ),
+    -- Saldo secundario solo en credit_card, y es de otra moneda que la principal
+    CONSTRAINT accounts_saldo_secundario_chk CHECK (
+        (parent_account_id IS NULL OR type = 'credit_card')
+    ),
+    -- parent_account_id apunta a credit_card, no a si mismo
+    CONSTRAINT accounts_parent_chk CHECK (
+        parent_account_id IS NULL OR parent_account_id <> id
+    ),
+    CONSTRAINT accounts_closing_chk CHECK (closing_day IS NULL OR closing_day BETWEEN 1 AND 31),
+    CONSTRAINT accounts_due_chk CHECK (due_day IS NULL OR due_day BETWEEN 1 AND 31),
+    CONSTRAINT accounts_limit_chk CHECK (credit_limit IS NULL OR credit_limit > 0)
 );
 
+-- Un saldo secundario por moneda
+CREATE UNIQUE INDEX accounts_saldo_moneda_uniq
+    ON accounts (parent_account_id, currency)
+    WHERE parent_account_id IS NOT NULL AND deleted_at IS NULL;
+
 -- ------------------------------------------------------------
--- Medios de pago: con que se paga
+-- Medios de pago: FASE DE RETIRO (decision 0034)
 --
--- Una tarjeta NO es una cuenta. La tarjeta 8027 puede debitar de
+-- En 1.11.0 (expandir): los datos de cada medio tarjeta de credito se
+-- pasaron a su cuenta (brand, last4, closing_day, due_day, credit_limit);
+-- los recordatorios de un medio pasaron a seguir la cuenta (reminders.account_id).
+-- El servidor sigue aceptando payment_method_id en transacciones y rutas de
+-- medios de pago para compatibilidad con clientes 1.10.
+--
+-- En una version posterior (contraer): se borran estas tablas y las columnas
+-- payment_method_id (sin clientes 1.10).
+-- Asi, una tarjeta NO es una cuenta. La tarjeta 8027 puede debitar de
 -- la caja de ahorro en pesos o de la cuenta en dolares segun la
--- moneda de la compra. Esta separacion es la que permite resolver
+-- moneda de la compra. Esta separacion era la que permitia resolver
 -- automaticamente de que cuenta salio una compra importada.
+-- Ahora la tarjeta ES la cuenta y sus datos viven ahi.
 -- ------------------------------------------------------------
 
 CREATE TABLE payment_methods (
@@ -462,6 +512,10 @@ CREATE TABLE transactions (
     -- el servidor, pendiente hasta que elige la cuenta.
     paid_for_id         UUID REFERENCES transactions(id),
 
+    -- Cuotas de una tarjeta de credito (0034): NULL o 1 = una sola compra.
+    -- La compra es una sola; las cuotas dicen cuando se factura cada parte.
+    installments        SMALLINT,
+
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at          TIMESTAMPTZ,
@@ -504,6 +558,10 @@ CREATE TABLE transactions (
         kind = 'transfer'
         OR status IN ('pending', 'rejected')
         OR category_id IS NOT NULL
+    ),
+    -- Cuotas solo en una tarjeta de credito
+    CONSTRAINT tx_installments_chk CHECK (
+        installments IS NULL OR installments >= 1
     )
 );
 

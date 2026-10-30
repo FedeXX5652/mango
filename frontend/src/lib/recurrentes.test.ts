@@ -20,7 +20,6 @@ function regla(p: Partial<ReglaRecurrente> = {}): ReglaRecurrente {
     account_id: "cuenta",
     transfer_account_id: null,
     category_id: "cat",
-    payment_method_id: null,
     amount: 500000,
     currency: "ARS",
     payee: "Alquiler",

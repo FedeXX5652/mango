@@ -99,45 +99,11 @@ export function planCuenta(origen: string, destino: string): Plan {
         sql: "UPDATE recurring_rules SET transfer_account_id = ? WHERE transfer_account_id = ?",
         params: [destino, origen],
       },
-      // La asociacion tarjeta-cuenta NO se mueve: hay una por medio y moneda, y
-      // el destino ya puede tener la suya (unico parcial, ver 0003).
-      { sql: "DELETE FROM payment_method_accounts WHERE account_id = ?", params: [origen] },
+      // El saldo en otra moneda de una tarjeta se va con ella (0034); si tuviera
+      // movimientos, Cuentas no ofrece eliminarla.
+      { sql: "DELETE FROM accounts WHERE parent_account_id = ?", params: [origen] },
       { sql: "DELETE FROM accounts WHERE id = ?", params: [origen] },
     ],
-    advertencias: [
-      {
-        que: "Las asociaciones de medios de pago con esta cuenta",
-        porque: "hay una por medio y moneda, y la cuenta destino ya puede tener la suya",
-      },
-    ],
-  }
-}
-
-// --- Medio de pago -----------------------------------------------------------
-
-export function planMedio(origen: string, destino: string): Plan {
-  return {
-    sentencias: [
-      {
-        sql: "UPDATE transactions SET payment_method_id = ? WHERE payment_method_id = ?",
-        params: [destino, origen],
-      },
-      {
-        sql: "UPDATE templates SET payment_method_id = ? WHERE payment_method_id = ?",
-        params: [destino, origen],
-      },
-      {
-        sql: "UPDATE recurring_rules SET payment_method_id = ? WHERE payment_method_id = ?",
-        params: [destino, origen],
-      },
-      { sql: "DELETE FROM payment_method_accounts WHERE payment_method_id = ?", params: [origen] },
-      { sql: "DELETE FROM payment_methods WHERE id = ?", params: [origen] },
-    ],
-    advertencias: [
-      {
-        que: "Las cuentas asociadas a este medio",
-        porque: "cada medio tiene las suyas y no se comparten",
-      },
-    ],
+    advertencias: [],
   }
 }

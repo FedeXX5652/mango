@@ -66,9 +66,11 @@ class ReminderCreate(BaseModel):
     alerts: Avisos = Field(default_factory=lambda: [Aviso(days_before=0, time="09:00")])
     # NULL = hasta que se responda; 0 = no se sigue avisando.
     followup_days: int | None = Field(default=3, ge=0, le=30)
-    # "Avisarme" (1.6.0): la tarjeta o la deuda que sigue. Solo al crearlo.
+    # "Avisarme" (1.6.0): la tarjeta o la deuda que sigue. Solo al crearlo. La
+    # tarjeta es una cuenta (0034): `account_id`; `payment_method_id` es de 1.10.
     payment_method_id: uuid.UUID | None = None
     debt_id: uuid.UUID | None = None
+    account_id: uuid.UUID | None = None
 
 
 class ReminderUpdate(BaseModel):
@@ -118,6 +120,7 @@ class ReminderRead(BaseModel):
     followup_days: int | None
     payment_method_id: uuid.UUID | None
     debt_id: uuid.UUID | None
+    account_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
 

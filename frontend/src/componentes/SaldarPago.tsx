@@ -13,7 +13,7 @@ import { uuidv4 } from "@/lib/uuid"
 // Saldar una deuda del grupo (fase 3b.3, ver 0017). Dos formas:
 //   - "Marcar saldado": queda registrado y reversible, NO mueve plata (se salda
 //     por fuera, o es una deuda chica que dan por saldada).
-//   - "Registrar pago": solo si soy el deudor. Sale de MI cuenta y medio, y se
+//   - "Registrar pago": solo si soy el deudor. Sale de MI cuenta, y se
 //     puede pagar por partes (monto editable, <= la deuda).
 // En los dos casos se ajusta el balance del grupo; el segundo, ademas, baja mi
 // saldo (la plata salio de mi cuenta).
@@ -44,14 +44,10 @@ export function SaldarPago({
   const { data: cuentas } = useQuery<{ id: string; name: string; currency: string }>(
     "SELECT id, name, currency FROM accounts WHERE owner_id IS NOT NULL AND deleted_at IS NULL AND archived = 0 ORDER BY sort_order, name",
   )
-  const { data: medios } = useQuery<{ id: string; name: string }>(
-    "SELECT id, name FROM payment_methods WHERE deleted_at IS NULL AND archived = 0 ORDER BY name",
-  )
 
   const [modo, setModo] = useState<"marcar" | "pagar">("marcar")
   const [monto, setMonto] = useState("")
   const [cuentaId, setCuentaId] = useState("")
-  const [medioId, setMedioId] = useState("")
   const [error, setError] = useState("")
 
   // Reset al abrir con una liquidacion nueva.
@@ -62,7 +58,6 @@ export function SaldarPago({
     setModo("marcar")
     setMonto(liquidacion ? aTextoEditable(liquidacion.monto, liquidacion.currency) : "")
     setCuentaId("")
-    setMedioId("")
     setError("")
   }
 
@@ -78,8 +73,8 @@ export function SaldarPago({
     if (real && !cuentaId) return setError("Elegí la cuenta")
     await db.execute(
       `INSERT INTO settlements
-         (id, group_id, from_user_id, to_user_id, amount, currency, occurred_at, created_by, account_id, payment_method_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, group_id, from_user_id, to_user_id, amount, currency, occurred_at, created_by, account_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         uuidv4(),
         groupId,
@@ -90,7 +85,6 @@ export function SaldarPago({
         new Date().toISOString(),
         miId,
         real ? cuentaId : null,
-        real && medioId ? medioId : null,
       ],
     )
     onClose()
@@ -135,16 +129,6 @@ export function SaldarPago({
                 opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency }))}
                 valor={cuentaId}
                 onCambio={setCuentaId}
-              />
-            </Campo>
-            <Campo etiqueta="Medio de pago (opcional)">
-              <SelectorEntidad
-                titulo="Medio de pago"
-                placeholder="Sin medio"
-                vacio="Sin medio"
-                opciones={medios.map((m) => ({ id: m.id, nombre: m.name }))}
-                valor={medioId}
-                onCambio={setMedioId}
               />
             </Campo>
             <p className="text-xs text-muted-foreground">

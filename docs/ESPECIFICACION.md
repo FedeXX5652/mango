@@ -95,7 +95,6 @@ con selectores, no con texto libre:
   primero.
 - La **categoria** se elige del arbol de categorias. Si no existe, se crea
   primero.
-- El **medio de pago** se elige de los medios registrados.
 
 No hay "crear al vuelo escribiendo un nombre". Eso evita cuentas duplicadas
 por errores de tipeo y mantiene los reportes coherentes.
@@ -117,7 +116,6 @@ Campos de un movimiento:
 | Moneda | Si | |
 | Cuenta | Si | Debe existir |
 | Categoria | Si (gasto/ingreso) | Debe existir |
-| Medio de pago | No | |
 | Comercio / contraparte | No | Es el **detalle**, no la categoria |
 | Notas | No | |
 
@@ -125,26 +123,30 @@ La pantalla de alta es la mas usada del sistema: debe abrirse rapido, tener
 calculadora en el campo de monto, y autocompletar el comercio con lo ya
 cargado.
 
-### 3.3 Cuentas y medios de pago
+### 3.3 Cuentas
 
-Se modelan por separado, y es una distincion central:
+La **cuenta** es donde esta la plata: Caja de ahorro en pesos, cuenta en
+dolares, efectivo, tarjeta de credito. Es la unica entidad central (ver
+decision 0034: los medios de pago se fueron).
 
-- **Cuenta**: donde esta la plata. Caja de ahorro en pesos, cuenta en
-  dolares, efectivo, tarjeta de credito.
-- **Medio de pago**: con que se paga. La tarjeta de debito terminada en 8027.
+**Tarjeta de credito como una cuenta especial.** Una tarjeta es un tipo de
+cuenta (`credit_card`) con datos propios:
 
-Una tarjeta se asocia a **una cuenta por moneda**:
+- `brand` y `last4`: la marca (Visa) y los ultimos 4 digitos para reconocerla.
+- `closing_day` y `due_day`: dia de cierre y de vencimiento del resumen (1 a
+  31; un dia que el mes no tiene cae en el ultimo).
+- `credit_limit`: el limite de compra, opcional, en centavos.
 
-```
-tarjeta 8027 + ARS  ->  Caja de ahorro pesos
-tarjeta 8027 + USD  ->  Cuenta dolares
-tarjeta 8027 + BRL  ->  (sin asociar)
-```
+Estos campos valen solo en una tarjeta. En otro tipo de cuenta quedan en NULL.
 
-Refleja como funciona en la realidad: una tarjeta de debito apunta a la
-cuenta local por defecto y a una cuenta internacional para compras en el
-exterior. Y es lo que le permite al sistema automatico deducir de que cuenta
-salio cada compra importada.
+**Una tarjeta, un saldo por moneda.** Una tarjeta argentina tiene saldo en
+pesos y saldo en dolares, y cada uno se paga por separado. El saldo en dolares
+es otra cuenta `credit_card` con `parent_account_id` apuntando a la principal.
+La interfaz las muestra como **una sola tarjeta con dos saldos**; los datos de
+la tarjeta estan solo en la principal y el saldo secundario los hereda.
+
+Al cargar un gasto con la tarjeta en la moneda de un saldo secundario, va a ese
+saldo.
 
 #### Orden elegido por la persona
 
@@ -174,16 +176,15 @@ decision de fase 1 de no mandarlo al servidor).
 
 #### Archivar es la regla; eliminar es la excepcion
 
-Vale para **cuentas, categorias y medios de pago**: las tres se **archivan**.
-Archivar las saca de los selectores pero **conserva la referencia**, asi los
-movimientos historicos siguen mostrando de donde salio la plata y con que se
-pago. Es reversible.
+Vale para **cuentas y categorias**: ambas se **archivan**. Archivar las saca de
+los selectores pero **conserva la referencia**, asi los movimientos historicos
+siguen mostrando de donde salio la plata. Es reversible.
 
 **Eliminar solo se ofrece si la entidad no esta en uso.** "En uso" significa que
 algo la referencia: movimientos, presupuestos (o sus reglas), plantillas,
-recurrentes, medios asociados o subcategorias. Si esta en uso, la interfaz no
-permite borrarla y explica por que (ver DESIGN.md 7). Si no lo esta —el caso
-real: la creaste mal— se elimina con confirmacion.
+recurrentes o subcategorias. Si esta en uso, la interfaz no permite borrarla y
+explica por que (ver DESIGN.md 7). Si no lo esta —el caso real: la creaste
+mal— se elimina con confirmacion.
 
 #### Eliminar y mover: el tercer camino
 
@@ -199,8 +200,7 @@ Que se mueve y que no:
 | Entidad | Se mueve | Se elimina, y se avisa |
 |---|---|---|
 | Categoria | movimientos, plantillas, recurrentes y **sus subcategorias** (pasan a colgar del destino) | las asignaciones de presupuesto: el sobre es categoria + moneda + mes y sumarlas a otro cambiaria lo asignado (ver 0005) |
-| Cuenta | movimientos (las dos puntas de una transferencia), plantillas, recurrentes | las asociaciones con medios de pago: hay una por medio y moneda, y el destino ya puede tener la suya |
-| Medio de pago | movimientos, plantillas, recurrentes | sus cuentas asociadas: cada medio tiene las suyas |
+| Cuenta | movimientos (las dos puntas de una transferencia), plantillas, recurrentes | si es un saldo secundario de una tarjeta (tiene `parent_account_id`), va con su tarjeta principal |
 
 Restricciones del destino, para no corromper datos:
 
@@ -396,10 +396,19 @@ sobres**.
 
 Siempre se avisa con el token `expense` y **nunca solo por color** (signo o icono).
 
-**Tarjeta de credito.** Es una cuenta con saldo negativo, dentro del presupuesto.
-El **gasto con tarjeta consume del sobre en el momento** (comprometiste esa plata,
-aunque todavia no salio de la cuenta). El **pago del resumen es una transferencia**
-banco -> tarjeta, no un gasto; registrarlo como gasto lo contaria dos veces.
+**Tarjeta de credito.** Es una cuenta de tipo `credit_card`, dentro del
+presupuesto (ver 3.3 y decision 0034). El **gasto con tarjeta consume del sobre
+en el momento** (comprometiste esa plata, aunque todavia no salio de la cuenta).
+El **pago del resumen es una transferencia** a la tarjeta, no un gasto; lo que
+llama transferencia sale de cualquier cuenta. La tarjeta puede tener **cuotas**:
+en el alta, un campo `installments` es el numero de cuotas (NULL o 1 = una sola).
+La compra es una sola y consume el sobre entera en su fecha; las cuotas solo
+dicen cuando se factura cada parte del resumen (la primera entra en el cierre en o
+despues de la compra; la 2 en el siguiente, y asi). **Lo que vence** (el resumen)
+es la deuda total menos lo que todavia no se facturo: compras posteriores al
+ultimo cierre y cuotas futuras. Se calcula en el cliente, no se guarda. **Disponible**
+es el limite menos las deudas (incluyendo saldos en otra moneda convertidos con el
+dolar tarjeta). Es informativo; no bloquea un gasto.
 
 **Etiquetas (ver 3.5.1).** El costo total de un proyecto (un viaje) sale por
 etiqueta, sin ensuciar los informes por categoria.
@@ -1327,6 +1336,16 @@ esquema:
 **Tarjeta de credito**: el gasto y el pago del resumen son eventos distintos.
 El gasto afecta el presupuesto en su fecha; el pago mueve plata entre cuentas
 en otra fecha.
+
+**Cuotas de una tarjeta**: la compra es una sola; consume el sobre entera en su
+fecha de compra. Las cuotas dicen cuando se factura cada parte en el resumen del
+banco, pero el saldo de la tarjeta ya incluye el total desde la compra (las
+futuras ocupan el limite).
+
+**Tarjeta con dos saldos**: una tarjeta tiene saldo en pesos y en dolares
+(monedas distintas). Son dos cuentas en el modelo, pero la interfaz las muestra
+como una sola. El disponible suma los dos saldos, convertido con el dolar
+tarjeta. Se paga un saldo a la vez.
 
 **Compra en el exterior**: se conoce el monto en moneda extranjera, pero el
 monto real en la moneda de la cuenta llega despues, con la cotizacion que

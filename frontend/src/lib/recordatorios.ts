@@ -41,8 +41,10 @@ export type RecordatorioLocal = Regla & {
   plantilla: string | null
   monto: number | null
   moneda: string | null
-  // "Avisarme" (1.6.0): la tarjeta o la deuda que sigue, y como se llama.
+  // "Avisarme" (1.6.0): la tarjeta o la deuda que sigue, y como se llama. La
+  // tarjeta es una cuenta (0034); `payment_method_id` es lo que dejo un 1.10.
   payment_method_id: string | null
+  account_id: string | null
   debt_id: string | null
   tarjeta: string | null
   deuda_con: string | null
@@ -84,9 +86,10 @@ export type Calendario = {
 
 const SELECT_RECORDATORIOS = `
   SELECT r.*, t.name AS plantilla, t.amount AS monto, t.currency AS moneda,
-         pm.name AS tarjeta, d.counterparty AS deuda_con
+         COALESCE(ac.name, pm.name) AS tarjeta, d.counterparty AS deuda_con
   FROM reminders r
   LEFT JOIN templates t ON t.id = r.template_id AND t.deleted_at IS NULL
+  LEFT JOIN accounts ac ON ac.id = r.account_id AND ac.deleted_at IS NULL
   LEFT JOIN payment_methods pm ON pm.id = r.payment_method_id AND pm.deleted_at IS NULL
   LEFT JOIN debts d ON d.id = r.debt_id AND d.deleted_at IS NULL
   WHERE r.deleted_at IS NULL`
@@ -362,7 +365,8 @@ export type Semilla = {
   title: string
   start_date: string
   rep: Repeticion
-  payment_method_id?: string
+  // La cuenta de la tarjeta (0034).
+  account_id?: string
   debt_id?: string
   vinculo: string
 }
@@ -396,7 +400,7 @@ export function textoVinculo(r: {
   return null
 }
 
-// Una tarjeta de credito: todos los meses, el dia de vencimiento.
+// Una tarjeta de credito (su cuenta, 0034): todos los meses, el dia de vencimiento.
 export function semillaDeTarjeta(
   t: { id: string; name: string; due_day: number },
   hoy: string,
@@ -405,7 +409,7 @@ export function semillaDeTarjeta(
     title: t.name,
     start_date: proximoDiaDelMes(t.due_day, hoy),
     rep: { ...NO_SE_REPITE, freq: "monthly", mensual: t.due_day >= 31 ? "ultimo-dia" : "dia" },
-    payment_method_id: t.id,
+    account_id: t.id,
     vinculo: textoVinculo({ tarjeta: t.name, deuda_con: null }) ?? "",
   }
 }
@@ -436,7 +440,7 @@ export type DatosRecordatorio = CamposRegla & {
   alerts: Aviso[]
   followup_days: number | null
   // Solo al crearlo ("Avisarme"): despues el vinculo no cambia.
-  payment_method_id?: string | null
+  account_id?: string | null
   debt_id?: string | null
   // De un grupo (1.6.0): se elige al crearlo.
   group_id?: string | null
@@ -487,14 +491,14 @@ export async function guardarRecordatorio(
   await db.execute(
     `INSERT INTO reminders (title, notes, template_id, freq, interval_count, weekdays, month_mode,
        month_day, month_week, month_weekday, start_date, until_date, count, weekend_shift,
-       alerts, followup_days, track_from, id, owner_id, payment_method_id, debt_id, group_id)
+       alerts, followup_days, track_from, id, owner_id, account_id, debt_id, group_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       ...valores,
       desde,
       id,
       usuarioActualId(),
-      datos.payment_method_id ?? null,
+      datos.account_id ?? null,
       datos.debt_id ?? null,
       datos.group_id ?? null,
     ],

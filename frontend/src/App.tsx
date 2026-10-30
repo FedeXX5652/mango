@@ -36,7 +36,6 @@ import { DetalleMovimiento } from "@/pantallas/DetalleMovimiento"
 import { Estadisticas } from "@/pantallas/Estadisticas"
 import { Etiquetas } from "@/pantallas/Etiquetas"
 import { Inicio } from "@/pantallas/Inicio"
-import { MediosPago } from "@/pantallas/MediosPago"
 import { Metas } from "@/pantallas/Metas"
 import { Movimientos } from "@/pantallas/Movimientos"
 import { Plantillas } from "@/pantallas/Plantillas"
@@ -95,7 +94,8 @@ function Rutas() {
         <Route path="grupos/:grupo/calendario" element={<CalendarioGrupo />} />
         <Route path="cuentas" element={<Cuentas />} />
         <Route path="categorias" element={<Categorias />} />
-        <Route path="medios" element={<MediosPago />} />
+        {/* Los medios de pago se fueron (0034): la tarjeta es una cuenta. */}
+        <Route path="medios" element={<Navigate to="/cuentas" replace />} />
         <Route path="etiquetas" element={<Etiquetas />} />
         <Route path="cotizaciones" element={<Cotizaciones />} />
         <Route path="plantillas" element={<Plantillas />} />

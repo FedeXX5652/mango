@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Numeric,
+    SmallInteger,
     Text,
     text,
 )
@@ -80,6 +81,9 @@ class Transaction(Base, IdMixin, TimestampMixin):
     # apunta al gasto compartido. Lo crea el servidor (mismo id que su fila de
     # `transaction_payers`) y queda 'pending' hasta que elige la cuenta.
     paid_for_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("transactions.id"))
+    # Compra en cuotas (0034): en cuantos resumenes se factura. NULL = una sola.
+    # Solo en un gasto de una tarjeta; que la cuenta lo sea lo valida el CRUD.
+    installments: Mapped[int | None] = mapped_column(SmallInteger)
 
     __table_args__ = (
         CheckConstraint("kind IN ('expense','income','transfer')", name="tx_kind_chk"),
@@ -117,6 +121,10 @@ class Transaction(Base, IdMixin, TimestampMixin):
         ),
         # El monto es magnitud positiva; la direccion la da `kind` (ver 0001)
         CheckConstraint("amount >= 0", name="tx_amount_chk"),
+        CheckConstraint(
+            "installments IS NULL OR (installments BETWEEN 2 AND 99 AND kind = 'expense')",
+            name="tx_installments_chk",
+        ),
         # Una transferencia mueve plata entre cuentas propias: no se categoriza.
         CheckConstraint(
             "kind <> 'transfer' OR category_id IS NULL", name="tx_transfer_sin_categoria_chk"

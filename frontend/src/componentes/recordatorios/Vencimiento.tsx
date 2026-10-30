@@ -4,8 +4,10 @@ import { useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 
 import { Monto } from "@/componentes/Monto"
+import { PagarTarjeta } from "@/componentes/PagarTarjeta"
 import { Button, botonVariants } from "@/componentes/ui/button"
 import { Input } from "@/componentes/ui/input"
+import { useTarjetas } from "@/hooks/useTarjetas"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { formatearFechaCorta } from "@/lib/fecha"
 import { ATAJOS_POSPONER, cuandoPosponer, textoHasta } from "@/lib/posponer"
@@ -161,6 +163,8 @@ export function AccionesVencimiento({
   // este vencimiento (lo hace el servidor). Sin "Ya lo pagué" que la dejaria
   // abierta (1.6.0).
   const deuda = r.debt_id && r.deuda_con !== null ? r.debt_id : null
+  // El de una tarjeta (0034) se paga con su hoja: lo que se debe, desde donde.
+  const tarjeta = r.account_id && r.tarjeta !== null ? r.account_id : null
   const vinculo = textoVinculo(r)
 
   return (
@@ -203,6 +207,17 @@ export function AccionesVencimiento({
             <Link to={`/deudas?saldar=${deuda}`} className={botonVariants()}>
               Saldar la deuda
             </Link>
+          ) : tarjeta ? (
+            <>
+              <BotonPagarTarjeta
+                cuentaId={tarjeta}
+                ciclo={{ reminderId: r.id, nominal: v.nominal }}
+                onPagado={onListo}
+              />
+              <Button variant="secondary" onClick={() => responder("paid")}>
+                Ya lo pagué
+              </Button>
+            </>
           ) : (
             <>
               <Button onClick={cargarPago}>Cargar el pago</Button>
@@ -255,6 +270,39 @@ export function AccionesVencimiento({
         Editar recordatorio
       </Button>
     </div>
+  )
+}
+
+// "Pagar la tarjeta" desde su vencimiento (0034). Aparte, para que las tarjetas
+// (y sus cotizaciones) se consulten solo en el recordatorio de una tarjeta.
+function BotonPagarTarjeta({
+  cuentaId,
+  ciclo,
+  onPagado,
+}: {
+  cuentaId: string
+  ciclo: { reminderId: string; nominal: string }
+  onPagado: () => void
+}) {
+  const { tarjetas } = useTarjetas()
+  const [abierta, setAbierta] = useState(false)
+  const t = tarjetas.find((x) => x.id === cuentaId)
+  return (
+    <>
+      <Button disabled={!t} onClick={() => setAbierta(true)}>
+        Pagar la tarjeta
+      </Button>
+      {abierta && t && (
+        <PagarTarjeta
+          tarjeta={t}
+          ciclo={ciclo}
+          onCerrar={(pagado) => {
+            setAbierta(false)
+            if (pagado) onPagado()
+          }}
+        />
+      )}
+    </>
   )
 }
 

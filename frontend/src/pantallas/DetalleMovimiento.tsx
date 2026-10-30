@@ -31,6 +31,7 @@ import {
   guardarPagadores,
 } from "@/lib/pagadores"
 import { usuarioActualId } from "@/lib/sesion"
+import { opcionesCuotas } from "@/lib/tarjeta"
 import { uuidv4 } from "@/lib/uuid"
 
 interface Tx {
@@ -51,6 +52,8 @@ interface Tx {
   // parte de un gasto que cargo otro.
   amount_owner: number | null
   paid_for_id: string | null
+  // Compra en cuotas (0034). NULL = una sola.
+  installments: number | null
 }
 interface Opcion {
   id: string
@@ -60,6 +63,7 @@ interface Opcion {
   parent_id?: string | null
   icon?: string | null
   group_id?: string | null
+  type?: string
 }
 
 const KIND_LABEL = { expense: "Gasto", income: "Ingreso", transfer: "Transferencia" }
@@ -86,7 +90,7 @@ export function DetalleMovimiento() {
   const tx = filas[0]
 
   const { data: cuentas } = useQuery<Opcion>(
-    "SELECT id, name, currency, group_id FROM accounts WHERE deleted_at IS NULL ORDER BY name",
+    "SELECT id, name, currency, group_id, type FROM accounts WHERE deleted_at IS NULL ORDER BY name",
   )
   // La categoria del movimiento: si es un ajuste de saldo (0033), no se cambia
   // ni se pasa a un grupo.
@@ -146,6 +150,8 @@ export function DetalleMovimiento() {
   const [notas, setNotas] = useState("")
   const [cuando, setCuando] = useState("")
   const [grupoId, setGrupoId] = useState("")
+  // Cuotas de un gasto con tarjeta (0034). 1 = sin cuotas.
+  const [cuotas, setCuotas] = useState(1)
   const [split, setSplit] = useState<ValorSplit>({ splits: null, valido: true })
   // Quien mas puso (0032): lo guardado y lo que se esta editando.
   const { data: pagadoresActuales, isLoading: cargandoPagadores } = useQuery<PagadorGuardado>(
@@ -170,6 +176,7 @@ export function DetalleMovimiento() {
     setPayee(tx.payee ?? "")
     setNotas(tx.notes ?? "")
     setGrupoId(tx.group_id ?? "")
+    setCuotas(tx.installments ?? 1)
     setCuando(isoALocal(tx.occurred_at))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tx?.id])
@@ -224,6 +231,11 @@ export function DetalleMovimiento() {
       c.kind === (tx.kind === "income" ? "income" : "expense") &&
       (grupoId ? c.group_id === grupoId : !c.group_id),
   )
+
+  // Cuotas (0034): solo en un gasto con tarjeta. En otra cuenta se sacan, como
+  // hace el servidor.
+  const conCuotas =
+    tx.kind === "expense" && cuentas.find((c) => c.id === cuentaId)?.type === "credit_card"
 
   // Moneda de la cuenta elegida (puede cambiar en el formulario) y cotizacion
   // que implica lo tipeado.
@@ -282,7 +294,7 @@ export function DetalleMovimiento() {
       `UPDATE transactions SET amount = ?, account_id = ?, transfer_account_id = ?,
          category_id = ?, payee = ?, notes = ?, occurred_at = ?,
          amount_account = ?, exchange_rate = ?, visibility = ?, group_id = ?,
-         amount_owner = ? WHERE id = ?`,
+         amount_owner = ?, installments = ? WHERE id = ?`,
       [
         centavos,
         sinCuenta ? null : cuentaId,
@@ -297,6 +309,7 @@ export function DetalleMovimiento() {
         grupoId || null,
         // Lo que puse yo, si pusieron otros (0032). NULL = lo pague entero.
         entreVarios ? pagadores.mio : null,
+        conCuotas && cuotas > 1 ? cuotas : null,
         tx!.id,
       ],
     )
@@ -469,6 +482,18 @@ export function DetalleMovimiento() {
           )}
           onCambio={setPagadores}
         />
+      )}
+
+      {conCuotas && (
+        <Campo etiqueta="Cuotas">
+          <SelectorEntidad
+            titulo="En cuántas cuotas"
+            placeholder="Sin cuotas"
+            opciones={opcionesCuotas(cuotas)}
+            valor={String(cuotas)}
+            onCambio={(v) => setCuotas(Number(v) || 1)}
+          />
+        </Campo>
       )}
 
       <Campo etiqueta="Comercio / contraparte">

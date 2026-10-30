@@ -40,7 +40,12 @@ async def update_account(
     account = await crud.get_account(session, owner_id, account_id)
     if account is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cuenta no encontrada")
-    return await crud.update_account(session, account, data)
+    try:
+        return await crud.update_account(session, account, data)
+    except DomainError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)

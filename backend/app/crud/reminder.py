@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.errors import DomainError
 from app.crud.group import membresia
-from app.models.account import PaymentMethod
+from app.models.account import Account, PaymentMethod
 from app.models.debt import Debt
 from app.models.recurring import Template
 from app.models.reminder import Reminder, ReminderCycle
@@ -123,6 +123,25 @@ async def _tarjeta(
     )
 
 
+async def _cuenta_tarjeta(
+    session: AsyncSession, owner_id: uuid.UUID, account_id: uuid.UUID | None
+) -> uuid.UUID | None:
+    """La tarjeta es una cuenta (0034): la mia, principal, viva y sin archivar.
+    Si no, el recordatorio queda sin vinculo, como con la plantilla."""
+    if account_id is None:
+        return None
+    return await session.scalar(
+        select(Account.id).where(
+            Account.id == account_id,
+            Account.owner_id == owner_id,
+            Account.type == "credit_card",
+            Account.parent_account_id.is_(None),
+            Account.archived.is_(False),
+            Account.deleted_at.is_(None),
+        )
+    )
+
+
 async def _deuda(
     session: AsyncSession, owner_id: uuid.UUID, debt_id: uuid.UUID | None
 ) -> uuid.UUID | None:
@@ -139,7 +158,8 @@ async def _deuda(
 async def create_reminder(
     session: AsyncSession, owner_id: uuid.UUID, data: ReminderCreate
 ) -> Reminder:
-    if data.payment_method_id is not None and data.debt_id is not None:
+    vinculos = (data.payment_method_id, data.debt_id, data.account_id)
+    if sum(v is not None for v in vinculos) > 1:
         raise DomainError("Un recordatorio sigue a una tarjeta o a una deuda, no a las dos")
     if data.group_id is not None and await membresia(session, data.group_id, owner_id) is None:
         raise DomainError("El grupo no existe")
@@ -151,6 +171,9 @@ async def create_reminder(
         await _tarjeta(session, owner_id, data.payment_method_id) if personal else None
     )
     datos["debt_id"] = await _deuda(session, owner_id, data.debt_id) if personal else None
+    datos["account_id"] = (
+        await _cuenta_tarjeta(session, owner_id, data.account_id) if personal else None
+    )
     reminder = Reminder(owner_id=owner_id, **datos)
     validar_regla(reminder)
     session.add(reminder)
@@ -216,14 +239,16 @@ async def borrar_vinculados(
     *,
     payment_method_id: uuid.UUID | None = None,
     debt_id: uuid.UUID | None = None,
+    account_id: uuid.UUID | None = None,
 ) -> None:
     """Se borro (o archivo) la tarjeta, o se borro la deuda: sus recordatorios
     tambien. Los ciclos quedan, como al borrar uno a mano."""
-    vinculo = (
-        Reminder.payment_method_id == payment_method_id
-        if payment_method_id is not None
-        else Reminder.debt_id == debt_id
-    )
+    if payment_method_id is not None:
+        vinculo = Reminder.payment_method_id == payment_method_id
+    elif account_id is not None:
+        vinculo = Reminder.account_id == account_id
+    else:
+        vinculo = Reminder.debt_id == debt_id
     await session.execute(
         update(Reminder)
         .where(vinculo, Reminder.deleted_at.is_(None))
@@ -246,6 +271,24 @@ async def seguir_tarjeta(session: AsyncSession, pm: PaymentMethod) -> None:
             Reminder.month_day.is_distinct_from(pm.due_day),
         )
         .values(month_day=pm.due_day, track_from=_hoy(), updated_at=func.now())
+    )
+
+
+async def seguir_cuenta_tarjeta(session: AsyncSession, account: Account) -> None:
+    """La tarjeta (una cuenta, 0034) cambio su dia de vencimiento: sus
+    recordatorios lo siguen, como `seguir_tarjeta` con un medio de pago."""
+    if account.due_day is None:
+        return
+    await session.execute(
+        update(Reminder)
+        .where(
+            Reminder.account_id == account.id,
+            Reminder.deleted_at.is_(None),
+            Reminder.freq == "monthly",
+            Reminder.month_mode == "day",
+            Reminder.month_day.is_distinct_from(account.due_day),
+        )
+        .values(month_day=account.due_day, track_from=_hoy(), updated_at=func.now())
     )
 
 

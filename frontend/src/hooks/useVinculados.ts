@@ -3,7 +3,8 @@ import { useMemo } from "react"
 
 import { type RecordatorioLocal, SQL_RECORDATORIOS } from "@/lib/recordatorios"
 
-// Los recordatorios que siguen a una tarjeta o a una deuda, por su id.
+// Los recordatorios que siguen a una tarjeta (su cuenta, 0034) o a una deuda,
+// por su id.
 export function useVinculados(): {
   porTarjeta: Map<string, RecordatorioLocal>
   porDeuda: Map<string, RecordatorioLocal>
@@ -13,7 +14,7 @@ export function useVinculados(): {
     const porTarjeta = new Map<string, RecordatorioLocal>()
     const porDeuda = new Map<string, RecordatorioLocal>()
     for (const r of data) {
-      if (r.payment_method_id) porTarjeta.set(r.payment_method_id, r)
+      if (r.account_id) porTarjeta.set(r.account_id, r)
       if (r.debt_id) porDeuda.set(r.debt_id, r)
     }
     return { porTarjeta, porDeuda }

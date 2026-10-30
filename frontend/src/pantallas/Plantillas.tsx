@@ -25,7 +25,7 @@ export function Plantillas() {
   const volver = useVolver("/accesos")
   const db = usePowerSync()
   const { data: plantillas } = useQuery<PlantillaEditable>(
-    `SELECT id, name, kind, account_id, category_id, payment_method_id, amount, currency, payee, notes
+    `SELECT id, name, kind, account_id, category_id, amount, currency, payee, notes
      FROM templates WHERE deleted_at IS NULL AND group_id IS NULL ORDER BY sort_order, name`,
   )
   const [editando, setEditando] = useState<PlantillaEditable | "nueva" | null>(null)

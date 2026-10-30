@@ -183,6 +183,14 @@ async def _validate_invariants(
             raise DomainError(f"La categoria debe ser de tipo {kind}")
 
 
+async def _cuotas_validas(session: AsyncSession, kind: str, account_id: uuid.UUID | None) -> bool:
+    """Cuotas (0034): solo en un gasto de una tarjeta de credito."""
+    if kind != "expense" or account_id is None:
+        return False
+    tipo = await session.scalar(select(Account.type).where(Account.id == account_id))
+    return tipo == "credit_card"
+
+
 async def _validar_compartir(
     session: AsyncSession,
     owner_id: uuid.UUID,
@@ -249,6 +257,10 @@ async def create_transaction(
         payment_method_id=data.payment_method_id,
         sin_cuenta=data.amount_owner == 0,
     )
+    if data.installments is not None and not await _cuotas_validas(
+        session, data.kind, data.account_id
+    ):
+        raise DomainError("Las cuotas son de un gasto con tarjeta de crédito")
     campos = data.model_dump()
     campos["group_id"] = await _validar_compartir(
         session,
@@ -363,6 +375,16 @@ async def update_transaction(
         # Sin cuenta: lo pagaron otros enteros, o es un pago que no se confirmo.
         sin_cuenta=eff("amount_owner") == 0 or eff("status") != "confirmed",
     )
+
+    # Cuotas (0034): pedidas fuera de un gasto con tarjeta, se rechazan; si lo que
+    # cambio fue la cuenta o el tipo (un cliente 1.10 no sabe de cuotas), se
+    # sacan en vez de rechazar el cambio.
+    if eff("installments") is not None and not await _cuotas_validas(
+        session, eff("kind"), eff("account_id")
+    ):
+        if "installments" in values:
+            raise DomainError("Las cuotas son de un gasto con tarjeta de crédito")
+        values["installments"] = None
 
     # Compartir: si se toca la visibilidad o el grupo, se revalida y se fija el
     # group_id resultante (private -> NULL).

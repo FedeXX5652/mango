@@ -164,7 +164,7 @@ export function FormularioRecordatorio({
             (a, b) => b.days_before - a.days_before || a.time.localeCompare(b.time),
           ),
           followup_days: seguimiento === "" ? null : Number(seguimiento),
-          payment_method_id: semilla?.payment_method_id ?? null,
+          account_id: semilla?.account_id ?? null,
           debt_id: semilla?.debt_id ?? null,
           group_id: grupo ?? null,
         },
