@@ -36,8 +36,10 @@ export function Categorias() {
   // A donde se vino (Inicio, Accesos, Ajustes o un atajo), no a un lugar fijo.
   const volver = useVolver("/ajustes")
   const db = usePowerSync()
+  // Solo las personales: las de un grupo tambien llegan al telefono, pero se
+  // editan en los Ajustes de ese grupo (1.12.2: aparecian aca mezcladas).
   const { data: categorias } = useQuery<Categoria>(
-    `SELECT id, name, kind, parent_id, archived, icon, system_key FROM categories WHERE deleted_at IS NULL AND ${SIN_AJUSTE} ORDER BY sort_order, name`,
+    `SELECT id, name, kind, parent_id, archived, icon, system_key FROM categories WHERE group_id IS NULL AND deleted_at IS NULL AND ${SIN_AJUSTE} ORDER BY sort_order, name`,
   )
   const [mostrarForm, setMostrarForm] = useState(false)
   // Tocar una fila la edita (nombre e icono; archivar y eliminar, al pie). Se

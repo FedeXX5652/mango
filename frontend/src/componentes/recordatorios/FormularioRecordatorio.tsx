@@ -263,7 +263,7 @@ export function FormularioRecordatorio({
         </Campo>
         <p className="text-xs text-muted-foreground">
           {grupo
-            ? "El monto y la categoría salen de la plantilla del grupo; la cuenta la elige quien paga."
+            ? "El monto y la categoría salen de la plantilla del grupo; la cuenta, de la última con la que pagó cada uno."
             : "El monto, la cuenta y la categoría del pago salen de la plantilla."}
         </p>
       </div>

@@ -1,8 +1,10 @@
 import {
+  Apple,
   Baby,
   Banknote,
   Beef,
   Bike,
+  Bot,
   BookOpen,
   Brain,
   Briefcase,
@@ -10,6 +12,7 @@ import {
   Bus,
   Cake,
   Car,
+  CarTaxiFront,
   Carrot,
   Cat,
   Church,
@@ -23,6 +26,7 @@ import {
   Drill,
   Droplets,
   Dumbbell,
+  FileText,
   Flame,
   Fuel,
   Gamepad2,
@@ -50,6 +54,7 @@ import {
   Plane,
   Receipt,
   Repeat,
+  Route,
   Scale,
   Scissors,
   Shirt,
@@ -104,6 +109,8 @@ const CATALOGO: { grupo: string; iconos: [string, LucideIcon, string][] }[] = [
     iconos: [
       ["carrito", ShoppingCart, "supermercado compras mercado almacen"],
       ["tenedor", Utensils, "comida restaurante almorzar cenar"],
+      // Para la categoria madre (1.12.2): el tenedor queda para Restaurantes.
+      ["comida", Apple, "comida alimentos general"],
       ["cafe", Coffee, "cafe desayuno merienda bar"],
       ["copa", Wine, "vino bebida alcohol vinoteca"],
       ["trago", Martini, "trago salida boliche bar"],
@@ -119,7 +126,10 @@ const CATALOGO: { grupo: string; iconos: [string, LucideIcon, string][] }[] = [
   {
     grupo: "Transporte",
     iconos: [
-      ["auto", Car, "auto coche nafta cochera taxi"],
+      // Para la categoria madre (1.12.2): cada hija con el suyo.
+      ["ruta", Route, "transporte viaje trayecto movilidad"],
+      ["auto", Car, "auto coche nafta cochera estacionamiento"],
+      ["taxi", CarTaxiFront, "taxi uber cabify remis"],
       ["colectivo", Bus, "colectivo bondi micro sube transporte"],
       ["tren", Train, "tren subte ferrocarril"],
       ["bici", Bike, "bici bicicleta monopatin"],
@@ -131,6 +141,7 @@ const CATALOGO: { grupo: string; iconos: [string, LucideIcon, string][] }[] = [
     grupo: "Casa",
     iconos: [
       ["casa", Home, "casa alquiler hogar expensas"],
+      ["factura", FileText, "facturas servicios boleta impuestos tramite"],
       ["luz", Lightbulb, "luz electricidad edesur edenor"],
       ["agua", Droplets, "agua aysa"],
       ["gas", Flame, "gas metrogas garrafa"],
@@ -166,6 +177,7 @@ const CATALOGO: { grupo: string; iconos: [string, LucideIcon, string][] }[] = [
       ["juego", Gamepad2, "juego videojuego consola"],
       ["musica", Music, "musica spotify recital"],
       ["suscripcion", Repeat, "suscripcion mensual spotify chatgpt"],
+      ["ia", Bot, "inteligencia artificial ia chatgpt claude asistente"],
       ["entrada", Ticket, "entrada recital evento partido"],
       ["hotel", Hotel, "hotel hospedaje vacaciones"],
       ["trofeo", Trophy, "club deporte torneo"],

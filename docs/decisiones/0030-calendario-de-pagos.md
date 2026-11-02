@@ -292,6 +292,11 @@ de un recordatorio del grupo (incremento 5).
 
 - **De gasto, con una categoría del grupo y sin cuenta ni medio de pago**: cada
   uno paga con lo suyo. El monto va en la moneda del grupo.
+  - **Cuenta propuesta (1.12.2):** al cargarla, el alta propone a cada uno la
+    última cuenta propia con la que pagó esa categoría en el grupo (si nunca la
+    pagó, la última que usó en el grupo) y lo dice en la pista. No se guarda en
+    la plantilla: sale del historial de cada uno, que el otro no ve. Así una
+    plantilla del grupo se carga tan directo como una personal.
 - **Las edita o borra cualquier miembro** (G4), como las categorías del grupo.
   Alguien que no es del grupo recibe 404, como con las otras cosas del grupo.
 - Se administran en **Ajustes del grupo** (sección "Plantillas del grupo"). El

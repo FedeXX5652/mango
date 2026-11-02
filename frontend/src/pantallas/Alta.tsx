@@ -32,6 +32,12 @@ import { opcionesCuotas, repartirCuotas } from "@/lib/tarjeta"
 import { anunciar, textoGuardado } from "@/lib/anuncios"
 import { formatearFechaCorta, mesAnio } from "@/lib/fecha"
 import { ordenarMonedas } from "@/lib/monedas"
+import {
+  type MovimientoPropio,
+  SQL_MIS_CUENTAS_EN_GRUPO,
+  cuentaParaPlantilla,
+  textoCuentaPropuesta,
+} from "@/lib/plantillas"
 import { responderCiclo } from "@/lib/recordatorios"
 import { LO_PAGUE_YO, type ValorPagadores, guardarPagadores } from "@/lib/pagadores"
 import { leerReparto } from "@/lib/reparto"
@@ -291,20 +297,33 @@ export function FormularioMovimiento({
     vaciar(tipo, g)
   }
 
-  const aplicarPlantilla = useCallback((t: PlantillaLocal) => {
-    setTipo(t.kind as TipoMovimiento)
-    if (t.account_id) setCuentaId(t.account_id)
-    setCuentaDestinoId("")
-    setCategoriaId(t.category_id ?? "")
-    setComercio(t.payee ?? "")
-    setNotas(t.notes ?? "")
-    if (t.amount && t.amount > 0) {
-      setMontoInicial(t.amount)
-      setCalcKey((k) => k + 1)
-    }
-    // Reemplaza lo que hubiera: se dice (1.12.0).
-    setPista(`Se cargó la plantilla «${t.name}»: revisá el monto y la fecha antes de guardar.`)
-  }, [])
+  const aplicarPlantilla = useCallback(
+    async (t: PlantillaLocal) => {
+      setTipo(t.kind as TipoMovimiento)
+      if (t.account_id) setCuentaId(t.account_id)
+      setCuentaDestinoId("")
+      setCategoriaId(t.category_id ?? "")
+      setComercio(t.payee ?? "")
+      setNotas(t.notes ?? "")
+      if (t.amount && t.amount > 0) {
+        setMontoInicial(t.amount)
+        setCalcKey((k) => k + 1)
+      }
+      // Reemplaza lo que hubiera: se dice (1.12.0).
+      let pista = `Se cargó la plantilla «${t.name}»: revisá el monto y la fecha antes de guardar.`
+      // La del grupo no lleva cuenta: se propone la ultima mia (1.12.2).
+      if (!t.account_id && t.group_id) {
+        const historial = await db.getAll<MovimientoPropio>(SQL_MIS_CUENTAS_EN_GRUPO, [t.group_id])
+        const propuesta = cuentaParaPlantilla(historial, t.category_id)
+        if (propuesta) {
+          setCuentaId(propuesta.cuenta)
+          pista += ` ${textoCuentaPropuesta(propuesta)}`
+        }
+      }
+      setPista(pista)
+    },
+    [db],
+  )
 
   const [verPlantillas, setVerPlantillas] = useState(false)
   // Las del espacio donde se carga (1.6.0): en un grupo, las del grupo; si no,
@@ -332,7 +351,7 @@ export function FormularioMovimiento({
     const t = plantillas.find((p) => p.id === plantillaId)
     if (t) {
       aplicada.current = true
-      aplicarPlantilla(t)
+      void aplicarPlantilla(t)
     }
   }, [plantillaId, plantillas, aplicarPlantilla])
 

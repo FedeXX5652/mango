@@ -201,7 +201,8 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
     "SELECT id, name, currency FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
   )
   const { data: categorias } = useQuery<Opcion>(
-    `SELECT id, name, kind, parent_id, icon FROM categories WHERE deleted_at IS NULL AND archived = 0 AND ${SIN_AJUSTE}`,
+    // Las recurrentes son personales: las categorias de un grupo no van (1.12.2).
+    `SELECT id, name, kind, parent_id, icon FROM categories WHERE group_id IS NULL AND deleted_at IS NULL AND archived = 0 AND ${SIN_AJUSTE}`,
   )
 
   const [name, setName] = useState("")

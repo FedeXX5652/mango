@@ -175,7 +175,8 @@ export function FormPlantilla({
       </div>
       {grupo ? (
         <p className="text-xs text-muted-foreground">
-          Sin cuenta: cada uno paga con la suya al cargar el gasto.
+          Sin cuenta: cada uno paga con la suya. Al cargarla, Mango le propone a cada uno la última
+          cuenta con la que pagó esa categoría en el grupo.
         </p>
       ) : (
         <Campo etiqueta="Cuenta (opcional)">

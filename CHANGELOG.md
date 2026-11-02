@@ -4,6 +4,24 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.12.2] - 2026-11-02
+
+### Agregado
+
+- **Las plantillas del grupo traen tu cuenta**: al cargar una, Mango elige la
+  última cuenta con la que pagaste esa categoría en el grupo (o, si nunca la
+  pagaste, la última que usaste ahí) y te dice cuál. Cada uno ve la suya.
+- Íconos nuevos para categorías: comida, transporte, taxi, inteligencia
+  artificial y facturas. Así una categoría madre y sus hijas no comparten ícono.
+
+### Arreglado
+
+- **Categorías** (la personal) mostraba también las categorías de tus grupos,
+  mezcladas y repetidas. Ahora muestra solo las tuyas; las de un grupo siguen en
+  los Ajustes de ese grupo.
+- Al crear una recurrente personal se ofrecían también las categorías de los
+  grupos.
+
 ## [1.12.1] - 2026-11-02
 
 ### Agregado

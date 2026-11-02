@@ -18,6 +18,24 @@ describe("catalogo", () => {
   it("los grupos cubren todo el catalogo", () => {
     expect(GRUPOS_ICONOS.flatMap((g) => g.iconos).length).toBe(ICONOS.length)
   })
+
+  it("trae uno propio para cada categoria madre y su hija (1.12.2)", () => {
+    // Comida y Restaurantes, Transporte y SUBE, Uber y Estacionamiento, ChatGPT
+    // y Tecnologia, Impuestos y Monotributo compartian icono.
+    const pares = [
+      ["comida", "tenedor"],
+      ["ruta", "colectivo"],
+      ["taxi", "auto"],
+      ["ia", "compu"],
+      ["factura", "impuesto"],
+    ]
+    for (const [nuevo, viejo] of pares) {
+      expect(iconoDe(nuevo)).not.toBe(ICONO_POR_DEFECTO)
+      expect(iconoDe(nuevo)).not.toBe(iconoDe(viejo))
+    }
+    expect(filtrarIconos("uber").map((i) => i.clave)).toContain("taxi")
+    expect(filtrarIconos("chatgpt").map((i) => i.clave)).toContain("ia")
+  })
 })
 
 describe("iconoDe", () => {

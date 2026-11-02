@@ -661,6 +661,13 @@ otro.
 En la interfaz, Personal y cada grupo son **espacios** con las mismas pantallas,
 y se pasa de uno a otro con un selector siempre visible. Ver decision 0026.
 
+**Un grupo funciona exactamente igual que lo personal, pero de a varios**
+(criterio del usuario, 2026-11-02). Lo que existe en un espacio existe en el
+otro, con los mismos valores por defecto, las mismas pantallas y la misma forma
+de usarse; solo cambia lo que obliga compartirlo (quien pago, el reparto, que
+la cuenta de cada uno es privada). Ante una diferencia entre los dos, la
+pregunta es que la justifica; si nada la justifica, se iguala.
+
 En el dispositivo, lo personal y lo del grupo viven en **tablas locales
 distintas**: mis movimientos completos en una y el "lente" del grupo (lo
 compartido de todos, sin lo privado) en otra. Si una misma fila llegara con dos
