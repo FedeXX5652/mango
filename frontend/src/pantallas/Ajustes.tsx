@@ -33,6 +33,8 @@ import { ACCESOS } from "@/componentes/accesos"
 import { CambiarMonedaBase } from "@/componentes/CambiarMonedaBase"
 import { cn } from "@/lib/utils"
 import { textoVersion } from "@/lib/version"
+import { anunciar } from "@/lib/anuncios"
+import { useConexion } from "@/hooks/conexion"
 
 const MODOS: { valor: ColorScheme; etiqueta: string }[] = [
   { valor: "light", etiqueta: "Claro" },
@@ -55,6 +57,8 @@ export function Ajustes() {
   const { salir } = useSesion()
   const db = usePowerSync()
   const [confirmarSalir, setConfirmarSalir] = useState(false)
+  // Lo que todavia no subio cuando se pide cerrar sesion: se pierde (1.12.0).
+  const [porSubir, setPorSubir] = useState(0)
   const [bioDisponible, setBioDisponible] = useState(false)
   const [bioActiva, setBioActiva] = useState(biometriaActivada())
   const [mostrarExport, setMostrarExport] = useState(false)
@@ -71,6 +75,11 @@ export function Ajustes() {
       setBioActiva(false)
     } else if (await activarBiometria()) {
       setBioActiva(true)
+    } else {
+      // Fallaba en silencio: el interruptor no cambiaba y no se sabia por que.
+      anunciar("No se pudo activar el desbloqueo con huella o cara en este dispositivo.", {
+        importante: true,
+      })
     }
   }
 
@@ -104,7 +113,8 @@ export function Ajustes() {
                 <Mosaico icono={AlertTriangle} alerta />
                 <span className="min-w-0">
                   <span className="block text-sm font-medium">
-                    {nRechazadas} cambio{nRechazadas === 1 ? "" : "s"} sin guardar
+                    {nRechazadas} cambio
+                    {nRechazadas === 1 ? " que no se guardó" : "s que no se guardaron"}
                   </span>
                   <span className="block text-xs text-muted-foreground">
                     El servidor los rechazó. Tocá para reintentar o descartar.
@@ -223,7 +233,12 @@ export function Ajustes() {
             la sesión anterior en el dispositivo. Aparte y en rojo, como en iOS. */}
         <ListaInset>
           <FilaInset
-            onClick={() => setConfirmarSalir(true)}
+            onClick={() => {
+              db.getUploadQueueStats()
+                .then((q) => setPorSubir(q.count))
+                .catch(() => setPorSubir(0))
+              setConfirmarSalir(true)
+            }}
             className="justify-center text-sm font-medium text-destructive"
           >
             Cerrar sesión
@@ -236,7 +251,23 @@ export function Ajustes() {
         onOpenChange={setConfirmarSalir}
         titulo="Cerrar sesión"
         detalle="Se borran los datos de este dispositivo y vas a tener que volver a entrar con tu usuario y clave. Lo que ya se sincronizó no se pierde."
-        etiqueta="Cerrar sesión"
+        nota={
+          porSubir > 0 || nRechazadas > 0 ? (
+            <span className="text-destructive">
+              {[
+                porSubir > 0 &&
+                  `${porSubir} ${porSubir === 1 ? "cambio todavía no se subió" : "cambios todavía no se subieron"}`,
+                nRechazadas > 0 &&
+                  `${nRechazadas} ${nRechazadas === 1 ? "cambio no se guardó" : "cambios no se guardaron"}`,
+              ]
+                .filter(Boolean)
+                .join(" y ")}
+              : si cerrás sesión ahora, se pierden. Esperá a tener conexión, o revisalos en
+              Sincronización.
+            </span>
+          ) : undefined
+        }
+        etiqueta={porSubir > 0 || nRechazadas > 0 ? "Cerrar sesión igual" : "Cerrar sesión"}
         destructivo
         onConfirmar={async () => {
           // Este dispositivo deja de recibir avisos de esta cuenta (1.4.0).
@@ -285,6 +316,8 @@ function FormExportar({ onCerrar }: { onCerrar: () => void }) {
   const [cuentaId, setCuentaId] = useState("")
   const [categoriaId, setCategoriaId] = useState("")
   const [exportando, setExportando] = useState(false)
+  // El archivo lo arma el servidor: sin conexion no se puede, y se dice antes.
+  const hayConexion = useConexion()
   const [error, setError] = useState("")
 
   async function exportar() {
@@ -365,9 +398,14 @@ function FormExportar({ onCerrar }: { onCerrar: () => void }) {
       </Campo>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {!hayConexion && (
+        <p className="text-sm text-muted-foreground">
+          Necesita conexión: el archivo lo arma el servidor.
+        </p>
+      )}
 
       <div className="flex gap-2">
-        <Button className="flex-1" onClick={exportar} disabled={exportando}>
+        <Button className="flex-1" onClick={exportar} disabled={exportando || !hayConexion}>
           {exportando ? "Exportando…" : "Exportar CSV"}
         </Button>
         <Button variant="secondary" onClick={onCerrar}>

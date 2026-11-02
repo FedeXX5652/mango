@@ -4,6 +4,7 @@ import { Link } from "react-router-dom"
 import { acceso } from "@/componentes/accesos"
 import { useAccesos } from "@/hooks/useAccesos"
 import { cn } from "@/lib/utils"
+import { useBloqueListo } from "@/hooks/bloquesListos"
 
 // Panel de accesos del Inicio movil (0024), estilo MercadoPago: los cuatro que
 // eligio la persona y un "Más" al final que lleva a todos (y a editarlos).
@@ -14,7 +15,9 @@ const BALDOSA =
   "flex min-h-20 flex-col items-center justify-start gap-2 rounded-xl px-1 py-2 text-center text-xs font-medium leading-tight transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
 export function PanelAccesos({ className }: { className?: string }) {
-  const { ids } = useAccesos()
+  const { ids, cargando } = useAccesos()
+  // Hasta que baja la fila son los de fabrica: no se muestran y se cambian.
+  useBloqueListo(cargando)
 
   return (
     <section aria-labelledby="titulo-accesos" className={cn("space-y-3", className)}>

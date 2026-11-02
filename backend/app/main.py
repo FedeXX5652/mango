@@ -27,14 +27,31 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="Mango API", version="0.1.0", lifespan=lifespan)
 
 
+def _es_id_repetido(exc: IntegrityError) -> bool:
+    """Un INSERT con un id que ya existe: la clave primaria (`<tabla>_pkey`)."""
+    orig = getattr(exc, "orig", None)
+    causa = getattr(orig, "__cause__", None) or orig
+    estado = getattr(causa, "sqlstate", None) or getattr(orig, "sqlstate", None)
+    restriccion = (
+        getattr(causa, "constraint_name", None) or getattr(orig, "constraint_name", None) or ""
+    )
+    return estado == "23505" and restriccion.endswith("_pkey")
+
+
 @app.exception_handler(IntegrityError)
 async def _integrity_handler(request: Request, exc: IntegrityError) -> JSONResponse:
-    # Reintento de subida de PowerSync con un id ya insertado -> conflicto, no
-    # error del servidor. Devolver 409 permite que el cliente lo trate como
-    # 'ya aplicado' y no reintente en loop.
+    # Un reintento de subida de PowerSync con un id ya insertado es 409: el
+    # cliente lo toma por 'ya aplicado' y no reintenta en loop. CUALQUIER otra
+    # violacion es un rechazo (422): como 409 se perdia sin aviso, y 0011 pide
+    # que ningun cambio se pierda en silencio (va a "Cambios que no se guardaron").
+    if _es_id_repetido(exc):
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "Ya estaba guardado"},
+        )
     return JSONResponse(
-        status_code=status.HTTP_409_CONFLICT,
-        content={"detail": "Conflicto de integridad (posible duplicado)"},
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        content={"detail": "El cambio choca con otro dato que ya está guardado"},
     )
 
 

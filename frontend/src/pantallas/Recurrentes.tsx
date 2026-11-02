@@ -1,8 +1,9 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { Pause, Play, Trash2 } from "lucide-react"
+import { Pause, Play, Repeat, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
+import { Vacio } from "@/componentes/Vacio"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
@@ -13,7 +14,7 @@ import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { useVolver } from "@/hooks/useVolver"
 import { formatearFechaCorta } from "@/lib/fecha"
-import { generarVencidas } from "@/lib/generar"
+import { generarVencidas, textoGenerado } from "@/lib/generar"
 import { ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
@@ -54,9 +55,18 @@ const FRECUENCIAS: { valor: string; etiqueta: string }[] = [
 function etiquetaTipo(k: string): string {
   return TIPOS.find((t) => t.valor === k)?.etiqueta ?? k
 }
+// Como se dice, no como se guarda: "Cada 2 meses", "Todos los meses". Antes
+// era "Cada 2 (mensual)" y habia que traducirlo.
+const UNIDADES: Record<string, { todos: string; plural: string }> = {
+  daily: { todos: "Todos los días", plural: "días" },
+  weekly: { todos: "Todas las semanas", plural: "semanas" },
+  monthly: { todos: "Todos los meses", plural: "meses" },
+  yearly: { todos: "Todos los años", plural: "años" },
+}
 function etiquetaFrec(f: string, n: number): string {
-  const base = FRECUENCIAS.find((x) => x.valor === f)?.etiqueta ?? f
-  return n > 1 ? `Cada ${n} (${base.toLowerCase()})` : base
+  const u = UNIDADES[f]
+  if (!u) return FRECUENCIAS.find((x) => x.valor === f)?.etiqueta ?? f
+  return n > 1 ? `Cada ${n} ${u.plural}` : u.todos
 }
 function hoyISO(): string {
   const d = new Date()
@@ -67,7 +77,7 @@ export function Recurrentes() {
   // A donde se vino (Inicio, Accesos, Ajustes o un atajo), no a un lugar fijo.
   const volver = useVolver("/accesos")
   const db = usePowerSync()
-  const { data: reglas } = useQuery<Regla>(
+  const { data: reglas, isLoading } = useQuery<Regla>(
     `SELECT id, name, kind, amount, currency, frequency, interval_count, next_run_date, active
      FROM recurring_rules WHERE deleted_at IS NULL ORDER BY active DESC, next_run_date`,
   )
@@ -82,12 +92,9 @@ export function Recurrentes() {
     setAviso("")
     try {
       const r = await generarVencidas(db)
-      const partes = []
-      if (r.movimientos > 0) partes.push(`${r.movimientos} movimiento(s)`)
-      if (r.sobres > 0) partes.push(`${r.sobres} asignación(es) de sobre`)
-      setAviso(partes.length ? `Se generaron ${partes.join(" y ")}.` : "No había nada vencido.")
+      setAviso(textoGenerado(r) ?? "No había nada vencido: todo está al día.")
     } catch {
-      setAviso("No se pudo generar.")
+      setAviso("No se pudieron cargar las vencidas. Probá de nuevo en un momento.")
     } finally {
       setCorriendo(false)
     }
@@ -109,12 +116,12 @@ export function Recurrentes() {
       />
 
       <p className="text-sm text-muted-foreground">
-        Sueldo, alquiler, servicios: se definen una vez y el sistema genera el movimiento en cada
-        vencimiento.
+        Sueldo, alquiler, servicios: los definís una vez y cada vencimiento se carga solo cuando
+        abrís Mango, aunque no tengas conexión.
       </p>
 
       <Button variant="secondary" className="w-full" onClick={ejecutar} disabled={corriendo}>
-        {corriendo ? "Ejecutando…" : "Ejecutar vencidas"}
+        {corriendo ? "Cargando…" : "Cargar las vencidas"}
       </Button>
       {aviso && <p className="text-sm text-muted-foreground">{aviso}</p>}
 
@@ -122,10 +129,14 @@ export function Recurrentes() {
         <FormRegla onCerrar={() => setMostrarForm(false)} />
       </Hoja>
 
-      {reglas.length === 0 ? (
-        <p className="p-8 text-center text-sm text-muted-foreground">
-          Todavía no tenés reglas recurrentes.
-        </p>
+      {/* Sin respuesta todavia no hay "vacio" que mostrar (DESIGN.md 7). */}
+      {isLoading ? null : reglas.length === 0 ? (
+        <Vacio
+          icono={Repeat}
+          titulo="Todavía no tenés reglas recurrentes"
+          detalle="Creá una para lo que se repite: el alquiler, el sueldo, una suscripción."
+          accion={{ onClick: () => setMostrarForm(true), etiqueta: "Nueva regla" }}
+        />
       ) : (
         <ul className="divide-y divide-border">
           {reglas.map((r) => (
@@ -137,7 +148,7 @@ export function Recurrentes() {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {etiquetaTipo(r.kind)} · {formatearMonto(r.amount, { moneda: r.currency })} ·{" "}
-                  {etiquetaFrec(r.frequency, r.interval_count)} · próx.{" "}
+                  {etiquetaFrec(r.frequency, r.interval_count)} · Próxima:{" "}
                   {formatearFechaCorta(r.next_run_date)}
                 </p>
               </div>
@@ -146,7 +157,7 @@ export function Recurrentes() {
                   variant="ghost"
                   size="icon"
                   onClick={() => toggleActiva(r)}
-                  aria-label={r.active ? "Pausar" : "Reanudar"}
+                  aria-label={r.active ? `Pausar ${r.name}` : `Reanudar ${r.name}`}
                 >
                   {r.active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                 </Button>
@@ -155,7 +166,7 @@ export function Recurrentes() {
                   size="icon"
                   className="text-expense"
                   onClick={() => setABorrar(r)}
-                  aria-label="Borrar"
+                  aria-label={`Borrar ${r.name}`}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -172,7 +183,11 @@ export function Recurrentes() {
           if (!v) setABorrar(null)
         }}
         titulo="Borrar regla"
-        detalle={aBorrar ? `Se elimina "${aBorrar.name}".` : undefined}
+        detalle={
+          aBorrar
+            ? `«${aBorrar.name}» deja de cargarse. Los movimientos que ya generó quedan.`
+            : undefined
+        }
         etiqueta="Borrar"
         onConfirmar={() => aBorrar && borrar(aBorrar)}
       />
@@ -295,6 +310,7 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
           opciones={cuentas.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency ?? null }))}
           valor={cuentaId}
           onCambio={setCuentaId}
+          vacioSinOpciones="Todavía no tenés cuentas. Creá una en Cuentas."
         />
       </Campo>
 
@@ -308,6 +324,7 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
               .map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency ?? null }))}
             valor={cuentaDestinoId}
             onCambio={setCuentaDestinoId}
+            vacioSinOpciones="Para una transferencia hace falta otra cuenta. Creala en Cuentas."
           />
         </Campo>
       ) : (

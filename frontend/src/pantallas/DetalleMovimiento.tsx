@@ -22,6 +22,7 @@ import { esAjuste, ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
+import { anunciar } from "@/lib/anuncios"
 import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { rutaEspacio } from "@/lib/espacios"
 import {
@@ -86,7 +87,10 @@ export function DetalleMovimiento() {
   const Titulo = panel ? "h2" : "h1"
   const db = usePowerSync()
 
-  const { data: filas } = useQuery<Tx>("SELECT * FROM transactions WHERE id = ?", [id ?? ""])
+  const { data: filas, isLoading: cargandoTx } = useQuery<Tx>(
+    "SELECT * FROM transactions WHERE id = ?",
+    [id ?? ""],
+  )
   const tx = filas[0]
 
   const { data: cuentas } = useQuery<Opcion>(
@@ -138,6 +142,10 @@ export function DetalleMovimiento() {
   )
 
   const [confirmarBorrar, setConfirmarBorrar] = useState(false)
+  // Un doble toque en Guardar no guarda dos veces (1.12.0).
+  const [guardando, setGuardando] = useState(false)
+  // Por que se vacio algo al cambiar de espacio: se dice al lado (1.12.0).
+  const [pista, setPista] = useState("")
   const [etiquetas, setEtiquetas] = useState<string[]>([])
   const [monto, setMonto] = useState("")
   // Monto debitado de la cuenta, cuando la moneda del movimiento no es la de
@@ -159,6 +167,9 @@ export function DetalleMovimiento() {
     [id ?? ""],
   )
   const [pagadores, setPagadores] = useState<ValorPagadores>(LO_PAGUE_YO)
+  // `pagadores` vale "lo pague yo" hasta que el editor dice lo guardado: antes
+  // de eso, el aviso de que se borran los demas seria falso.
+  const [pagadoresSembrados, setPagadoresSembrados] = useState(false)
   // Si esto es mi parte de un gasto que cargo otro, se responde, no se edita.
   const { data: mias } = useQuery<PagoMio>(`${SQL_PAGOS_MIOS} AND t.id = ?`, [id ?? ""])
   const [error, setError] = useState("")
@@ -195,17 +206,42 @@ export function DetalleMovimiento() {
   // efecto: el efecto corria mientras las consultas llegaban de a una y, con las
   // categorias todavia sin llegar, abria el detalle con la categoria borrada.
   function cambiarGrupo(g: string) {
+    const avisos: string[] = []
     // Las etiquetas son del espacio (1.7.0): al cambiarlo, las del otro se quitan.
-    if (g !== grupoId) setEtiquetas([])
+    if (g !== grupoId && etiquetas.length > 0) {
+      setEtiquetas([])
+      avisos.push("Se quitaron las etiquetas: cada espacio tiene las suyas.")
+    }
     setGrupoId(g)
     const valida = categorias.some(
       (c) => c.id === categoriaId && (g ? c.group_id === g : !c.group_id),
     )
-    if (categoriaId && !valida) setCategoriaId("")
+    if (categoriaId && !valida) {
+      setCategoriaId("")
+      avisos.push(
+        g
+          ? "Elegí una categoría del grupo: un gasto compartido usa las del grupo."
+          : "Elegí una categoría personal: las del grupo son para lo compartido.",
+      )
+    }
+    setPista(avisos.join(" "))
   }
 
   if (!tx) {
-    return <div className="p-6 text-sm text-muted-foreground">Cargando…</div>
+    // Que no este puede ser que todavia no llego o que ya no existe: con la
+    // consulta resuelta, se dice (antes quedaba "Cargando…" para siempre).
+    if (cargandoTx) return <div className="p-6 text-sm text-muted-foreground">Cargando…</div>
+    return (
+      <div className="mx-auto max-w-md space-y-3 p-6">
+        <p className="font-medium">Este movimiento ya no está</p>
+        <p className="text-sm text-muted-foreground">
+          Se borró, o pasó a un espacio que no ves desde acá.
+        </p>
+        <Button variant="secondary" onClick={volver}>
+          Volver
+        </Button>
+      </div>
+    )
   }
 
   // Mi parte de un gasto que cargo otro (0032): elijo la cuenta o digo que no la
@@ -253,7 +289,8 @@ export function DetalleMovimiento() {
   async function guardar() {
     setError("")
     const centavos = aCentavos(monto, tx!.currency)
-    if (!centavos || centavos <= 0) return setError("Monto inválido")
+    if (!centavos || centavos <= 0)
+      return setError("Escribí un monto mayor a cero, por ejemplo 1500,50.")
     // Entre varios (0032): si no puse nada, de mi cuenta no sale nada.
     const entreVarios = tx!.kind === "expense" && Boolean(grupoId) && pagadores.mio !== null
     const sinCuenta = entreVarios && pagadores.mio === 0
@@ -290,70 +327,92 @@ export function DetalleMovimiento() {
         ? cotizacionDe(centavos, tx!.currency, centavosDebitado, monedaCuenta)
         : null
 
-    await db.execute(
-      `UPDATE transactions SET amount = ?, account_id = ?, transfer_account_id = ?,
+    if (guardando) return
+    setGuardando(true)
+    try {
+      await db.execute(
+        `UPDATE transactions SET amount = ?, account_id = ?, transfer_account_id = ?,
          category_id = ?, payee = ?, notes = ?, occurred_at = ?,
          amount_account = ?, exchange_rate = ?, visibility = ?, group_id = ?,
          amount_owner = ?, installments = ? WHERE id = ?`,
-      [
-        centavos,
-        sinCuenta ? null : cuentaId,
-        tx!.kind === "transfer" ? destinoId : null,
-        tx!.kind === "transfer" ? null : categoriaId,
-        payee || null,
-        notas || null,
-        new Date(cuando).toISOString(),
-        difieren && centavosDebitado > 0 ? centavosDebitado : null,
-        difieren && cotizacion ? cotizacion : null,
-        grupoId ? "shared" : "private",
-        grupoId || null,
-        // Lo que puse yo, si pusieron otros (0032). NULL = lo pague entero.
-        entreVarios ? pagadores.mio : null,
-        conCuotas && cuotas > 1 ? cuotas : null,
-        tx!.id,
-      ],
-    )
-
-    // Diff de etiquetas: solo lo que cambio (el unico parcial no admite
-    // duplicados, asi que no se re-inserta lo que ya estaba).
-    for (const tagId of etiquetas.filter((t) => !idsActuales.includes(t))) {
-      await db.execute(
-        "INSERT INTO transaction_tags (id, transaction_id, tag_id) VALUES (?, ?, ?)",
-        [uuidv4(), tx!.id, tagId],
+        [
+          centavos,
+          sinCuenta ? null : cuentaId,
+          tx!.kind === "transfer" ? destinoId : null,
+          tx!.kind === "transfer" ? null : categoriaId,
+          payee || null,
+          notas || null,
+          new Date(cuando).toISOString(),
+          difieren && centavosDebitado > 0 ? centavosDebitado : null,
+          difieren && cotizacion ? cotizacion : null,
+          grupoId ? "shared" : "private",
+          grupoId || null,
+          // Lo que puse yo, si pusieron otros (0032). NULL = lo pague entero.
+          entreVarios ? pagadores.mio : null,
+          conCuotas && cuotas > 1 ? cuotas : null,
+          tx!.id,
+        ],
       )
-    }
-    for (const tagId of idsActuales.filter((t) => !etiquetas.includes(t))) {
-      await db.execute("DELETE FROM transaction_tags WHERE transaction_id = ? AND tag_id = ?", [
-        tx!.id,
-        tagId,
-      ])
-    }
 
-    // Reparto (3b.3): se reescribe entero (borrar lo viejo, insertar lo nuevo).
-    // Solo si el movimiento es compartido; `null` = igual entre todos, sin filas.
-    if (tx!.kind === "expense" && grupoId) {
-      await db.execute("DELETE FROM transaction_splits WHERE transaction_id = ?", [tx!.id])
-      if (split.splits) {
-        for (const parte of split.splits) {
-          await db.execute(
-            "INSERT INTO transaction_splits (id, transaction_id, user_id, amount) VALUES (?, ?, ?, ?)",
-            [uuidv4(), tx!.id, parte.user_id, parte.amount],
-          )
+      // Diff de etiquetas: solo lo que cambio (el unico parcial no admite
+      // duplicados, asi que no se re-inserta lo que ya estaba).
+      for (const tagId of etiquetas.filter((t) => !idsActuales.includes(t))) {
+        await db.execute(
+          "INSERT INTO transaction_tags (id, transaction_id, tag_id) VALUES (?, ?, ?)",
+          [uuidv4(), tx!.id, tagId],
+        )
+      }
+      for (const tagId of idsActuales.filter((t) => !etiquetas.includes(t))) {
+        await db.execute("DELETE FROM transaction_tags WHERE transaction_id = ? AND tag_id = ?", [
+          tx!.id,
+          tagId,
+        ])
+      }
+
+      // Reparto (3b.3): se reescribe entero (borrar lo viejo, insertar lo nuevo).
+      // Solo si el movimiento es compartido; `null` = igual entre todos, sin filas.
+      if (tx!.kind === "expense" && grupoId) {
+        await db.execute("DELETE FROM transaction_splits WHERE transaction_id = ?", [tx!.id])
+        if (split.splits) {
+          for (const parte of split.splits) {
+            await db.execute(
+              "INSERT INTO transaction_splits (id, transaction_id, user_id, amount) VALUES (?, ?, ?, ?)",
+              [uuidv4(), tx!.id, parte.user_id, parte.amount],
+            )
+          }
         }
       }
+      // Quien mas puso (0032): crea, cambia o saca lo que corresponda. Pasar a
+      // "lo pague yo" saca a todos (y sus pagos se borran, con aviso).
+      if (tx!.kind === "expense" && grupoId) {
+        await guardarPagadores(db, tx!.id, entreVarios ? pagadores.otros : [], pagadoresActuales)
+      }
+    } catch {
+      setGuardando(false)
+      return setError(
+        "No se pudo guardar en este dispositivo. Probá de nuevo; si sigue pasando, cerrá y volvé a abrir Mango.",
+      )
     }
-    // Quien mas puso (0032): crea, cambia o saca lo que corresponda. Pasar a
-    // "lo pague yo" saca a todos (y sus pagos se borran, con aviso).
-    if (tx!.kind === "expense" && grupoId) {
-      await guardarPagadores(db, tx!.id, entreVarios ? pagadores.otros : [], pagadoresActuales)
-    }
+    anunciar("Cambios guardados.")
     volver()
   }
 
   async function borrar() {
     await db.execute("DELETE FROM transactions WHERE id = ?", [tx!.id])
+    anunciar(
+      tx!.group_id
+        ? "Movimiento borrado: ya no cuenta en tus saldos ni en el balance del grupo."
+        : "Movimiento borrado: ya no cuenta en tus saldos.",
+    )
     volver()
   }
+
+  // Pasar a "lo pague yo" un gasto que pusieron entre varios borra la parte de
+  // los demas: se dice ANTES de guardar (1.12.0).
+  const sacaPagadores =
+    pagadoresSembrados &&
+    pagadoresActuales.length > 0 &&
+    !(tx.kind === "expense" && Boolean(grupoId) && pagadores.mio !== null)
 
   return (
     <div className="mx-auto max-w-md space-y-4 p-4">
@@ -480,7 +539,10 @@ export function DetalleMovimiento() {
           estados={Object.fromEntries(
             pagadoresActuales.filter((p) => p.user_id).map((p) => [p.user_id, p.status]),
           )}
-          onCambio={setPagadores}
+          onCambio={(v) => {
+            setPagadores(v)
+            setPagadoresSembrados(true)
+          }}
         />
       )}
 
@@ -518,11 +580,22 @@ export function DetalleMovimiento() {
 
       <Adjuntos transactionId={tx.id} />
 
+      {pista && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {pista}
+        </p>
+      )}
+      {sacaPagadores && (
+        <p role="status" className="rounded-md bg-muted p-3 text-sm">
+          Al guardar, los demás dejan de figurar como que pusieron plata: se borra su parte y se les
+          avisa.
+        </p>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="flex gap-2">
-        <Button className="flex-1" onClick={guardar}>
-          Guardar
+        <Button className="flex-1" disabled={guardando} onClick={guardar}>
+          {guardando ? "Guardando…" : "Guardar"}
         </Button>
         <Button
           variant="destructive"
@@ -540,9 +613,11 @@ export function DetalleMovimiento() {
         onOpenChange={setConfirmarBorrar}
         titulo="Borrar movimiento"
         detalle={
-          tx.group_id
-            ? "Deja de contar en tus saldos y en el balance del grupo."
-            : "Deja de contar en tus saldos y en tus estadísticas."
+          pagadoresActuales.length > 0
+            ? "Deja de contar en tus saldos y en el balance del grupo. Lo que pusieron los demás también se borra, y se les avisa."
+            : tx.group_id
+              ? "Deja de contar en tus saldos y en el balance del grupo."
+              : "Deja de contar en tus saldos y en tus estadísticas."
         }
         etiqueta="Borrar"
         destructivo

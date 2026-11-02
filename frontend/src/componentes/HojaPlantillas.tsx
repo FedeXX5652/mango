@@ -183,8 +183,8 @@ export function HojaPlantillas({
               />
             </Campo>
             <p className="text-xs text-muted-foreground">
-              Guarda el tipo, la cuenta, la categoría, el medio, el monto, el comercio y las notas
-              que tenés cargados ahora.
+              Guarda el tipo, la cuenta, la categoría, el monto, el comercio y las notas que tenés
+              cargados ahora.
             </p>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex gap-2">

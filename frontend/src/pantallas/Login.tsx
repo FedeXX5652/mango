@@ -1,10 +1,11 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
 import { useSesion } from "@/hooks/sesion"
 import { ApiError, api } from "@/lib/api"
+import { motivoSalida, olvidarMotivoSalida } from "@/lib/sesion"
 
 // Login de servidor (fase 3a). Usuario + clave, sin mail. Si la cuenta tiene
 // clave temporal (must_change_password), después del login se fuerza el cambio,
@@ -18,6 +19,10 @@ export function Login({ onEntrar }: { onEntrar: (mustChange: boolean) => void })
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [cargando, setCargando] = useState(false)
+  // Si se llego aca porque la sesion vencio, se dice (1.12.0).
+  const [vencida] = useState(() => motivoSalida() === "vencida")
+  // Dicho una vez: al volver a esta pantalla por otro motivo, no se repite.
+  useEffect(() => olvidarMotivoSalida(), [])
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault()
@@ -29,10 +34,18 @@ export function Login({ onEntrar }: { onEntrar: (mustChange: boolean) => void })
       entrar(r.token)
       onEntrar(r.must_change_password)
     } catch (err) {
+      // Cada falla con lo suyo: antes todo era "contraseña incorrecta", aunque
+      // fuera la red o el servidor (1.12.0).
       if (err instanceof ApiError && err.status === 429) {
         setError("Demasiados intentos. Esperá unos minutos.")
-      } else {
+      } else if (err instanceof ApiError && (err.status === 401 || err.status === 422)) {
         setError("Usuario o contraseña incorrectos.")
+      } else if (err instanceof ApiError && err.status >= 500) {
+        setError("El servidor no responde. Probá de nuevo en unos minutos.")
+      } else if (err instanceof ApiError) {
+        setError(err.message || "No se pudo entrar. Probá de nuevo.")
+      } else {
+        setError("No hay conexión con el servidor. Revisá tu internet o la red de tu casa.")
       }
       setCargando(false)
     }
@@ -44,6 +57,12 @@ export function Login({ onEntrar }: { onEntrar: (mustChange: boolean) => void })
         <h1 className="text-3xl font-semibold">Mango</h1>
         <p className="mt-1 text-sm text-muted-foreground">Entrá con tu usuario y clave.</p>
       </div>
+      {vencida && (
+        <p role="status" className="rounded-md bg-muted p-3 text-sm">
+          Tu sesión venció. Entrá de nuevo: lo que cargaste en este dispositivo sigue acá y se sube
+          al entrar.
+        </p>
+      )}
       <form onSubmit={enviar} className="space-y-3">
         <Campo etiqueta="Usuario">
           <Input

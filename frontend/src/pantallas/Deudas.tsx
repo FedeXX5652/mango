@@ -20,6 +20,7 @@ import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { formatearFechaCorta } from "@/lib/fecha"
 import { semillaDeDeuda } from "@/lib/recordatorios"
 import { uuidv4 } from "@/lib/uuid"
+import { anunciar } from "@/lib/anuncios"
 
 // Deudas y prestamos fuera de un grupo (fase 5). `receivable` = me deben (yo
 // preste); `payable` = yo debo (me prestaron). Se saldan por partes.
@@ -68,6 +69,7 @@ export function Deudas() {
   async function borrar(d: Deuda) {
     await db.execute("DELETE FROM debts WHERE id = ?", [d.id])
     setABorrar(null)
+    anunciar(`Deuda con ${d.counterparty} eliminada.`)
   }
 
   const seccion = (titulo: string, lista: Deuda[]) =>
@@ -198,10 +200,33 @@ function HojaDeuda({
     const centavos = aCentavos(monto, deuda.currency) ?? 0
     if (centavos <= 0) return setError("Poné un monto")
     if (centavos > pendiente) return setError("No puede superar lo pendiente")
-    await db.execute("UPDATE debts SET amount_settled = ? WHERE id = ?", [
-      deuda.amount_settled + centavos,
-      deuda.id,
-    ])
+    try {
+      await db.execute("UPDATE debts SET amount_settled = ? WHERE id = ?", [
+        deuda.amount_settled + centavos,
+        deuda.id,
+      ])
+    } catch {
+      return setError(
+        "No se pudo guardar en este dispositivo. Probá de nuevo; si sigue pasando, cerrá y volvé a abrir Mango.",
+      )
+    }
+    // Saldar anota cuanto se pago, no mueve plata: se dice, y se puede deshacer.
+    const anterior = deuda.amount_settled
+    anunciar(
+      centavos === pendiente
+        ? `Deuda con ${deuda.counterparty} saldada. No cargó un movimiento: si hubo plata, cargalo aparte.`
+        : `Se anotó un pago de ${formatearMonto(centavos, { moneda: deuda.currency })} a la deuda con ${deuda.counterparty}.`,
+      {
+        accion: {
+          etiqueta: "Deshacer",
+          onClick: () =>
+            void db.execute("UPDATE debts SET amount_settled = ? WHERE id = ?", [
+              anterior,
+              deuda.id,
+            ]),
+        },
+      },
+    )
     onCerrar()
   }
 
@@ -277,9 +302,16 @@ function FormularioDeuda({ onCerrar }: { onCerrar: () => void }) {
           fecha || null,
         ],
       )
+      anunciar(
+        direction === "payable"
+          ? `Anotado: le debés a ${counterparty.trim()}.`
+          : `Anotado: ${counterparty.trim()} te debe.`,
+      )
       onCerrar()
     } catch {
-      setError("No se pudo guardar")
+      setError(
+        "No se pudo guardar en este dispositivo. Probá de nuevo; si sigue pasando, cerrá y volvé a abrir Mango.",
+      )
     }
   }
 

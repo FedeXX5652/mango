@@ -4,7 +4,10 @@ import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-route
 
 import { api } from "@/lib/api"
 import { esRutaDeLaApp, refrescarSuscripcion } from "@/lib/push"
-import { generarVencidas } from "@/lib/generar"
+import { Anunciador } from "@/componentes/ui/anunciador"
+import { anunciar } from "@/lib/anuncios"
+import { generarVencidas, textoGenerado } from "@/lib/generar"
+import { VERSION } from "@/lib/version"
 import { ProveedorBloqueo } from "@/hooks/bloqueo"
 import { ProveedorSesion } from "@/hooks/sesion"
 import { ProveedorMonedaBase } from "@/hooks/monedaBase"
@@ -129,16 +132,42 @@ function DisparadorInicio() {
     if (import.meta.env.DEV) {
       ;(window as unknown as { __db?: unknown }).__db = db
     }
-    generarVencidas(db).catch((e) => {
-      // No se traga el error: si la generacion falla, las recurrentes dejan de
-      // aparecer y desde afuera parece que no habia nada vencido.
-      console.error("No se pudieron generar las recurrentes vencidas", e)
-    })
+    // Lo que se cargo solo se dice (1.12.0): si no, aparece un alquiler que nadie
+    // recuerda haber cargado y el saldo cambia sin explicacion.
+    generarVencidas(db)
+      .then((r) => {
+        const texto = textoGenerado(r)
+        if (texto) anunciar(texto, { accion: { etiqueta: "Ver", to: "/movimientos" } })
+      })
+      .catch((e) => {
+        // No se traga el error: si la generacion falla, las recurrentes dejan de
+        // aparecer y desde afuera parece que no habia nada vencido.
+        console.error("No se pudieron generar las recurrentes vencidas", e)
+        anunciar(
+          "No se pudieron cargar los recurrentes vencidos. Probá con «Cargar las vencidas» en Recurrentes.",
+          { importante: true, accion: { etiqueta: "Ir", to: "/recurrentes" } },
+        )
+      })
+    avisarSiSeActualizo()
     api.refrescarCotizaciones().catch(() => {})
     // Si este dispositivo ya tenia avisos, se le recuerda al servidor (1.4.0).
     refrescarSuscripcion().catch(() => {})
   }, [db])
   return null
+}
+
+// La PWA se actualiza sola (0028): al arrancar con otra version que la ultima
+// vista en este dispositivo, se dice (1.12.0). La primera vez no hay con que
+// comparar y no se dice nada.
+const LS_VERSION_VISTA = "mango.version-vista"
+function avisarSiSeActualizo(): void {
+  try {
+    const antes = localStorage.getItem(LS_VERSION_VISTA)
+    localStorage.setItem(LS_VERSION_VISTA, VERSION.version)
+    if (antes && antes !== VERSION.version) anunciar(`Mango se actualizó a la ${VERSION.version}.`)
+  } catch {
+    // Sin storage no hay aviso: la app sigue igual.
+  }
 }
 
 // Tocar un aviso push con la app abierta: el service worker la trae al frente y
@@ -172,6 +201,8 @@ export function App() {
               <ProveedorBloqueo>
                 <ProveedorPowerSync>
                   <DisparadorInicio />
+                  {/* Adentro del bloqueo: con la app bloqueada no se ve ni un aviso. */}
+                  <Anunciador />
                   <AbrirDesdeAviso />
                   <Rutas />
                 </ProveedorPowerSync>

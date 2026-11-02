@@ -7,6 +7,7 @@ import { useGrupo } from "@/hooks/useGrupo"
 import { rutaEspacio } from "@/lib/espacios"
 import { resumenMio } from "@/lib/grupo"
 import { SIN_COLOR } from "@/lib/paleta"
+import { useBloqueListo } from "@/hooks/bloquesListos"
 
 // Los grupos en el Inicio personal (0026): una fila por grupo con como quedo yo
 // ("Casa: Beto te debe $X ›"). Es lo que la pestaña Grupos dejaba a un toque:
@@ -19,9 +20,10 @@ interface GrupoFila {
 }
 
 export function TarjetaGrupos() {
-  const { data: grupos } = useQuery<GrupoFila>(
+  const { data: grupos, isLoading: cargaGrupos } = useQuery<GrupoFila>(
     "SELECT id, name, color FROM groups WHERE deleted_at IS NULL ORDER BY name",
   )
+  useBloqueListo(cargaGrupos)
   if (grupos.length === 0) return null
 
   return (
@@ -58,5 +60,7 @@ export function TarjetaGrupos() {
 // La linea sola, para donde ya hay una fila (el selector de espacio).
 export function ResumenGrupoLinea({ groupId, className }: { groupId: string; className?: string }) {
   const { balance, miId, nombre, cargando } = useGrupo(groupId)
+  // Con los gastos pero sin los repartos, la linea diria otra deuda (1.12.0).
+  useBloqueListo(cargando)
   return <span className={className}>{cargando ? "…" : resumenMio(balance, miId, nombre)}</span>
 }

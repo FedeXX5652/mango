@@ -103,12 +103,18 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   vences" (resumen) y disponible; "Avisarme" sigue la cuenta, no el medio;
   migracion de medios de pago tarjeta a sus cuentas. Medios de pago en retiro
   (servidor sigue aceptando 1.10; interfaz no los usa).
-- **1.12.0 - Pulido**: resumen del dia a la derecha en Movimientos; logo en
-  encabezados; transiciones suaves (numeros no cambian ante los ojos); accesos
-  del grupo con todo lo que existe (plantillas, presupuesto, estadisticas,
-  categorias, etiquetas, sacar plata, calendario); scroll, espacios y alineacion
-  entre pestañas; revision didactica de toda la app (cada toque dice que hizo y
-  por que).
+- ~~**1.12.0 - Pulido**~~ (hecho): resumen del dia en Movimientos; logo en
+  todos los encabezados; `PantallaLista` (enmienda de 0008); accesos del grupo
+  con "Más" y barra lateral del grupo; anchos y ritmo entre pestañas; avisos
+  (`anunciar`), franja de rechazados, errores en palabras.
+  - Quedo de la revision didactica, para mas adelante: el editor de reparto que
+    se reabre en otro modo del que se guardo; ofrecer la huella justo despues de
+    crear el PIN; el error al no poder leer una cuenta compartida; probar a mano
+    las escrituras que no paso la sonda (metas, deudas, cotizaciones a mano).
+  - **Pregunta abierta: nombre por grupo.** Que cada miembro tenga un alias en
+    cada grupo ("Mamá" en Familia, "Ana" en Casa). Falta decidir quien lo edita
+    (cada uno el suyo, o cualquiera el de todos) y si reemplaza al nombre en
+    todo el grupo o solo para quien lo puso.
 - **1.13.0 - Herramientas del grupo**: recurrentes, metas y plantillas del grupo
   con pantalla propia; y todo lo demas que tenga lo personal (deudas, etc).
 - **Contraer medios de pago** (posterior): borrar `payment_methods`,

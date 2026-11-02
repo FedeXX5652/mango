@@ -8,6 +8,8 @@ import { Vacio } from "@/componentes/Vacio"
 import { Button } from "@/componentes/ui/button"
 import { Input } from "@/componentes/ui/input"
 import { ListaInset } from "@/componentes/ui/listaInset"
+import { useConexion } from "@/hooks/conexion"
+import { anunciar } from "@/lib/anuncios"
 import { api } from "@/lib/api"
 import { PALETA, SIN_COLOR } from "@/lib/paleta"
 import { uuidv4 } from "@/lib/uuid"
@@ -37,14 +39,19 @@ export function Grupos() {
   const [nuevoColor, setNuevoColor] = useState<string>(PALETA[6]) // azul por defecto
   const [creando, setCreando] = useState(false)
   const [error, setError] = useState("")
+  const hayConexion = useConexion()
 
   async function crear() {
-    if (!nuevoNombre.trim()) return
+    const nombre = nuevoNombre.trim()
+    if (!nombre) return
     setCreando(true)
     setError("")
     try {
-      await api.crearGrupo(uuidv4(), nuevoNombre.trim(), "ARS", nuevoColor)
+      await api.crearGrupo(uuidv4(), nombre, "ARS", nuevoColor)
       setNuevoNombre("")
+      // Lo crea el servidor y llega a la lista con la sync: sin esto el campo se
+      // vaciaba y no aparecia nada por unos segundos.
+      anunciar(`Grupo «${nombre}» creado. Aparece en unos segundos.`)
     } catch {
       setError("No se pudo crear. ¿Hay conexión?")
     } finally {
@@ -61,7 +68,7 @@ export function Grupos() {
 
       <p className="text-sm text-muted-foreground">
         Un grupo comparte gastos entre varias personas. Lo que marques como compartido lo ven todos
-        los miembros; tus cuentas y medios de pago siguen siendo privados.
+        los miembros; tus cuentas siguen siendo privadas.
       </p>
 
       {grupos.length === 0 ? (
@@ -102,11 +109,22 @@ export function Grupos() {
             // Desde "Nuevo grupo" del selector de espacio, el campo ya esta listo.
             autoFocus={params.get("nuevo") === "1"}
           />
-          <Button onClick={crear} disabled={creando || !nuevoNombre.trim()}>
+          <Button
+            onClick={crear}
+            disabled={creando || !nuevoNombre.trim() || !hayConexion}
+            aria-describedby={hayConexion ? undefined : "grupo-sin-conexion"}
+          >
             Crear
           </Button>
         </div>
         <PaletaColor valor={nuevoColor} onCambio={setNuevoColor} />
+        {/* Crear lo hace el servidor: sin conexion se dice antes, no al fallar
+            (DESIGN.md 7, "Estado sin conexion"). */}
+        {!hayConexion && (
+          <p id="grupo-sin-conexion" className="text-xs text-muted-foreground">
+            Necesita conexión: lo hace el servidor.
+          </p>
+        )}
         {error && <p className="text-sm text-destructive">{error}</p>}
       </section>
     </div>

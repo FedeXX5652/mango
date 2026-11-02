@@ -5,6 +5,7 @@ import { Button } from "@/componentes/ui/button"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Segmentado } from "@/componentes/ui/segmentado"
+import { useConexion } from "@/hooks/conexion"
 import type { MiembroGrupo } from "@/lib/grupo"
 import { ApiError, api } from "@/lib/api"
 import { aPartes, leerReparto } from "@/lib/reparto"
@@ -34,7 +35,17 @@ export function RepartoDelGrupo({
     "SELECT default_split FROM groups WHERE id = ?",
     [groupId],
   )
-  const guardado = useMemo(() => leerReparto(data[0]?.default_split), [data])
+  // Lo guardado baja por la sync unos segundos despues: mientras el grupo siga
+  // con lo que tenia al mandarlo, se muestra lo mandado. Antes los campos
+  // volvian al reparto anterior justo cuando decia "Guardado".
+  const delServidor = data[0]?.default_split ?? null
+  const [enviado, setEnviado] = useState<{ valor: string | null; antes: string | null } | null>(
+    null,
+  )
+  const textoActual = enviado && delServidor === enviado.antes ? enviado.valor : delServidor
+  const guardado = useMemo(() => leerReparto(textoActual), [textoActual])
+  // Lo guarda el servidor: sin conexion el boton se apaga y dice por que.
+  const hayConexion = useConexion()
 
   // Lo que se esta editando; null = se muestra lo guardado.
   const [modo, setModo] = useState<Modo | null>(null)
@@ -62,6 +73,10 @@ export function RepartoDelGrupo({
         : Object.fromEntries(miembros.map((m, i) => [m.user_id, partes[i] ?? 0]))
     try {
       await api.editarGrupo(groupId, { default_split })
+      setEnviado({
+        valor: default_split ? JSON.stringify(default_split) : null,
+        antes: delServidor,
+      })
       setModo(null)
       setTextos(null)
       setEstado("guardado")
@@ -124,13 +139,21 @@ export function RepartoDelGrupo({
       )}
       {error && <p className="text-sm text-destructive">{error}</p>}
       {(cambiado || estado === "guardado") && (
-        <div className="flex items-center gap-3">
-          <Button onClick={guardar} disabled={!valido || !cambiado || estado === "guardando"}>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={guardar}
+            disabled={!valido || !cambiado || estado === "guardando" || !hayConexion}
+          >
             {estado === "guardando" ? "Guardando…" : "Guardar reparto"}
           </Button>
           {estado === "guardado" && !cambiado && (
             <span role="status" className="text-sm text-muted-foreground">
               Guardado
+            </span>
+          )}
+          {cambiado && !hayConexion && (
+            <span className="text-xs text-muted-foreground">
+              Necesita conexión: lo hace el servidor.
             </span>
           )}
         </div>

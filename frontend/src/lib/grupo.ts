@@ -118,10 +118,12 @@ function liquidar(balances: BalanceMiembro[]): Liquidacion[] {
   return pagos
 }
 
-// Nombre de un miembro; si no esta (dejo el grupo pero tiene gastos), un fallback
-// con los primeros caracteres del id para no romper.
+// Nombre de un miembro; si no esta (dejo el grupo pero tiene gastos), "Ex
+// miembro". Antes eran los primeros caracteres del id, que no le dicen nada a
+// nadie (1.12.0).
+export const EX_MIEMBRO = "Ex miembro"
 function nombreDe(miembros: MiembroGrupo[], userId: string): string {
-  return miembros.find((m) => m.user_id === userId)?.nombre ?? userId.slice(0, 8)
+  return miembros.find((m) => m.user_id === userId)?.nombre ?? EX_MIEMBRO
 }
 
 // Lo que puso la cuenta conjunta en un gasto (0032): no es deuda de nadie.

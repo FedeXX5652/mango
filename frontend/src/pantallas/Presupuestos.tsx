@@ -1,5 +1,6 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import {
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -9,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { Link } from "react-router-dom"
 import { Cell, Pie, PieChart } from "recharts"
 
 import { Monto } from "@/componentes/Monto"
@@ -24,6 +26,7 @@ import { Input } from "@/componentes/ui/input"
 import { Interruptor } from "@/componentes/ui/interruptor"
 import { CabeceraPestana } from "@/componentes/SelectorEspacio"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
+import { anunciar } from "@/lib/anuncios"
 import { ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
 import { aCentavos, aTextoEditable, formatearCentavos, formatearMonto } from "@/lib/dinero"
 import { useMonedaBase } from "@/hooks/monedaBase"
@@ -399,9 +402,22 @@ export function Presupuestos() {
         className="w-full"
         onClick={() => setAgregando(true)}
         disabled={noSobres.length === 0}
+        aria-describedby={noSobres.length === 0 ? "sin-candidatas" : undefined}
       >
         <Plus className="h-4 w-4" /> Agregar sobre
       </Button>
+      {/* Un boton apagado sin motivo es un callejon: se dice por que y adonde ir. */}
+      {noSobres.length === 0 && (
+        <p id="sin-candidatas" className="text-center text-xs text-muted-foreground">
+          {categorias.length === 0
+            ? "No tenés categorías de gasto. "
+            : "Todas tus categorías de gasto ya son sobres. "}
+          <Link to="/categorias" className="font-medium text-enlace underline underline-offset-2">
+            Creá {categorias.length === 0 ? "una" : "otra"} en Categorías
+          </Link>
+          .
+        </p>
+      )}
       <Hoja abierta={agregando} onOpenChange={setAgregando} titulo="Agregar sobre">
         <FormAgregar
           moneda={moneda}
@@ -417,7 +433,7 @@ export function Presupuestos() {
 
       {sobreCats.length === 0 ? (
         <p className="p-8 text-center text-sm text-muted-foreground">
-          Todavía no agregaste ningún sobre.
+          Un sobre es la plata que reservás para una categoría este mes. Agregá uno para empezar.
         </p>
       ) : (
         <div className="space-y-4">
@@ -449,7 +465,7 @@ export function Presupuestos() {
                   <span>{rootCat?.name ?? "—"}</span>
                   <span className="text-xs text-muted-foreground">
                     {formatearMonto(asigTot, { moneda })} · {formatearMonto(gastTot, { moneda })}{" "}
-                    gast.
+                    gastado
                   </span>
                 </div>
                 <div className="divide-y divide-border overflow-hidden rounded-xl bg-card shadow-tarjeta">
@@ -457,7 +473,8 @@ export function Presupuestos() {
                     <FilaSobre
                       enGrupo
                       cat={rootCat}
-                      nombre={`${rootCat.name} (directo)`}
+                      // Lo que va a la categoria padre y no a una hija.
+                      nombre="General"
                       saldo={saldoPorId.get(rootId)}
                       asignadoSel={asignadoSel(rootId)}
                       autoOn={reglaPorCat.get(rootId)?.active === 1}
@@ -521,7 +538,7 @@ function FilaSobre({
   // Va dentro de la tarjeta de su categoria: sin tarjeta propia.
   enGrupo?: boolean
   moneda: string
-  onAsignar: (catId: string, centavos: number) => void
+  onAsignar: (catId: string, centavos: number) => Promise<void>
   onQuitar: (catId: string) => void
   onAhorro: (catId: string, rollover: boolean) => void
   onToggleAuto: (catId: string, on: boolean) => void
@@ -530,6 +547,16 @@ function FilaSobre({
   const [abierto, setAbierto] = useState(false)
   const [confirmarQuitar, setConfirmarQuitar] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  // "Guardado" por 2 s despues de guardar el asignado; otro guardado reinicia
+  // la cuenta.
+  const [guardado, setGuardado] = useState(false)
+  const timerGuardado = useRef<number | undefined>(undefined)
+  function marcarGuardado() {
+    setGuardado(true)
+    window.clearTimeout(timerGuardado.current)
+    timerGuardado.current = window.setTimeout(() => setGuardado(false), 2000)
+  }
+  useEffect(() => () => window.clearTimeout(timerGuardado.current), [])
   // Resincroniza el input si la asignacion cambia por fuera (recurrente, otra
   // pestaña) y no lo estoy editando ahora mismo.
   useEffect(() => {
@@ -577,7 +604,21 @@ function FilaSobre({
 
       <div className="mt-2 grid grid-cols-3 items-end gap-2">
         <div>
-          <p className="mb-1 text-xs text-muted-foreground">Asignado</p>
+          {/* "Guardado" ocupa el lugar de la etiqueta un par de segundos: al
+              costado no entra en 360 px, y abajo empujaria la barra. */}
+          <p className="mb-1 truncate text-xs text-muted-foreground" aria-hidden={guardado}>
+            {guardado ? (
+              <span className="inline-flex items-center gap-0.5 text-income">
+                <Check className="h-3 w-3" aria-hidden />
+                Guardado
+              </span>
+            ) : (
+              "Asignado"
+            )}
+          </p>
+          <span role="status" className="sr-only">
+            {guardado ? `Asignado de ${cat.name} guardado` : ""}
+          </span>
           <Input
             ref={inputRef}
             value={texto}
@@ -585,7 +626,15 @@ function FilaSobre({
             onFocus={() => setTexto(editableAsignado(asignadoSel, moneda))}
             onBlur={() => {
               const c = Math.max(0, aCentavos(texto, moneda) ?? 0)
-              onAsignar(cat.id, c)
+              // Se guarda al salir del campo: sin esto no se veia que paso nada.
+              // Solo se avisa si cambio el monto.
+              const cambio = c !== asignadoSel
+              onAsignar(cat.id, c).then(
+                () => {
+                  if (cambio) marcarGuardado()
+                },
+                () => anunciar("No se pudo guardar el monto asignado.", { importante: true }),
+              )
               setTexto(fmtAsignado(c, moneda))
             }}
             onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
@@ -628,9 +677,9 @@ function FilaSobre({
               <Interruptor
                 encendido={cat.rollover === 1}
                 onCambio={(v) => onAhorro(cat.id, v)}
-                etiqueta="Ahorro (acumula)"
+                etiqueta="Ahorro: lo que no gastás pasa al mes siguiente"
               />
-              Ahorro (acumula)
+              Ahorro: lo que no gastás pasa al mes siguiente
             </span>
             <Button
               variant="ghost"
@@ -662,7 +711,9 @@ function FilaSobre({
         abierta={confirmarQuitar}
         onOpenChange={setConfirmarQuitar}
         titulo="Quitar sobre"
-        detalle={`"${nombre ?? cat.name}" deja de ser un sobre. No borra movimientos.`}
+        // Dice todo lo que se borra: las asignaciones de todos los meses de esta
+        // moneda, no solo la del mes que se esta mirando, y la regla automatica.
+        detalle={`«${cat.name}» deja de ser un sobre. Se borran las asignaciones de todos los meses en ${moneda}${autoOn ? " y la asignación automática" : ""}. Los movimientos no se tocan.`}
         etiqueta="Quitar"
         onConfirmar={() => onQuitar(cat.id)}
       />

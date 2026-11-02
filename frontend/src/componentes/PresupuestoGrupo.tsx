@@ -8,6 +8,7 @@ import { Campo } from "@/componentes/ui/campo"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
+import { anunciar } from "@/lib/anuncios"
 import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { iconoDe } from "@/lib/iconos"
 import { TX_GRUPO } from "@/lib/lente"
@@ -75,12 +76,17 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
   const [editando, setEditando] = useState<string | null>(null)
   const [agregando, setAgregando] = useState(false)
 
-  async function guardar(categoryId: string, texto: string) {
+  async function guardar(categoryId: string, texto: string, nombre: string) {
     const centavos = aCentavos(texto, moneda) ?? 0
     const existente = budgetDe.get(categoryId)
     if (existente) {
-      if (centavos <= 0) await db.execute("DELETE FROM budgets WHERE id = ?", [existente.id])
-      else await db.execute("UPDATE budgets SET amount = ? WHERE id = ?", [centavos, existente.id])
+      if (centavos <= 0) {
+        // Vaciar el monto quita el tope: la fila se va de la lista, y sin
+        // decirlo parecia que se habia perdido (1.12.0).
+        await db.execute("DELETE FROM budgets WHERE id = ?", [existente.id])
+        anunciar(`Se quitó el tope de ${nombre} para este mes.`)
+      } else
+        await db.execute("UPDATE budgets SET amount = ? WHERE id = ?", [centavos, existente.id])
     } else if (centavos > 0) {
       await db.execute(
         "INSERT INTO budgets (id, group_id, category_id, period_start, amount, currency) VALUES (?, ?, ?, ?, ?, ?)",
@@ -128,7 +134,7 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
                       {editando === c.id ? (
                         <ToqueMonto
                           inicial={tope ? aTextoEditable(tope, moneda) : ""}
-                          onGuardar={(v) => guardar(c.id, v)}
+                          onGuardar={(v) => guardar(c.id, v, c.name)}
                           onCancelar={() => setEditando(null)}
                         />
                       ) : (
@@ -176,7 +182,7 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
         candidatas={candidatas}
         moneda={moneda}
         onGuardar={async (catId, monto) => {
-          await guardar(catId, monto)
+          await guardar(catId, monto, candidatas.find((c) => c.id === catId)?.name ?? "")
           setAgregando(false)
         }}
       />

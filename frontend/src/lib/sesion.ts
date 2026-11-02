@@ -26,9 +26,33 @@ export function guardarToken(token: string): void {
   escuchas.forEach((f) => f(token))
 }
 
-export function borrarToken(): void {
+// Por que se salio, para que el login lo diga (1.12.0): sin esto, una sesion
+// vencida dejaba en el login sin explicacion. Un logout a mano no deja motivo.
+const LS_MOTIVO = "mango.motivo-salida"
+
+export function borrarToken(motivo?: "vencida"): void {
   localStorage.removeItem(LS_TOKEN)
+  if (motivo) localStorage.setItem(LS_MOTIVO, motivo)
   escuchas.forEach((f) => f(null))
+}
+
+/** El motivo de la ultima salida. Solo lee: leer dos veces (StrictMode llama
+ *  dos veces a un inicializador) no lo pierde. */
+export function motivoSalida(): "vencida" | null {
+  try {
+    return localStorage.getItem(LS_MOTIVO) === "vencida" ? "vencida" : null
+  } catch {
+    return null
+  }
+}
+
+/** Ya se dijo: no se vuelve a decir. */
+export function olvidarMotivoSalida(): void {
+  try {
+    localStorage.removeItem(LS_MOTIVO)
+  } catch {
+    // Sin storage no hay motivo guardado.
+  }
 }
 
 export function alCambiarSesion(f: Escucha): () => void {

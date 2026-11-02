@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Receipt } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 
+import { EncabezadoDia } from "@/componentes/EncabezadoDia"
 import { CabeceraPestana } from "@/componentes/SelectorEspacio"
 import { Vacio } from "@/componentes/Vacio"
 import { ConPanel } from "@/componentes/ConPanel"
@@ -13,7 +14,9 @@ import { type PagoGrupo, armarHistoria, useGrupo } from "@/hooks/useGrupo"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { useGrupoDeRuta } from "@/hooks/useEspacio"
 import { CargandoGrupo, GrupoNoEncontrado } from "@/pantallas/grupo/comun"
+import { useMonedaBase } from "@/hooks/monedaBase"
 import { claveDia, etiquetaDia } from "@/lib/fecha"
+import { gastoDelDia } from "@/lib/resumenDia"
 
 // Movimientos de un grupo (0026): los gastos compartidos de TODOS los miembros
 // con los pagos entre ellos intercalados, por mes y agrupados por dia. Lo ajeno
@@ -21,6 +24,7 @@ import { claveDia, etiquetaDia } from "@/lib/fecha"
 export function MovimientosGrupo() {
   const { id, grupo, cargando } = useGrupoDeRuta()
   const datos = useGrupo(id)
+  const base = useMonedaBase()
   // El mes y los filtros viven en la URL (?mes=2026-09&quien=…&categoria=…):
   // al entrar a un gasto y volver, la lista queda donde estaba. Antes se
   // reiniciaba al mes actual (0026: el estado de la pantalla, en la direccion).
@@ -92,7 +96,7 @@ export function MovimientosGrupo() {
 
   return (
     <ConPanel etiqueta="Detalle del movimiento">
-      <div className="mx-auto max-w-2xl space-y-3 p-4">
+      <div className="mx-auto max-w-2xl space-y-4 p-4">
         <CabeceraPestana titulo="Movimientos" />
 
         <div className="flex items-center justify-center gap-1">
@@ -155,30 +159,34 @@ export function MovimientosGrupo() {
             }
           />
         ) : (
-          porDia.map(([dia, items]) => (
-            <section key={dia} className="space-y-1">
-              {/* El mismo encabezado que Movimientos personal ("Hoy", "Ayer"…). */}
-              <h2 className="px-1 text-xs font-medium text-muted-foreground">
-                {etiquetaDia(items[0].fecha)}
-              </h2>
-              <ListaInset>
-                {items.map((it) => (
-                  <FilaHistoria
-                    key={`${it.tipo}-${it.id}`}
-                    item={it}
-                    groupId={id}
-                    miId={datos.miId}
-                    miembros={datos.miembros}
-                    splitsDe={datos.splitsDe}
-                    categoria={datos.categoria}
-                    nombre={datos.nombre}
-                    onPago={setPago}
-                    conFecha={false}
-                  />
-                ))}
-              </ListaInset>
-            </section>
-          ))
+          // Los dias con el mismo aire y el mismo encabezado que en lo personal.
+          <div className="space-y-4">
+            {porDia.map(([dia, items]) => (
+              <section key={dia}>
+                <EncabezadoDia
+                  etiqueta={etiquetaDia(items[0].fecha)}
+                  totales={gastoDelDia(items, base)}
+                  descripcion="Lo que gastó el grupo ese día"
+                />
+                <ListaInset>
+                  {items.map((it) => (
+                    <FilaHistoria
+                      key={`${it.tipo}-${it.id}`}
+                      item={it}
+                      groupId={id}
+                      miId={datos.miId}
+                      miembros={datos.miembros}
+                      splitsDe={datos.splitsDe}
+                      categoria={datos.categoria}
+                      nombre={datos.nombre}
+                      onPago={setPago}
+                      conFecha={false}
+                    />
+                  ))}
+                </ListaInset>
+              </section>
+            ))}
+          </div>
         )}
 
         <HojaPago pago={pago} nombre={datos.nombre} onClose={() => setPago(null)} />

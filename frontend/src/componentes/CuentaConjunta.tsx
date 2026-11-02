@@ -14,6 +14,8 @@ import { rutaMoverPlata } from "@/lib/espacios"
 import { TX_GRUPO } from "@/lib/lente"
 import { saldoCuenta } from "@/lib/saldos"
 import { uuidv4 } from "@/lib/uuid"
+import { useBloqueListo } from "@/hooks/bloquesListos"
+import { anunciar } from "@/lib/anuncios"
 
 // Cuenta(s) conjunta(s) del grupo (fase 3b, ver 0016): cuentas del grupo
 // (owner_id NULL). La plata es de todos; lo que se paga con ellas suma al gasto
@@ -37,13 +39,15 @@ export function CuentaConjunta({ groupId }: { groupId: string }) {
   // Saldo por cuenta conjunta: la formula unica (lib/saldos) sobre el LENTE del
   // grupo, no sobre `transactions`. La cuenta es de todos: su saldo lleva lo
   // que puso y pago cada miembro, y eso solo esta junto en el lente (0021).
-  const { data: cuentas } = useQuery<CuentaSaldo>(
+  const { data: cuentas, isLoading: cargaCuentas } = useQuery<CuentaSaldo>(
     `SELECT a.id, a.name, a.currency, ${saldoCuenta(TX_GRUPO)} AS balance
      FROM accounts a
      WHERE a.group_id = ? AND a.deleted_at IS NULL AND a.archived = 0
      ORDER BY a.sort_order, a.created_at`,
     [groupId],
   )
+  // Si no, "Sin cuentas conjuntas" se ve un instante antes de las cuentas.
+  useBloqueListo(cargaCuentas)
 
   const [abierto, setAbierto] = useState(false)
   // Con una sola conjunta, poner o sacar ya la trae elegida; con varias, se
@@ -140,9 +144,12 @@ export function HojaNuevaConjunta({
       )
       setNombre("")
       onOpenChange(false)
+      anunciar(`Cuenta conjunta «${nombre.trim()}» creada: la plata que hay ahí es de todos.`)
       onCreada?.(id)
     } catch {
-      setError("No se pudo crear")
+      setError(
+        "No se pudo crear en este dispositivo. Probá de nuevo; si sigue pasando, cerrá y volvé a abrir Mango.",
+      )
     }
   }
 

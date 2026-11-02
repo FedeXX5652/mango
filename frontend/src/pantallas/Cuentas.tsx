@@ -1,5 +1,5 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { ArrowUpDown, BellRing, ChevronDown, ChevronUp, Scale } from "lucide-react"
+import { ArrowUpDown, BellRing, ChevronDown, ChevronUp, Scale, Wallet } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
@@ -8,6 +8,7 @@ import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla
 import { EstadoSaldo, HojaTarjeta } from "@/componentes/HojaTarjeta"
 import { HojaReasignar } from "@/componentes/HojaReasignar"
 import { Monto } from "@/componentes/Monto"
+import { Vacio } from "@/componentes/Vacio"
 import { PagarTarjeta } from "@/componentes/PagarTarjeta"
 import { HojaAvisarme } from "@/componentes/recordatorios/HojaAvisarme"
 import { Button } from "@/componentes/ui/button"
@@ -32,6 +33,7 @@ import { descripcionTarjeta } from "@/lib/tarjeta"
 import { usuarioActualId } from "@/lib/sesion"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
+import { anunciar } from "@/lib/anuncios"
 
 interface Cuenta {
   id: string
@@ -143,11 +145,17 @@ export function Cuentas() {
       c.id,
     ])
     if (valor) await db.execute("DELETE FROM reminders WHERE account_id = ?", [c.id])
+    anunciar(
+      valor
+        ? `«${c.name}» archivada: ya no aparece al cargar, y su historia queda.`
+        : `«${c.name}» volvió a las cuentas activas.`,
+    )
   }
   async function borrar(c: Cuenta) {
     await db.execute("DELETE FROM reminders WHERE account_id = ?", [c.id])
     await db.execute("DELETE FROM accounts WHERE parent_account_id = ?", [c.id])
     await db.execute("DELETE FROM accounts WHERE id = ?", [c.id])
+    anunciar(`Cuenta «${c.name}» eliminada.`)
   }
 
   function alTacho(c: Cuenta) {
@@ -415,6 +423,15 @@ export function Cuentas() {
       )}
 
       {activas.length > 0 && <ListaInset>{activas.map((c, i) => filaCuenta(c, i))}</ListaInset>}
+      {/* Sin cuentas la pantalla quedaba vacia bajo el titulo (1.12.0). */}
+      {cuentas.length === 0 && (
+        <Vacio
+          icono={Wallet}
+          titulo="Sin cuentas todavía"
+          detalle="Una cuenta es donde está tu plata: efectivo, banco o tarjeta. Cada movimiento sale de una."
+          accion={{ onClick: () => setEditando("nuevo"), etiqueta: "Nueva cuenta" }}
+        />
+      )}
 
       {archivadas.length > 0 && (
         <section className="space-y-2 pt-2">
@@ -443,7 +460,7 @@ export function Cuentas() {
             : accion?.tipo === "no-se-elimina"
               ? `Su saldo en ${saldosDe(accion.c)[0]?.currency ?? "otra moneda"} tiene movimientos. Archivala: se oculta de los selectores y conserva su historial.`
               : accion
-                ? `"${accion.c.name}" se oculta de los selectores, pero conserva su historial. Podés desarchivarla cuando quieras.`
+                ? `"${accion.c.name}" se oculta de los selectores, pero conserva su historial. Podés desarchivarla cuando quieras.${porTarjeta.get(accion.c.id) ? " Su recordatorio de vencimiento se borra." : ""}`
                 : undefined
         }
         etiqueta={accion?.tipo === "eliminar" ? "Eliminar" : "Archivar"}
@@ -583,9 +600,16 @@ function FormularioCuenta({
           saldoOtra.id,
         ])
       }
+      anunciar(
+        inicial
+          ? `Cambios guardados en «${name.trim()}».`
+          : `${tarjeta ? "Tarjeta" : "Cuenta"} «${name.trim()}» creada.`,
+      )
       onCerrar()
     } catch {
-      setError("No se pudo guardar")
+      setError(
+        "No se pudo guardar en este dispositivo. Probá de nuevo; si sigue pasando, cerrá y volvé a abrir Mango.",
+      )
     }
   }
 
@@ -617,6 +641,13 @@ function FormularioCuenta({
         </Campo>
       </div>
 
+      {/* Deja de ser tarjeta: lo que se pierde se dice antes de guardar. */}
+      {inicial?.type === "credit_card" && !tarjeta && (
+        <p role="status" className="rounded-md bg-muted p-3 text-sm">
+          Deja de ser tarjeta: al guardar se borran su cierre, su vencimiento, su marca y su límite,
+          y su recordatorio de vencimiento.
+        </p>
+      )}
       {tarjeta && (
         <>
           <div className="grid grid-cols-2 gap-3">

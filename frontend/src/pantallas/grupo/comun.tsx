@@ -9,7 +9,7 @@ import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 export function CargandoGrupo() {
   const visible = useDemora(true)
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-4">
+    <div className="mx-auto max-w-2xl space-y-4 p-4">
       <Cargando visible={visible} className="space-y-4" etiqueta="Cargando grupo">
         <Esqueleto className="h-11 w-40 rounded-full" />
         <Esqueleto className="h-32 w-full rounded-xl" />

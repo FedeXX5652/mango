@@ -5,6 +5,7 @@ import { DESTINOS_MOVIL, esPestana } from "@/componentes/navegacion"
 import { useEspacio } from "@/hooks/useEspacio"
 import { rutaEspacio } from "@/lib/espacios"
 import { cn } from "@/lib/utils"
+import { AvisoRechazados } from "@/componentes/AvisoRechazados"
 
 // Layout movil: contenido a pantalla completa y barra inferior con dos destinos,
 // el boton "+" (nuevo movimiento) elevado al centro y otros dos (DESIGN.md 2,
@@ -76,6 +77,7 @@ export function LayoutMovil() {
   const { espacio } = useEspacio()
   return (
     <div className="flex h-full flex-col">
+      <AvisoRechazados className="pt-[calc(0.5rem+env(safe-area-inset-top))]" />
       {/* `pb-barra`: el alto de la barra mas el borde seguro del telefono; el
           final de cada pantalla nunca queda tapado. */}
       <main className="flex-1 overflow-auto pb-barra">

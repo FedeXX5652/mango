@@ -292,6 +292,13 @@ function BotonPagarTarjeta({
       <Button disabled={!t} onClick={() => setAbierta(true)}>
         Pagar la tarjeta
       </Button>
+      {/* Un boton apagado dice por que (1.12.0). */}
+      {!t && (
+        <p className="text-xs text-muted-foreground">
+          La tarjeta ya no está: se archivó o se eliminó. Marcá «Ya lo pagué» o editá el
+          recordatorio.
+        </p>
+      )}
       {abierta && t && (
         <PagarTarjeta
           tarjeta={t}

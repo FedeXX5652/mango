@@ -37,6 +37,7 @@ import { nombreMoneda, ordenarMonedas } from "@/lib/monedas"
 import { guardarPreferencias } from "@/lib/preferencias"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
+import { anunciar } from "@/lib/anuncios"
 
 // Cotizaciones (1.7.0, ver 0031). Se traen solas, todas contra el dolar: los
 // cuatro dolares argentinos y las demas monedas. Aca se elige con que dolar se
@@ -586,9 +587,12 @@ function FormCotizacion({
           [uuidv4(), moneda, cotiza, limpio, fecha],
         )
       }
+      anunciar(inicial ? "Cotización corregida." : `Cotización de ${moneda} cargada.`)
       onCerrar()
     } catch {
-      setError("No se pudo guardar")
+      setError(
+        "No se pudo guardar en este dispositivo. Probá de nuevo; si sigue pasando, cerrá y volvé a abrir Mango.",
+      )
     }
   }
 
@@ -633,6 +637,13 @@ function FormCotizacion({
           disabled={inicial !== null}
         />
       </Campo>
+      {/* Campos apagados dicen por que (1.12.0). */}
+      {inicial !== null && (
+        <p className="text-xs text-muted-foreground">
+          De una cotización cargada solo se corrige el valor: para otra moneda u otra fecha, eliminá
+          esta y cargá otra.
+        </p>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-2">
         <Button className="flex-1" onClick={guardar}>

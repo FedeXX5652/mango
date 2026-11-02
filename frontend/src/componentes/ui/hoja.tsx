@@ -21,12 +21,12 @@ export function Hoja({ abierta, onOpenChange, titulo, children }: Props) {
       <Drawer.Root open={abierta} onOpenChange={onOpenChange}>
         <Drawer.Portal>
           <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40" />
-          <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[90vh] flex-col rounded-t-2xl border-t border-border bg-card outline-none">
+          <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[90dvh] flex-col rounded-t-2xl border-t border-border bg-card outline-none">
             <div
               className="mx-auto mt-3 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30"
               aria-hidden
             />
-            <div className="overflow-y-auto p-4 pb-8">
+            <div className="overflow-y-auto px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-4">
               <Drawer.Title className={titulo ? "mb-3 text-lg font-semibold" : "sr-only"}>
                 {titulo ?? "Panel"}
               </Drawer.Title>
@@ -112,7 +112,7 @@ function ModalEscritorio({ abierta, onOpenChange, titulo, children }: Props) {
         aria-label={titulo ? undefined : "Panel"}
         tabIndex={-1}
         onKeyDown={alTecla}
-        className="relative z-10 max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-4 shadow-xl outline-none motion-safe:animate-aparecer"
+        className="relative z-10 max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-4 shadow-xl outline-none motion-safe:animate-aparecer"
       >
         {titulo && (
           <h2 id={idTitulo} className="mb-3 text-lg font-semibold">

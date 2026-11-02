@@ -17,6 +17,8 @@ import { LS_ULTIMO_GRUPO } from "@/lib/atajos"
 import { rutaEspacio } from "@/lib/espacios"
 import { useGrupoDeRuta } from "@/hooks/useEspacio"
 import { CargandoGrupo, GrupoNoEncontrado } from "@/pantallas/grupo/comun"
+import { Esqueleto, PantallaLista } from "@/componentes/ui/cargando"
+import { useBloqueListo } from "@/hooks/bloquesListos"
 
 const MAX_ULTIMOS = 5
 const ENLACE =
@@ -44,7 +46,7 @@ export function InicioGrupo() {
   const espacio = { tipo: "grupo" as const, id }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4">
+    <div className="mx-auto max-w-2xl space-y-4 p-4">
       <h1 className="sr-only">{grupo.name}</h1>
       <EncabezadoEspacio>
         <Notificaciones />
@@ -57,12 +59,27 @@ export function InicioGrupo() {
         </Link>
       </EncabezadoEspacio>
 
-      <BalanceGrupo groupId={id} />
-      <AccesosGrupo groupId={id} />
-      <TarjetaProximosPagos grupo={id} />
-      <MesGrupo groupId={id} moneda={grupo.base_currency} />
-      <CuentaConjunta groupId={id} />
-      <UltimosGrupo groupId={id} />
+      {/* Aparece entero cuando todos sus bloques tienen sus datos (1.12.0): con
+          los gastos pero sin los repartos, el balance cambiaba ante los ojos. */}
+      <PantallaLista
+        cargando={false}
+        etiqueta={`Cargando ${grupo.name}`}
+        className="space-y-6"
+        esqueleto={
+          <>
+            <Esqueleto className="h-28 w-full rounded-xl" />
+            <Esqueleto className="h-20 w-full rounded-xl" />
+            <Esqueleto className="h-32 w-full rounded-xl" />
+          </>
+        }
+      >
+        <BalanceGrupo groupId={id} />
+        <AccesosGrupo groupId={id} />
+        <TarjetaProximosPagos grupo={id} />
+        <MesGrupo groupId={id} moneda={grupo.base_currency} />
+        <CuentaConjunta groupId={id} />
+        <UltimosGrupo groupId={id} />
+      </PantallaLista>
     </div>
   )
 }
@@ -75,12 +92,14 @@ function inicioDeMes(): string {
 // Como viene el mes: lo gastado en la moneda del grupo y, si hay, contra los
 // topes. El detalle esta en Presupuesto y Estadisticas del grupo.
 function MesGrupo({ groupId, moneda }: { groupId: string; moneda: string }) {
-  const { gastos } = useGrupo(groupId)
+  const { gastos, cargando } = useGrupo(groupId)
   const mes = inicioDeMes()
-  const { data: topes } = useQuery<{ total: number | null }>(
+  const { data: topes, isLoading: cargaTopes } = useQuery<{ total: number | null }>(
     "SELECT SUM(amount) AS total FROM budgets WHERE group_id = ? AND period_start = ? AND currency = ? AND deleted_at IS NULL",
     [groupId, mes, moneda],
   )
+  // Sin los topes, el mes se ve sin "de $X" y despues aparece.
+  useBloqueListo(cargando || cargaTopes)
   const gastado = useMemo(
     () =>
       gastos
@@ -119,7 +138,9 @@ function MesGrupo({ groupId, moneda }: { groupId: string; moneda: string }) {
 }
 
 function UltimosGrupo({ groupId }: { groupId: string }) {
-  const { gastos, pagos, aportes, miId, miembros, splitsDe, categoria, nombre } = useGrupo(groupId)
+  const { gastos, pagos, aportes, miId, miembros, splitsDe, categoria, nombre, cargando } =
+    useGrupo(groupId)
+  useBloqueListo(cargando)
   const [pago, setPago] = useState<PagoGrupo | null>(null)
   const items = useMemo(
     () => armarHistoria(gastos, pagos, aportes).slice(0, MAX_ULTIMOS),

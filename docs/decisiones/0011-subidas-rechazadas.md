@@ -111,3 +111,25 @@ casos de borde.
 - Reintentar en linea no usa la cola de PowerSync: es un `fetch` directo. Si hay
   que volver a encolar para subir offline mas tarde, es una mejora futura; por
   ahora el caso real es "el server se arreglo, reintento ahora".
+
+## Enmienda 1.12.0: un choque con la base ya no se toma por "ya aplicado"
+
+El conector trata el **409** como "este cambio ya estaba" (un reintento de algo
+que el servidor ya habia guardado) y lo da por bueno. Pero el servidor devolvia
+409 ante **cualquier** error de integridad de la base, no solo ante un id
+repetido: un CHECK o una FK que el CRUD no validaba terminaba en 409, el
+conector lo daba por subido, y el cambio desaparecia en silencio (ver 0030).
+
+Desde 1.12.0, el manejador de `IntegrityError` distingue:
+
+- **id repetido** (`23505` sobre la clave primaria, `*_pkey`): 409 "Ya estaba
+  guardado". Es el reintento, y darlo por aplicado es correcto.
+- **cualquier otro choque** (un unico que no es el id, un CHECK, una FK): 422
+  "El cambio choca con otro dato que ya está guardado". Va a la bandeja como
+  cualquier rechazo.
+
+Ademas, el rechazo ya no espera a que alguien abra Ajustes: sale un aviso
+importante en el momento ("No se guardó: …", con "Revisar") y una franja roja
+arriba de todo mientras quede algo en la bandeja. La pantalla se llama "Cambios
+que no se guardaron", describe cada cambio en palabras ("Gasto nuevo de $ 1.500,00 en
+Café (12/10/2026)") y traduce el motivo del servidor a algo que se pueda resolver.

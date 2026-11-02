@@ -41,7 +41,7 @@ async function pedir<T>(path: string, init?: RequestInit): Promise<T> {
   // token; el proveedor de sesión reacciona y manda a login. No aplica al
   // propio login, que maneja su 401 como "credenciales mal".
   if (resp.status === 401 && !path.startsWith("/auth/login")) {
-    borrarToken()
+    borrarToken("vencida")
   }
   if (!resp.ok) {
     let detalle = `Error ${resp.status}`

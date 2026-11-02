@@ -94,6 +94,44 @@ export function campoDelMotivo(motivo: string, datos: Record<string, unknown>): 
   return campo in datos ? campo : null
 }
 
+// El motivo para la persona (1.12.0): el campo con su nombre de pantalla
+// ("amount: ..." -> "Monto: ..."). Lo guardado queda con el nombre crudo, que
+// es lo que `campoDelMotivo` necesita para marcar el campo.
+const CAMPOS: Record<string, string> = {
+  amount: "Monto",
+  amount_account: "Monto debitado",
+  amount_owner: "Lo que pusiste",
+  occurred_at: "Fecha",
+  account_id: "Cuenta",
+  transfer_account_id: "Cuenta de destino",
+  category_id: "Categoría",
+  currency: "Moneda",
+  name: "Nombre",
+  title: "Título",
+  payee: "Comercio",
+  notes: "Notas",
+  kind: "Tipo",
+  type: "Tipo",
+  installments: "Cuotas",
+  due_day: "Día de vencimiento",
+  closing_day: "Día de cierre",
+  last4: "Últimos 4",
+  credit_limit: "Límite",
+  opening_balance: "Saldo inicial",
+  start_date: "Primera fecha",
+  target_amount: "Objetivo",
+  counterparty: "Con quién",
+}
+
+export function motivoLegible(motivo: string): string {
+  const i = motivo.indexOf(":")
+  if (i > 0) {
+    const campo = motivo.slice(0, i).trim()
+    if (CAMPOS[campo]) return `${CAMPOS[campo]}: ${motivo.slice(i + 1).trim()}`
+  }
+  return motivo
+}
+
 export interface ResultadoReintento {
   reintentadas: number
   // Volvieron a fallar, con el motivo nuevo (el servidor puede decir otra cosa).

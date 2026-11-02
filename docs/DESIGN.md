@@ -476,7 +476,15 @@ Nunca presentar una sugerencia como si fuera un dato confirmado.
 Cuando no hay conexion con el servidor, un indicador discreto y permanente lo
 informa. **La aplicacion sigue funcionando con normalidad**: no se bloquean
 acciones ni se muestran errores. Si hay cambios sin sincronizar, se indica
-cuantos.
+cuantos, en un segundo renglon debajo de "Sin conexión" (en uno solo no entraba
+al lado del logo y el selector en 360 px). Lo que se guarda sin conexion lo dice
+en su aviso: "Gasto de $ 250,00 guardado. Se sube cuando vuelva la conexión."
+
+Un cambio que el servidor **rechazo** no se queda en Ajustes esperando que alguien
+lo encuentre (1.12.0): una franja roja arriba de todo ("2 cambios no se guardaron
+en el servidor. Revisar") lleva a la pantalla que los explica, y en el momento
+del rechazo sale un aviso importante. El motivo va en palabras ("Esta categoría
+ya no existe"), nunca el codigo del servidor.
 
 **La excepcion son las pocas acciones que el servidor tiene que hacer** (exportar
 el CSV, cambiar la moneda base, refrescar cotizaciones, generar recurrentes; ver
@@ -496,6 +504,13 @@ asi que el fallo del pedido se maneja igual.
 **Agrupada por dia.** Cada dia es un grupo con encabezado propio (texto chico,
 `muted-foreground`) y una **tarjeta** (`ListaInset`) con sus filas. El encabezado
 dice `Hoy`, `Ayer` o la fecha (`02/09/2026`).
+
+**A la derecha del encabezado va el neto del dia** (`EncabezadoDia`, 1.12.0): lo
+que entro menos lo que salio, con su signo y su token de color, una cifra por
+moneda y la moneda base primero. Cuenta solo lo confirmado y deja afuera las
+transferencias, que no cambian lo que uno tiene. En un grupo es lo que gasto el
+grupo ese dia. El lector de pantalla lo oye con su sentido ("Neto del día:
+gastaste $ 30.000,00"), no solo el numero.
 
 **Las fechas van siempre como dd/mm/aaaa** (`formatearFechaCorta`), en toda la
 app y en los avisos: nada de "2 de septiembre", "12 oct" ni la fecha ISO. Un mes
@@ -701,6 +716,39 @@ archivar no es destructivo. `Aviso` es informativo, con una sola accion.
 
 Desarchivar no pide confirmacion: es reversible y no destruye nada.
 
+**El detalle dice que mas se lleva puesto** (1.12.0): archivar una tarjeta avisa
+que se borra su recordatorio de vencimiento; borrar un gasto donde pusieron
+otros, que su parte tambien se va y se les avisa. `Confirmar` espera a la accion:
+mientras corre dice "Un momento…", y si falla el error queda adentro de la hoja,
+en vez de cerrarse como si hubiera salido bien.
+
+**Cerrar el alta con algo escrito pregunta** ("¿Descartar lo que cargaste?"),
+con la X, Esc o tocando afuera. Vacia, cierra sin preguntar.
+
+### Avisos en pantalla: `anunciar`
+
+Regla de 1.12.0: **nada es tocar y que pasen cosas sin saber por que.** Toda
+escritura que cambia algo fuera de la vista —o que se lleva a la persona a otro
+lado— lo dice con `anunciar(texto)` (`lib/anuncios.ts`): una franja oscura abajo,
+encima de la barra, que se va sola a los 5 s (8 s si es importante, en rojo) y
+se puede cerrar. Es una region `role="status"`, asi que el lector de pantalla
+tambien la oye.
+
+- **Dice que paso, donde y cuando**: "Gasto de $ 1.500,00 guardado en Casa, en
+  septiembre de 2026." Si la lista se abre en otro mes o en el grupo, el aviso
+  explica por que.
+- **Puede llevar una accion**: "Ver" despues de cargar las recurrentes vencidas,
+  "Deshacer" al saldar una deuda, "Revisar" en un cambio rechazado.
+- **No reemplaza al error en el lugar**: lo que falla dentro de un formulario se
+  dice al lado del boton, con que hacer ("Escribí un monto mayor a cero, por
+  ejemplo 1500,50").
+- **Lo que se vacia solo, se explica al lado**: cambiar el espacio de un
+  movimiento quita las etiquetas y la categoria del otro; se dice en una linea
+  debajo, no se borra en silencio.
+- **Lo que no se puede hacer, se apaga y dice por que** antes del toque ("Sin
+  conexión no se puede adjuntar…", "Sacar plata: el grupo no tiene cuenta
+  conjunta"), no falla despues.
+
 ### Interruptor: `Interruptor`
 
 Encendido/apagado de **una** cosa: pastilla con perilla que se desliza. Es un
@@ -747,6 +795,17 @@ producia los saltos al cambiar de pestaña (decision 0008). La regla:
   `data.length === 0`.
 - Es **por pantalla**, no por seccion: si cada bloque se destapa cuando llega su
   consulta, la pantalla sube y baja como una escalera.
+- **Un numero no cambia ante los ojos** (1.12.0). Una tarjeta que dibuja su total
+  con la mitad de los datos (los flujos sin la cotizacion, el balance sin los
+  topes) muestra un numero y al instante otro: se ve fragil. Por eso Inicio (el
+  personal y el del grupo) va dentro de **`PantallaLista`**: cada bloque se anota
+  con `useBloqueListo(cargando)` —su consulta, sus cotizaciones, sus
+  preferencias— y la pantalla se muestra **entera recien cuando ninguno falta**,
+  con un fundido de 200 ms. Mientras, el esqueleto. Los bloques ya se montan
+  ocultos, asi que sus consultas corren en paralelo. Si algo no termina nunca, a
+  los 6 s se muestra igual: mejor un dato que se completa que una pantalla
+  colgada. Una vez mostrada no vuelve atras: un dato que cambia despues (llega
+  la sync) se actualiza en el lugar, como cualquier otro.
 - **Tres** estados: antes de 120 ms no se dibuja nada; pasado el umbral va el
   **esqueleto**; con datos, el contenido. El umbral evita el parpadeo de un
   esqueleto que vive 40 ms, y el "nada" evita el estado vacio falso.
@@ -798,9 +857,16 @@ botones de icono y su `aria-label` ("Subir Metas de ahorro"). Nada de
 arrastrar: con el dedo, en una lista que scrollea, es impreciso, y WCAG 2.5.7 pide
 una alternativa igual.
 
-En un **grupo** los accesos son fijos y van en cuatro columnas: Saldar, Poner
-plata, Miembros y Categorias (0026). Se ven tambien en escritorio: son acciones,
-no destinos que ya esten en la barra lateral.
+En un **grupo** los accesos son fijos (0026) y van como los personales, en cinco
+columnas: Saldar, Poner plata, Sacar plata, Calendario y **"Más"**, que abre la
+hoja "Todo lo del grupo" con todo lo que el grupo tiene (presupuesto,
+estadisticas, plantillas, categorias, etiquetas, miembros, ajustes; 1.12.0). La
+lista sale de un solo lugar (`herramientasGrupo`), asi el movil y el escritorio
+no se separan. Sacar plata sin cuenta conjunta queda apagado y dice por que.
+
+En **escritorio**, estando en un grupo, la barra lateral muestra las
+herramientas del grupo, no las personales: antes, tocar "Plantillas" desde un
+grupo te sacaba al espacio personal sin aviso.
 
 ### Ajustes
 
@@ -947,14 +1013,31 @@ defensa contra cargar algo en el espacio equivocado, asi que **no se esconde**.
   espacio sin salir del formulario.
 - Cambiar deja en la **misma seccion** del otro espacio.
 - En el movil, el chip encabeza Inicio y cada pestaña, siempre arriba a la
-  izquierda. En las pestañas, **su fila es la del titulo** (`CabeceraPestana`,
-  1.9.0): el chip y, a la derecha, los controles de la pantalla ("✓
-  Sincronizado", "ARS · Global"). El nombre de la seccion ya lo dice la barra de
-  abajo, asi que el `h1` queda para el lector de pantalla. En escritorio el chip
-  esta arriba de la barra lateral y el `h1` se ve.
+  izquierda, **precedido por el logo** (`MarcaYEspacio`, 1.12.0): en el espacio
+  personal y en cada grupo por igual. Antes el grupo lo perdia y parecia otra
+  app. En las pestañas, **su fila es la del titulo** (`CabeceraPestana`, 1.9.0):
+  logo, chip y, a la derecha, los controles de la pantalla ("✓ Sincronizado",
+  "ARS · Global"). El nombre de la seccion ya lo dice la barra de abajo, asi que
+  el `h1` queda para el lector de pantalla. En escritorio el logo y el chip
+  estan arriba de la barra lateral y el `h1` se ve.
 - Las rutas de los dos espacios usan los mismos nombres de seccion
   (`/movimientos` y `/grupos/<grupo>/movimientos`); se arman con `rutaEspacio`,
   nunca a mano.
+
+### Ancho y ritmo de las pantallas
+
+Para que pasar de una pestaña a otra no mueva nada de lugar (1.12.0):
+
+- **Las pestañas** (Inicio, Movimientos, Presupuesto, Estadisticas, en Personal
+  y en cada grupo) usan `max-w-2xl`, `p-4` y `space-y-4`: el chip cae en el mismo
+  punto en todas y el contenido arranca 16 px debajo de la cabecera.
+- **Las subpantallas de gestion** (Cuentas, Categorias, Metas, Ajustes…) usan
+  `max-w-xl`: son listas y formularios, y mas anchas se leen peor.
+- **El alta y los detalles** de un movimiento usan `max-w-md`; el login y el
+  bloqueo, `max-w-sm`.
+
+Lo comprueba la sonda de navegador en 360, 390 y 1440 px: nada se sale por la
+derecha, y el chip y el borde del contenido coinciden en todas las pestañas.
 
 ### El estado de la pantalla va en la URL
 
@@ -1133,12 +1216,19 @@ Lo que se anima (1.9.0), todo con la curva `salida`:
   en el movil: sube 12 px con la opacidad, 200 ms. No las pestañas ni al volver.
 - **El movimiento recien cargado**: su fila se resalta con `accent` y se apaga en
   800 ms, una vez.
+- **Una pantalla que espera sus datos** (`PantallaLista`, 1.12.0): aparece entera
+  con un fundido de opacidad de 200 ms (`animate-fundir`), una vez, cuando todos
+  sus bloques estan. Es la respuesta a "un numero que aparece y cambia a otro":
+  no se anima el numero, se espera a tenerlo bien.
+- **Un aviso** (`anunciar`): entra subiendo un poco con la opacidad
+  (`animate-subir`, 220 ms) y se va sin animacion.
 
 Lo que **no** se anima, a proposito: la pastilla de la barra inferior entre
 pestañas (la navegacion central cambia al instante, como en iOS), los graficos
-que se dibujan y los montos que cuentan (son datos que se leen), una entrada en
-cascada de la lista de movimientos y la calculadora (la entrada que mas se
-repite).
+que se dibujan y **los montos que cuentan de cero a su valor** (son datos que se
+leen: un contador obliga a esperar para leer, y por un instante muestra cifras
+que no son), una entrada en cascada de la lista de movimientos y la calculadora
+(la entrada que mas se repite).
 
 **Respetar `prefers-reduced-motion`.** Si el usuario pidio menos movimiento, las
 transiciones se reducen a cambios de opacidad o se eliminan.
@@ -1175,6 +1265,11 @@ de doscientos movimientos, animar cada fila marea.
   `useVolver(respaldo)` vuelve a donde se vino.
 - Un campo que desaparece cuando no hay opciones (el selector de etiquetas sin
   etiquetas): se muestra igual y permite crear la primera.
+- Una accion que cambia algo fuera de la vista sin decirlo: guardar y aparecer en
+  otro mes, vaciar un campo al cambiar de espacio, borrar un tope al dejarlo en
+  cero. Va un aviso (`anunciar`) o una linea al lado (ver "Avisos en pantalla").
+- Un error con el codigo o el texto del servidor ("Error 409", "violates check
+  constraint"): se traduce a lo que la persona puede hacer.
 - Valores de espaciado fuera de la escala de 4.
 - Comunicar informacion solo por color.
 - Un layout responsive que estire el movil hasta escritorio.

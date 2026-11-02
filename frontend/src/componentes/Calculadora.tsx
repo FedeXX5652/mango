@@ -167,7 +167,11 @@ export function Calculadora({
           −
         </Tecla>
 
-        <Tecla onClick={() => setEstado((e) => coma(e, dec))} disabled={dec === 0}>
+        <Tecla
+          onClick={() => setEstado((e) => coma(e, dec))}
+          disabled={dec === 0}
+          aria-label="Coma decimal"
+        >
           ,
         </Tecla>
         <Tecla onClick={() => setEstado((e) => digito(e, "0", dec))}>0</Tecla>

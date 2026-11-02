@@ -16,16 +16,23 @@ import { usuarioActualId } from "@/lib/sesion"
 // Las preferencias de cotizacion del usuario: el dolar de cada moneda y las que
 // van a mano (0031). Viven en su fila de `users`, que viaja con la sync.
 export function usePreferenciasFx(): PreferenciasFx {
-  const { data } = useQuery<{ fx_dolar: string | null; fx_manual: string | null }>(
+  return usePreferenciasFxConCarga().prefs
+}
+
+// Las mismas, y si todavia no bajaron: hasta entonces son las de fabrica (MEP),
+// y un total convertido con ellas cambiaria al llegar las de verdad (1.12.0).
+function usePreferenciasFxConCarga(): { prefs: PreferenciasFx; cargando: boolean } {
+  const { data, isLoading } = useQuery<{ fx_dolar: string | null; fx_manual: string | null }>(
     "SELECT fx_dolar, fx_manual FROM users WHERE id = ?",
     [usuarioActualId() ?? ""],
   )
   const dolar = data[0]?.fx_dolar ?? null
   const manual = data[0]?.fx_manual ?? null
-  return useMemo(
+  const prefs = useMemo(
     () => ({ dolar: dolarJson(dolar), manuales: listaJson(manual) ?? [] }),
     [dolar, manual],
   )
+  return { prefs, cargando: isLoading }
 }
 
 // La serie entera, indexada, y el conversor con las preferencias del usuario.
@@ -38,8 +45,8 @@ export function useCotizaciones(): {
   cargando: boolean
 } {
   const { data: filas, isLoading } = useQuery<FilaCotizacion>(SQL_COTIZACIONES)
-  const prefs = usePreferenciasFx()
+  const { prefs, cargando: cargaPrefs } = usePreferenciasFxConCarga()
   const indice = useMemo(() => indexar(filas), [filas])
   const conv = useMemo(() => conversor(indice, prefs), [indice, prefs])
-  return { indice, prefs, conv, cargando: isLoading }
+  return { indice, prefs, conv, cargando: isLoading || cargaPrefs }
 }

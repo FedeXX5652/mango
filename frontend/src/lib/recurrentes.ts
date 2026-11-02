@@ -21,6 +21,8 @@ export type Frecuencia = "daily" | "weekly" | "monthly" | "yearly"
 
 export interface ReglaRecurrente {
   id: string
+  // Para decir que se cargo (1.12.0). Opcional: no hace a la regla.
+  name?: string | null
   kind: "expense" | "income" | "transfer"
   account_id: string
   transfer_account_id: string | null

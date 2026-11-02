@@ -1,4 +1,4 @@
-import { useQuery, useStatus } from "@powersync/react"
+import { usePowerSync, useQuery, useStatus } from "@powersync/react"
 import {
   ArrowDownLeft,
   ArrowLeftRight,
@@ -15,7 +15,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
 
 import { Calendario } from "@/componentes/Calendario"
@@ -32,11 +32,13 @@ import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { CabeceraPestana } from "@/componentes/SelectorEspacio"
 import { useConexion } from "@/hooks/conexion"
+import { EncabezadoDia } from "@/componentes/EncabezadoDia"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { useLayout } from "@/hooks/useLayout"
 import { ordenarJerarquico } from "@/lib/categorias"
 import { iconoDe } from "@/lib/iconos"
 import { type Direccion } from "@/lib/dinero"
+import { netoDelDia } from "@/lib/resumenDia"
 import { claveDia, etiquetaDia, fechaISO, formatearFechaCorta, mesAnio } from "@/lib/fecha"
 import { monedaPorDefecto, ordenarMonedas } from "@/lib/monedas"
 import { cn } from "@/lib/utils"
@@ -106,6 +108,28 @@ function EstadoSync() {
     "SELECT count(*) AS n FROM subidas_rechazadas",
   )
   const nRechazadas = rechazadas[0]?.n ?? 0
+  // Cuantos cambios esperan subir (DESIGN.md 7, "Estado sin conexion"). La cola
+  // de PowerSync no es una tabla que se pueda mirar con useQuery: se lee cada
+  // pocos segundos, y solo sin conexion, que es cuando se muestra.
+  const db = usePowerSync()
+  const [porSubir, setPorSubir] = useState(0)
+  useEffect(() => {
+    if (hayConexion) return
+    let vivo = true
+    const leer = () =>
+      db
+        .getUploadQueueStats()
+        .then((s) => {
+          if (vivo) setPorSubir(s.count)
+        })
+        .catch(() => undefined)
+    void leer()
+    const t = window.setInterval(leer, 3000)
+    return () => {
+      vivo = false
+      window.clearInterval(t)
+    }
+  }, [db, hayConexion])
 
   if (nRechazadas > 0) {
     return (
@@ -127,13 +151,22 @@ function EstadoSync() {
     : sincronizando
       ? [RefreshCw, "Sincronizando…"]
       : [Check, "Sincronizado"]
+  // Lo que espera subir va en un segundo renglon: en una linea no entraba al
+  // lado del logo y el selector en 360 px.
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-      <Icono
-        className={cn("h-3.5 w-3.5", sincronizando && hayConexion && "motion-safe:animate-spin")}
-        aria-hidden
-      />
-      {texto}
+    <span className="flex flex-col items-end text-xs text-muted-foreground">
+      <span className="inline-flex items-center gap-1">
+        <Icono
+          className={cn("h-3.5 w-3.5", sincronizando && hayConexion && "motion-safe:animate-spin")}
+          aria-hidden
+        />
+        {texto}
+      </span>
+      {!hayConexion && porSubir > 0 && (
+        <span>
+          {porSubir} {porSubir === 1 ? "cambio" : "cambios"} por subir
+        </span>
+      )}
     </span>
   )
 }
@@ -442,6 +475,21 @@ export function Movimientos() {
       texto: etiquetas.find((e) => e.id === etiquetaId)?.name ?? "Etiqueta",
     },
   ].filter((a): a is { clave: string; texto: string } => Boolean(a))
+  // Todo lo que achica la lista del mes, para el estado vacio: los selectores,
+  // la busqueda, "sin el monto debitado" y el dia elegido.
+  const hayFiltros = activos.length > 0 || texto.trim() !== "" || soloSinConversion || !!diaSel
+  function quitarFiltros() {
+    cambiar({
+      tipo: null,
+      cuenta: null,
+      categoria: null,
+      moneda: null,
+      etiqueta: null,
+      q: null,
+      sinconv: null,
+      dia: null,
+    })
+  }
 
   // Sin esto la lista dice "Sin movimientos" antes de tener la respuesta.
   const cargando = cargaMovs || cargaCuentas
@@ -450,7 +498,7 @@ export function Movimientos() {
 
   if (cargando) {
     return (
-      <div className="mx-auto max-w-2xl space-y-3 p-4">
+      <div className="mx-auto max-w-2xl space-y-4 p-4">
         <CabeceraPestana titulo="Movimientos">
           <EstadoSync />
         </CabeceraPestana>
@@ -468,7 +516,7 @@ export function Movimientos() {
 
   return (
     <ConPanel etiqueta="Detalle del movimiento">
-      <div className="mx-auto max-w-2xl space-y-3 p-4">
+      <div className="mx-auto max-w-2xl space-y-4 p-4">
         <CabeceraPestana titulo="Movimientos">
           <EstadoSync />
         </CabeceraPestana>
@@ -483,7 +531,7 @@ export function Movimientos() {
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <span className="min-w-40 text-center text-sm font-medium">{etiquetaMes}</span>
+            <span className="min-w-36 text-center text-sm font-medium">{etiquetaMes}</span>
             <Button
               variant="ghost"
               size="icon"
@@ -618,20 +666,31 @@ export function Movimientos() {
               </button>
             )}
             {lista.length === 0 ? (
-              <Vacio
-                icono={Receipt}
-                titulo="Sin movimientos"
-                detalle="No hay movimientos con estos filtros."
-                accion={{ to: "/nuevo", etiqueta: "Nuevo movimiento" }}
-              />
+              // Vacio por filtros no es lo mismo que vacio de verdad: el primero
+              // se resuelve quitando filtros, el segundo cargando algo.
+              hayFiltros ? (
+                <Vacio
+                  icono={Receipt}
+                  titulo={`Ningún movimiento de ${etiquetaMes.toLowerCase()} coincide con los filtros`}
+                  accion={{ onClick: quitarFiltros, etiqueta: "Quitar filtros" }}
+                />
+              ) : (
+                <Vacio
+                  icono={Receipt}
+                  titulo={`Todavía no hay movimientos en ${etiquetaMes.toLowerCase()}`}
+                  detalle="Cada gasto, ingreso o transferencia que cargues aparece acá, agrupado por día."
+                  accion={{ to: "/nuevo", etiqueta: "Nuevo movimiento" }}
+                />
+              )
             ) : (
               <div className="space-y-4">
                 {grupos.map(([clave, filas]) => (
                   <section key={clave}>
-                    {/* h2: la pagina tiene h1 y nada en el medio (axe, 1.7.0). */}
-                    <h2 className="mb-2 px-1 text-xs font-medium text-muted-foreground">
-                      {etiquetaDia(filas[0].occurred_at)}
-                    </h2>
+                    <EncabezadoDia
+                      etiqueta={etiquetaDia(filas[0].occurred_at)}
+                      totales={netoDelDia(filas, base)}
+                      descripcion="Ingresos menos gastos del día"
+                    />
                     <ListaInset>
                       {filas.map((f) => {
                         // El icono de la categoria dice mas que el del tipo, que
@@ -642,7 +701,10 @@ export function Movimientos() {
                         const titulo =
                           f.payee || f.categoria || (f.kind === "transfer" ? "Transferencia" : "—")
                         const sub = [f.payee ? f.categoria : null, f.cuenta].filter(Boolean)
-                        if (f.status === "pending") sub.push("pendiente")
+                        // "pendiente" solo no dice que falta: lo trae la
+                        // ingesta y espera que se elija la cuenta (regla 4).
+                        if (f.status === "pending")
+                          sub.push("pendiente · falta confirmar la cuenta")
                         return (
                           <FilaInset
                             key={f.id}

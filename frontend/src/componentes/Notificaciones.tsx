@@ -73,7 +73,11 @@ export function Notificaciones() {
 
       <Hoja abierta={abierto} onOpenChange={setAbierto} titulo="Notificaciones">
         {avisos.length === 0 ? (
-          <Vacio icono={Bell} titulo="Sin novedades" detalle="Acá van a aparecer tus avisos." />
+          <Vacio
+            icono={Bell}
+            titulo="Sin novedades"
+            detalle="Acá te avisamos cuando alguien te paga, carga un gasto en un grupo o vence un recordatorio."
+          />
         ) : (
           <div className="space-y-3">
             {sinLeer > 0 && (

@@ -1,3 +1,4 @@
+import { useQuery } from "@powersync/react"
 import { ChevronDown } from "lucide-react"
 import { useId, useState } from "react"
 
@@ -9,19 +10,32 @@ import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { useGrupo } from "@/hooks/useGrupo"
 import { formatearMonto } from "@/lib/dinero"
 import { cn } from "@/lib/utils"
+import { useBloqueListo } from "@/hooks/bloquesListos"
 
 // Balance del grupo (0026), lo primero del Inicio de un grupo: como quedo YO, el
 // detalle de cada uno y como saldar. Es acumulado (una deuda no es de un mes):
 // partes iguales o splits, menos los pagos ya registrados (0015, 0017).
 export function BalanceGrupo({ groupId }: { groupId: string }) {
-  const { balance, miId, nombre } = useGrupo(groupId)
+  const { balance, miId, nombre, cargando } = useGrupo(groupId)
+  // Sin los repartos o los pagos, el balance sale mal y enseguida cambia.
+  useBloqueListo(cargando)
   const [pagando, setPagando] = useState<Liquidacion | null>(null)
+  // El nombre, para que el vacio diga de que grupo habla.
+  const { data: grupoRows } = useQuery<{ name: string }>("SELECT name FROM groups WHERE id = ?", [
+    groupId,
+  ])
+  const nombreGrupo = grupoRows[0]?.name
 
   if (balance.length === 0) {
     return (
       <section className="rounded-xl bg-card p-4 shadow-tarjeta">
         <h2 className="text-sm font-medium text-muted-foreground">Balance</h2>
         <p className="mt-1 text-lg font-semibold">Todavía no hay gastos compartidos</p>
+        {/* Que va a aparecer aca y cuando: un vacio sin explicacion no dice nada. */}
+        <p className="mt-1 text-sm text-muted-foreground">
+          Cuando alguien cargue un gasto en {nombreGrupo ?? "el grupo"}, acá ves quién le debe a
+          quién.
+        </p>
       </section>
     )
   }

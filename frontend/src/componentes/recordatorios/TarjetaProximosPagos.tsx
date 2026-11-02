@@ -17,6 +17,7 @@ import {
   type Vencimiento,
   armarCalendario,
 } from "@/lib/recordatorios"
+import { useBloqueListo } from "@/hooks/bloquesListos"
 
 // "Próximos pagos" del Inicio (1.5.0, 0030): lo vencido sin marcar y lo que vence
 // en la semana, para marcarlo sin salir del Inicio. Si no hay nada, no se dibuja.
@@ -27,12 +28,13 @@ const MAX_FILAS = 3
 
 export function TarjetaProximosPagos({ grupo }: { grupo?: string }) {
   const navigate = useNavigate()
-  const { data: recordatorios } = useQuery<RecordatorioLocal>(
+  const { data: recordatorios, isLoading: cargaRecordatorios } = useQuery<RecordatorioLocal>(
     grupo ? SQL_RECORDATORIOS_GRUPO : SQL_RECORDATORIOS,
     grupo ? [grupo] : [],
   )
   const calendario = grupo ? `/grupos/${grupo}/calendario` : "/calendario"
-  const { data: ciclos } = useQuery<CicloLocal>(SQL_CICLOS)
+  const { data: ciclos, isLoading: cargaCiclos } = useQuery<CicloLocal>(SQL_CICLOS)
+  useBloqueListo(cargaRecordatorios || cargaCiclos)
   const hoy = fechaISO(new Date())
   const cal = useMemo(
     () => armarCalendario(recordatorios, ciclos, hoy, DIAS),

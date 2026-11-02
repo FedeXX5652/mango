@@ -12,6 +12,7 @@ import {
   editarRechazada,
   reintentar,
   restaurarOriginal,
+  motivoLegible,
 } from "@/lib/rechazados"
 import { cn } from "@/lib/utils"
 
@@ -106,7 +107,7 @@ export function HojaRechazada({
     <Hoja abierta onOpenChange={(v) => !v && onCerrar()} titulo={titulo}>
       <div className="space-y-4">
         <div className="space-y-1">
-          <p className="text-sm text-destructive">{f.motivo}</p>
+          <p className="text-sm text-destructive">{motivoLegible(f.motivo)}</p>
           <p className="text-xs text-muted-foreground">
             Rechazado el {formatearFechaCorta(f.rechazada_en)}
           </p>
@@ -162,6 +163,12 @@ export function HojaRechazada({
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}
+          </p>
+        )}
+        {/* Un boton apagado dice por que (1.12.0). */}
+        {!hayConexion && (
+          <p className="text-sm text-muted-foreground">
+            Sin conexión no se puede reintentar: guardá los cambios y reintentá cuando vuelva.
           </p>
         )}
         <div className="grid gap-2">

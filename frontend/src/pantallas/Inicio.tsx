@@ -10,12 +10,12 @@ import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { Notificaciones } from "@/componentes/Notificaciones"
 import { PanelAccesos } from "@/componentes/PanelAccesos"
 import { Monto } from "@/componentes/Monto"
-import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
+import { Esqueleto, PantallaLista } from "@/componentes/ui/cargando"
 import { ENLACE_SECCION } from "@/componentes/ui/enlaceSeccion"
 import { TarjetaResumen } from "@/componentes/TarjetaResumen"
 import { TarjetaGrupos } from "@/componentes/grupo/TarjetaGrupos"
 import { Vacio } from "@/componentes/Vacio"
-import { SelectorEspacio } from "@/componentes/SelectorEspacio"
+import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
 import { useMonedaBase } from "@/hooks/monedaBase"
 import { iconoCuenta } from "@/lib/cuentas"
 import { type Direccion } from "@/lib/dinero"
@@ -80,7 +80,7 @@ const SQL_RECIENTES = `
 
 export function Inicio() {
   const { data: cuentas, isLoading: cargaCuentas } = useQuery<SaldoCuenta>(SQL_SALDOS)
-  const { data: recientes } = useQuery<MovReciente>(SQL_RECIENTES)
+  const { data: recientes, isLoading: cargaRecientes } = useQuery<MovReciente>(SQL_RECIENTES)
 
   const base = useMonedaBase()
 
@@ -98,194 +98,189 @@ export function Inicio() {
   const activas = cuentas.filter((c) => !c.archived)
 
   // Sin este corte, Inicio dibuja "Sin cuentas todavia" y "$ 0,00" antes de
-  // que vuelvan las consultas, y despues todo salta (ver 0008).
-  const cargando = cargaCuentas
-  // El umbral solo decide si el esqueleto se VE; el corte es `cargando`.
-  const mostrarEsqueleto = useDemora(cargando)
-
-  if (cargando) {
-    return (
-      <div className="mx-auto max-w-5xl space-y-6 p-4">
-        <Cargando visible={mostrarEsqueleto} className="space-y-6" etiqueta="Cargando inicio">
-          <Esqueleto className="h-32 w-full rounded-xl" />
-          <Esqueleto className="h-28 w-full rounded-xl" />
-          <div className="grid grid-cols-2 gap-3">
-            <Esqueleto className="h-24 rounded-xl" />
-            <Esqueleto className="h-24 rounded-xl" />
-            <Esqueleto className="h-24 rounded-xl" />
-            <Esqueleto className="h-24 rounded-xl" />
-          </div>
-        </Cargando>
-      </div>
-    )
-  }
+  // que vuelvan las consultas, y despues todo salta (ver 0008). Los bloques
+  // (resumen, accesos, cobros, proximos pagos) avisan lo suyo: la pantalla
+  // aparece entera cuando todos tienen sus datos (1.12.0).
+  const cargando = cargaCuentas || cargaRecientes
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4">
+    <div className="mx-auto max-w-2xl space-y-4 p-4">
       {/* Toda pantalla tiene su h1; aca el header muestra la marca, asi que el
           titulo es solo para lectores de pantalla. */}
       <h1 className="sr-only">Inicio</h1>
-      {/* Header movil: Ajustes vive aca (en escritorio esta en la barra lateral). */}
-      <header className="flex items-center justify-between lg:hidden">
-        {/* El espacio en el que se esta (0026), con el logo de la marca al lado. */}
-        <div className="flex min-w-0 items-center gap-2">
-          <img src="/icons/svg/mango.svg" alt="" className="h-7 w-7 shrink-0" />
-          <SelectorEspacio />
-        </div>
-        <div className="flex items-center gap-1">
-          <Notificaciones />
-          <Link
-            to="/ajustes"
-            aria-label="Ajustes"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Settings className="h-5 w-5" aria-hidden />
-          </Link>
-        </div>
-      </header>
+      {/* Header movil, el mismo que el del Inicio de un grupo (logo y espacio):
+          Ajustes vive aca (en escritorio esta en la barra lateral). */}
+      <EncabezadoEspacio>
+        <Notificaciones />
+        <Link
+          to="/ajustes"
+          aria-label="Ajustes"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Settings className="h-5 w-5" aria-hidden />
+        </Link>
+      </EncabezadoEspacio>
 
-      <CobrosPorConfirmar />
-      {/* Lo que puse en gastos que cargaron otros (0032). */}
-      <PagosPorConfirmar />
-
-      {/* Lo vencido y lo que vence en la semana (0030). No depende de tener
-          cuentas: va afuera del bloque que las necesita. */}
-      <TarjetaProximosPagos />
-
-      {activas.length === 0 ? (
-        <Vacio
-          icono={Wallet}
-          titulo="Sin cuentas todavía"
-          detalle="Creá tu primera cuenta para ver tu patrimonio y empezar a cargar movimientos."
-          accion={{ to: "/cuentas", etiqueta: "Crear cuenta" }}
-        />
-      ) : (
-        <>
-          <TarjetaResumen saldos={patrimonio} base={base} />
-
-          {/* Accesos (0024): lo que no esta en la barra, a un toque. Solo en el
-              movil: en escritorio la barra lateral ya tiene todo. */}
-          <PanelAccesos className="lg:hidden" />
-
-          {/* Cuentas: bloque 2x2 con las primeras segun el orden de Ajustes. */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-muted-foreground">Cuentas</h2>
-              {activas.length > MAX_CUENTAS && (
-                <Link to="/cuentas" className={ENLACE_SECCION}>
-                  Ver todas ({activas.length})
-                  <ChevronRight className="h-4 w-4" aria-hidden />
-                </Link>
-              )}
-            </div>
+      <PantallaLista
+        cargando={cargando}
+        etiqueta="Cargando inicio"
+        className="space-y-6"
+        esqueleto={
+          <>
+            <Esqueleto className="h-32 w-full rounded-xl" />
+            <Esqueleto className="h-28 w-full rounded-xl" />
             <div className="grid grid-cols-2 gap-3">
-              {activas.slice(0, MAX_CUENTAS).map((c) => {
-                const Icono = iconoCuenta(c.type)
-                // A sus movimientos (BACKLOG, auditoria): "¿que paso en esta
-                // cuenta?" es la pregunta de quien toca una cuenta.
-                return (
-                  <Link
-                    key={c.id}
-                    to={`/movimientos?cuenta=${c.id}`}
-                    className="rounded-xl bg-card shadow-tarjeta p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                        <Icono className="h-4 w-4" aria-hidden />
-                      </span>
-                      <span className="truncate text-sm text-muted-foreground">{c.name}</span>
-                    </div>
-                    {/* Saldo completo, sin abreviar (ver 0006). En movil el
+              <Esqueleto className="h-24 rounded-xl" />
+              <Esqueleto className="h-24 rounded-xl" />
+              <Esqueleto className="h-24 rounded-xl" />
+              <Esqueleto className="h-24 rounded-xl" />
+            </div>
+          </>
+        }
+      >
+        <CobrosPorConfirmar />
+        {/* Lo que puse en gastos que cargaron otros (0032). */}
+        <PagosPorConfirmar />
+
+        {/* Lo vencido y lo que vence en la semana (0030). No depende de tener
+          cuentas: va afuera del bloque que las necesita. */}
+        <TarjetaProximosPagos />
+
+        {activas.length === 0 ? (
+          <Vacio
+            icono={Wallet}
+            titulo="Sin cuentas todavía"
+            detalle="Creá tu primera cuenta para ver tu patrimonio y empezar a cargar movimientos."
+            accion={{ to: "/cuentas", etiqueta: "Crear cuenta" }}
+          />
+        ) : (
+          <>
+            <TarjetaResumen saldos={patrimonio} base={base} />
+
+            {/* Accesos (0024): lo que no esta en la barra, a un toque. Solo en el
+              movil: en escritorio la barra lateral ya tiene todo. */}
+            <PanelAccesos className="lg:hidden" />
+
+            {/* Cuentas: bloque 2x2 con las primeras segun el orden de Ajustes. */}
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-muted-foreground">Cuentas</h2>
+                {activas.length > MAX_CUENTAS && (
+                  <Link to="/cuentas" className={ENLACE_SECCION}>
+                    Ver todas ({activas.length})
+                    <ChevronRight className="h-4 w-4" aria-hidden />
+                  </Link>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {activas.slice(0, MAX_CUENTAS).map((c) => {
+                  const Icono = iconoCuenta(c.type)
+                  // A sus movimientos (BACKLOG, auditoria): "¿que paso en esta
+                  // cuenta?" es la pregunta de quien toca una cuenta.
+                  return (
+                    <Link
+                      key={c.id}
+                      to={`/movimientos?cuenta=${c.id}`}
+                      className="rounded-xl bg-card shadow-tarjeta p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                          <Icono className="h-4 w-4" aria-hidden />
+                        </span>
+                        <span className="truncate text-sm text-muted-foreground">{c.name}</span>
+                      </div>
+                      {/* Saldo completo, sin abreviar (ver 0006). En movil el
                         monto largo baja un punto de tamano antes que perder
                         digitos. */}
-                    <Monto
-                      centavos={c.balance}
-                      moneda={c.currency}
-                      className={cn(
-                        "block text-base font-semibold sm:text-lg",
-                        c.balance < 0 && "text-expense",
-                      )}
-                    />
-                  </Link>
-                )
-              })}
-            </div>
-          </section>
-
-          {/* Cada grupo con como quede yo (0026). */}
-          <TarjetaGrupos />
-
-          {/* Ultimos movimientos */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-muted-foreground">Últimos movimientos</h2>
-              {recientes.length > 0 && (
-                <Link to="/movimientos" className={ENLACE_SECCION}>
-                  Ver todos
-                  <ChevronRight className="h-4 w-4" aria-hidden />
-                </Link>
-              )}
-            </div>
-            {recientes.length === 0 ? (
-              <p className="rounded-lg bg-card shadow-tarjeta p-4 text-sm text-muted-foreground">
-                Todavía no hay movimientos.
-              </p>
-            ) : (
-              <ul className="divide-y divide-border overflow-hidden rounded-xl bg-card shadow-tarjeta">
-                {recientes.map((m) => (
-                  <li key={m.id}>
-                    <Link
-                      to={`/movimientos/${m.id}`}
-                      className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                          {m.payee ||
-                            m.categoria ||
-                            (m.kind === "transfer" ? "Transferencia" : "—")}
-                        </p>
-                        {/* El grupo, en la linea de la fecha (antes en un
-                            renglon propio, 1.9.0). */}
-                        <p className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-                          {m.grupo_nombre && (
-                            <>
-                              <EtiquetaGrupo
-                                variante="punto"
-                                nombre={m.grupo_nombre}
-                                color={m.grupo_color}
-                                className="min-w-0 max-w-[60%] shrink-0"
-                              />
-                              <span aria-hidden>·</span>
-                            </>
-                          )}
-                          <span className="shrink-0">{formatearFechaCorta(m.occurred_at)}</span>
-                        </p>
-                      </div>
-                      <span
+                      <Monto
+                        centavos={c.balance}
+                        moneda={c.currency}
                         className={cn(
-                          "tabular shrink-0 text-sm font-medium",
-                          m.kind === "expense"
-                            ? "text-expense"
-                            : m.kind === "income"
-                              ? "text-income"
-                              : "text-foreground",
+                          "block text-base font-semibold sm:text-lg",
+                          c.balance < 0 && "text-expense",
                         )}
-                      >
-                        <Monto
-                          centavos={m.amount}
-                          moneda={m.currency}
-                          direccion={DIR[m.kind]}
-                          variante="lista"
-                        />
-                      </span>
+                      />
                     </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </>
-      )}
+                  )
+                })}
+              </div>
+            </section>
+
+            {/* Cada grupo con como quede yo (0026). */}
+            <TarjetaGrupos />
+
+            {/* Ultimos movimientos */}
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-muted-foreground">Últimos movimientos</h2>
+                {recientes.length > 0 && (
+                  <Link to="/movimientos" className={ENLACE_SECCION}>
+                    Ver todos
+                    <ChevronRight className="h-4 w-4" aria-hidden />
+                  </Link>
+                )}
+              </div>
+              {recientes.length === 0 ? (
+                <p className="rounded-lg bg-card shadow-tarjeta p-4 text-sm text-muted-foreground">
+                  Cargá tu primer gasto con el +: los últimos {MAX_RECIENTES} aparecen acá.
+                </p>
+              ) : (
+                <ul className="divide-y divide-border overflow-hidden rounded-xl bg-card shadow-tarjeta">
+                  {recientes.map((m) => (
+                    <li key={m.id}>
+                      <Link
+                        to={`/movimientos/${m.id}`}
+                        className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {m.payee ||
+                              m.categoria ||
+                              (m.kind === "transfer" ? "Transferencia" : "—")}
+                          </p>
+                          {/* El grupo, en la linea de la fecha (antes en un
+                            renglon propio, 1.9.0). */}
+                          <p className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                            {m.grupo_nombre && (
+                              <>
+                                <EtiquetaGrupo
+                                  variante="punto"
+                                  nombre={m.grupo_nombre}
+                                  color={m.grupo_color}
+                                  className="min-w-0 max-w-[60%] shrink-0"
+                                />
+                                <span aria-hidden>·</span>
+                              </>
+                            )}
+                            <span className="shrink-0">{formatearFechaCorta(m.occurred_at)}</span>
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "tabular shrink-0 text-sm font-medium",
+                            m.kind === "expense"
+                              ? "text-expense"
+                              : m.kind === "income"
+                                ? "text-income"
+                                : "text-foreground",
+                          )}
+                        >
+                          <Monto
+                            centavos={m.amount}
+                            moneda={m.currency}
+                            direccion={DIR[m.kind]}
+                            variante="lista"
+                          />
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </>
+        )}
+      </PantallaLista>
     </div>
   )
 }

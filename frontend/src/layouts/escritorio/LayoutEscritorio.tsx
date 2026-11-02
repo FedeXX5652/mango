@@ -3,15 +3,21 @@ import { useState } from "react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
 
 import { HERRAMIENTAS_ESCRITORIO, acceso } from "@/componentes/accesos"
+import {
+  HERRAMIENTAS_GRUPO_ESCRITORIO,
+  herramientasGrupo,
+} from "@/componentes/grupo/herramientasGrupo"
 import { DESTINOS, type Destino as DestinoNav } from "@/componentes/navegacion"
 import { Notificaciones } from "@/componentes/Notificaciones"
 import { SelectorEspacio } from "@/componentes/SelectorEspacio"
 import { useEspacio } from "@/hooks/useEspacio"
 import { PERSONAL, rutaEspacio } from "@/lib/espacios"
 import { botonVariants } from "@/componentes/ui/button"
+import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { FormularioMovimiento } from "@/pantallas/Alta"
 import { cn } from "@/lib/utils"
+import { AvisoRechazados } from "@/componentes/AvisoRechazados"
 
 // Layout escritorio: barra lateral fija con todos los destinos y accion
 // principal en la barra superior (DESIGN.md 2). El alta se abre como modal
@@ -43,6 +49,9 @@ export function LayoutEscritorio() {
   const navigate = useNavigate()
   const { espacio } = useEspacio()
   const [nuevoAbierto, setNuevoAbierto] = useState(false)
+  // Cerrar el alta con algo cargado (Esc, clic afuera) pregunta antes (1.12.0).
+  const [altaSucia, setAltaSucia] = useState(false)
+  const [descartando, setDescartando] = useState(false)
 
   return (
     // Alto fijo de la ventana: scrollea `main`, no el documento. Sin
@@ -77,18 +86,15 @@ export function LayoutEscritorio() {
           {/* Herramientas (0024): lo que salio de Ajustes. En el movil estan en
               los accesos de Inicio; aca, a la vista como el resto. */}
           <p className="mt-4 px-3 pb-1 text-xs font-semibold text-muted-foreground">Herramientas</p>
-          {HERRAMIENTAS_ESCRITORIO.map((id) => acceso(id))
-            .filter((a) => a !== undefined)
-            .map((a) => (
-              // El calendario sigue al espacio: en un grupo, el del grupo (0030).
-              <Destino
-                key={a.id}
-                to={a.to}
-                etiqueta={a.etiqueta}
-                icono={a.icono}
-                seccion={a.id === "calendario" ? "calendario" : undefined}
-              />
-            ))}
+          {espacio.tipo === "grupo"
+            ? // En un grupo, las del grupo (1.12.0): antes Plantillas o Metas
+              // llevaban a lo personal sin avisar.
+              herramientasGrupo(espacio.id)
+                .filter((h) => HERRAMIENTAS_GRUPO_ESCRITORIO.includes(h.id) && h.to)
+                .map((h) => <Destino key={h.id} to={h.to!} etiqueta={h.etiqueta} icono={h.icono} />)
+            : HERRAMIENTAS_ESCRITORIO.map((id) => acceso(id))
+                .filter((a) => a !== undefined)
+                .map((a) => <Destino key={a.id} to={a.to} etiqueta={a.etiqueta} icono={a.icono} />)}
           <div className="mt-4">
             {DESTINOS.filter((d) => d.to === "/ajustes").map((d) => (
               <Destino key={d.to} {...d} />
@@ -100,6 +106,7 @@ export function LayoutEscritorio() {
       <div className="flex min-h-0 min-w-0 flex-col">
         {/* Sin texto de relleno a la izquierda: el titulo de cada pantalla ya es
             su h1, y el espacio esta arriba de la barra lateral. */}
+        <AvisoRechazados />
         <header className="flex h-14 items-center justify-end border-b border-border px-6">
           <div className="flex items-center gap-2">
             <Notificaciones />
@@ -120,20 +127,40 @@ export function LayoutEscritorio() {
         </main>
       </div>
 
-      <Hoja abierta={nuevoAbierto} onOpenChange={setNuevoAbierto} titulo="Nuevo movimiento">
+      <Hoja
+        abierta={nuevoAbierto}
+        onOpenChange={(v) => (v || !altaSucia ? setNuevoAbierto(v) : setDescartando(true))}
+        titulo="Nuevo movimiento"
+      >
         {/* Carga en el espacio actual (0026) y lleva a Movimientos del espacio
             donde quedo. */}
         <FormularioMovimiento
           key={espacio.tipo === "grupo" ? espacio.id : ""}
           grupoInicial={espacio.tipo === "grupo" ? espacio.id : ""}
-          onGuardado={(g, id) => {
+          onSucio={setAltaSucia}
+          onGuardado={(g, id, mes) => {
+            setAltaSucia(false)
             setNuevoAbierto(false)
-            navigate(rutaEspacio(g ? { tipo: "grupo", id: g } : PERSONAL, "movimientos"), {
-              state: { nuevo: id },
-            })
+            // Al mes del movimiento: la fila nueva se ve y se resalta.
+            navigate(
+              `${rutaEspacio(g ? { tipo: "grupo", id: g } : PERSONAL, "movimientos")}?mes=${mes}`,
+              { state: { nuevo: id } },
+            )
           }}
         />
       </Hoja>
+      <Confirmar
+        abierta={descartando}
+        onOpenChange={setDescartando}
+        titulo="¿Descartar lo que cargaste?"
+        detalle="El movimiento todavía no se guardó: si cerrás, se pierde."
+        etiqueta="Descartar"
+        destructivo
+        onConfirmar={() => {
+          setAltaSucia(false)
+          setNuevoAbierto(false)
+        }}
+      />
     </div>
   )
 }

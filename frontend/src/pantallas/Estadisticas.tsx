@@ -598,44 +598,48 @@ export function Estadisticas() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 p-4">
-      <CabeceraPestana titulo="Estadísticas">
-        {/* Con una sola moneda no hay nada que elegir ni que unificar. */}
-        {!unaSola && (
-          <SelectorMonedas
-            monedas={monedas}
-            moneda={moneda}
-            onMoneda={setMonedaElegida}
-            vista={vista}
-            onVista={cambiarVista}
-          />
-        )}
-      </CabeceraPestana>
-      {/* El modo ya lo dicen los chips y la moneda el selector: no hace falta
+      {/* La cabecera y el periodo, juntos y a la misma distancia que en las
+          otras pestañas (16 px); entre secciones, mas aire. */}
+      <div className="space-y-4">
+        <CabeceraPestana titulo="Estadísticas">
+          {/* Con una sola moneda no hay nada que elegir ni que unificar. */}
+          {!unaSola && (
+            <SelectorMonedas
+              monedas={monedas}
+              moneda={moneda}
+              onMoneda={setMonedaElegida}
+              vista={vista}
+              onVista={cambiarVista}
+            />
+          )}
+        </CabeceraPestana>
+        {/* El modo ya lo dicen los chips y la moneda el selector: no hace falta
           explicarlo abajo (DESIGN.md 7). Solo se avisa lo que quedo afuera. */}
-      <div className="-mt-6 space-y-2">
-        <Segmentado
-          etiqueta="Período"
-          opciones={[
-            { valor: "dia", etiqueta: "Día" },
-            { valor: "semana", etiqueta: "Semana" },
-            { valor: "mes", etiqueta: "Mes" },
-            { valor: "anio", etiqueta: "Año" },
-          ]}
-          valor={tipo}
-          onCambio={cambiarTipo}
-        />
-        {faltantes.length > 0 && (
-          <p className="text-xs text-muted-foreground">
-            No incluye {faltantes.join(", ")}: falta su cotización.{" "}
-            <Link
-              to="/cotizaciones"
-              className="font-medium text-enlace underline underline-offset-2"
-            >
-              Cargarla
-            </Link>
-            .
-          </p>
-        )}
+        <div className="space-y-2">
+          <Segmentado
+            etiqueta="Período"
+            opciones={[
+              { valor: "dia", etiqueta: "Día" },
+              { valor: "semana", etiqueta: "Semana" },
+              { valor: "mes", etiqueta: "Mes" },
+              { valor: "anio", etiqueta: "Año" },
+            ]}
+            valor={tipo}
+            onCambio={cambiarTipo}
+          />
+          {faltantes.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              No incluye {faltantes.join(", ")}: falta su cotización.{" "}
+              <Link
+                to="/cotizaciones"
+                className="font-medium text-enlace underline underline-offset-2"
+              >
+                Cargarla
+              </Link>
+              .
+            </p>
+          )}
+        </div>
       </div>
 
       <section className="space-y-3">

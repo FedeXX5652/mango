@@ -12,6 +12,7 @@ import { formatearFechaCorta } from "@/lib/fecha"
 import { ordenarMonedas } from "@/lib/monedas"
 import { type SaldoMoneda, calcularPatrimonio } from "@/lib/patrimonio"
 import { cn } from "@/lib/utils"
+import { useBloqueListo } from "@/hooks/bloquesListos"
 
 // Resumen de cuenta: el patrimonio y el movimiento del mes en una sola tarjeta,
 // separados por una linea (decision 0005). Son la misma pregunta vista en dos
@@ -76,10 +77,12 @@ export function TarjetaResumen({ saldos, base }: { saldos: SaldoMoneda[]; base: 
       new Date(h.getFullYear(), h.getMonth() + 1, 1).toISOString(),
     ]
   }, [])
-  const { data: flujoRows } = useQuery<FlujoRow>(SQL_FLUJOS, rangoMes)
+  const { data: flujoRows, isLoading: cargaFlujos } = useQuery<FlujoRow>(SQL_FLUJOS, rangoMes)
   // La ultima cotizacion de cada moneda, con el dolar elegido (0031): la tarjeta
   // entera se lee con esa. Estadisticas usa la de cada fecha.
-  const { conv } = useCotizaciones()
+  const { conv, cargando: cargaFx } = useCotizaciones()
+  // Sin cotizaciones el patrimonio sale sin los dolares; sin el mes, en $ 0.
+  useBloqueListo(cargaFlujos || cargaFx)
 
   // Se puede leer el resumen en cualquier moneda que el usuario tenga, sea de
   // una cuenta o de un movimiento del mes.

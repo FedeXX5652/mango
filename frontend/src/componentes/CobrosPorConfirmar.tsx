@@ -9,6 +9,8 @@ import { Insignia } from "@/componentes/ui/insignia"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { formatearMonto } from "@/lib/dinero"
 import { SIN_AJUSTE } from "@/lib/categorias"
+import { useBloqueListo } from "@/hooks/bloquesListos"
+import { anunciar } from "@/lib/anuncios"
 
 // Cobros por confirmar (fase 3b, ver 0018): ingresos PENDIENTES que genero un
 // pago de deuda de otro miembro ("Pago de X"). El acreedor elige a que cuenta
@@ -25,7 +27,7 @@ interface Cobro {
 
 export function CobrosPorConfirmar() {
   const db = usePowerSync()
-  const { data: cobros } = useQuery<Cobro>(
+  const { data: cobros, isLoading: cargaCobros } = useQuery<Cobro>(
     `SELECT id, amount, currency, payee, category_id FROM transactions
      WHERE status = 'pending' AND kind = 'income' AND settlement_id IS NOT NULL
        AND deleted_at IS NULL ORDER BY occurred_at DESC`,
@@ -42,6 +44,8 @@ export function CobrosPorConfirmar() {
     `SELECT id, name, parent_id, icon FROM categories WHERE kind = 'income' AND group_id IS NULL AND deleted_at IS NULL AND archived = 0 AND ${SIN_AJUSTE}`,
   )
 
+  // Si no, aparece despues y empuja lo de abajo.
+  useBloqueListo(cargaCobros)
   if (cobros.length === 0) return null
 
   return (
@@ -81,11 +85,21 @@ function Fila({
     if (!cuentaId) return setError("Elegí la cuenta")
     if (!categoriaId) return setError("Elegí la categoría")
     // Al confirmar deja de ser pendiente y entra al saldo de esa cuenta.
-    await salir(() =>
-      db.execute(
-        "UPDATE transactions SET account_id = ?, category_id = ?, status = 'confirmed' WHERE id = ?",
-        [cuentaId, categoriaId, cobro.id],
-      ),
+    try {
+      await salir(() =>
+        db.execute(
+          "UPDATE transactions SET account_id = ?, category_id = ?, status = 'confirmed' WHERE id = ?",
+          [cuentaId, categoriaId, cobro.id],
+        ),
+      )
+    } catch {
+      return setError(
+        "No se pudo guardar en este dispositivo. Probá de nuevo; si sigue pasando, cerrá y volvé a abrir Mango.",
+      )
+    }
+    // La fila se va: se dice adonde fue la plata (1.12.0).
+    anunciar(
+      `Cobro de ${formatearMonto(cobro.amount, { moneda: cobro.currency })} confirmado: entró a ${cuentas.find((c) => c.id === cuentaId)?.name ?? "la cuenta"}.`,
     )
   }
 

@@ -12,7 +12,7 @@ import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { useConexion } from "@/hooks/conexion"
 import { useLayout } from "@/hooks/useLayout"
 import { formatearFechaCorta } from "@/lib/fecha"
-import { type Rechazada, descartar, reintentar } from "@/lib/rechazados"
+import { type Rechazada, descartar, reintentar, motivoLegible } from "@/lib/rechazados"
 import {
   type Modificador,
   type Seleccion,
@@ -24,6 +24,7 @@ import {
   todos,
 } from "@/lib/seleccion"
 import { cn } from "@/lib/utils"
+import { describirCambio } from "@/lib/describirCambio"
 
 // Bandeja de subidas rechazadas (ver decision 0011). Lo que el servidor devolvio
 // con un 4xx y que no se perdio: se puede reintentar o descartar, de a uno o en
@@ -34,39 +35,14 @@ import { cn } from "@/lib/utils"
 //   - movil: toque largo entra en modo seleccion; despues cada toque alterna
 // La logica de que queda seleccionado vive en lib/seleccion, probada aparte.
 
-const ETIQUETA_OP: Record<string, string> = {
-  PUT: "Alta",
-  PATCH: "Cambio",
-  DELETE: "Baja",
-}
-
-const ETIQUETA_TABLA: Record<string, string> = {
-  transactions: "movimiento",
-  accounts: "cuenta",
-  categories: "categoría",
-  payment_methods: "medio de pago",
-  payment_method_accounts: "cuenta de un medio de pago",
-  budgets: "presupuesto",
-  budget_rules: "regla de presupuesto",
-  tags: "etiqueta",
-  transaction_tags: "etiqueta de movimiento",
-  transaction_splits: "reparto",
-  settlements: "pago entre miembros",
-  templates: "plantilla",
-  recurring_rules: "recurrente",
-  goals: "meta",
-  debts: "deuda",
-  reminders: "recordatorio",
-  reminder_cycles: "vencimiento",
-  exchange_rates: "cotización",
-  users: "preferencias",
-  notifications: "aviso",
-}
-
+// Que cambio fue, con lo que lo identifica ("Gasto nuevo de $ 1.500,00 en Café
+// (12/10/2026)"): antes decia "Alta de movimiento" y no se sabia cual (1.12.0).
 function describir(r: Rechazada): string {
-  const op = ETIQUETA_OP[r.op] ?? r.op
-  const tabla = ETIQUETA_TABLA[r.tabla] ?? r.tabla
-  return `${op} de ${tabla}`
+  try {
+    return describirCambio(r.tabla, r.op, JSON.parse(r.datos) as Record<string, unknown>)
+  } catch {
+    return describirCambio(r.tabla, r.op, {})
+  }
 }
 
 export function Rechazados() {
@@ -142,7 +118,7 @@ export function Rechazados() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
-      <EncabezadoPantalla titulo="Cambios sin guardar" volver={() => navigate(-1)} />
+      <EncabezadoPantalla titulo="Cambios que no se guardaron" volver={() => navigate(-1)} />
 
       {filas.length === 0 ? (
         <Vacio
@@ -243,7 +219,7 @@ export function Rechazados() {
             ? "Descartar este cambio"
             : `Descartar ${aDescartar?.length ?? 0} cambios`
         }
-        detalle="No se van a volver a intentar y se borran de acá. Los datos ya cargados en el dispositivo no se tocan."
+        detalle="Se pierden: no se vuelven a intentar, y en el servidor y en tus otros dispositivos queda todo como estaba antes."
         etiqueta="Descartar"
         destructivo
         onConfirmar={() => aDescartar && hacerDescarte(aDescartar)}
@@ -316,7 +292,7 @@ function FilaRechazada({
         )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{describir(f)}</p>
-          <p className="truncate text-xs text-destructive">{f.motivo}</p>
+          <p className="truncate text-xs text-destructive">{motivoLegible(f.motivo)}</p>
           <p className="text-xs text-muted-foreground">{formatearFechaCorta(f.rechazada_en)}</p>
         </div>
         {/* En escritorio el click de la fila selecciona: ver y editar va aparte. */}

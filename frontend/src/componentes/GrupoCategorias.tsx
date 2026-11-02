@@ -43,7 +43,12 @@ export function GrupoCategorias({ groupId }: { groupId: string }) {
   // cierra sola si la categoria ya no esta (se elimino desde ahi).
   const [editando, setEditando] = useState<Categoria | null>(null)
   const editandoVigente = editando !== null && categorias.some((c) => c.id === editando.id)
-  const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; c: Categoria } | null>(null)
+  const [accion, setAccion] = useState<{
+    tipo: "archivar" | "eliminar"
+    c: Categoria
+    // Se pidio eliminar y no se puede (esta en uso): se ofrece archivar.
+    desdeEliminar?: boolean
+  } | null>(null)
 
   const principales = categorias.filter((c) => !c.parent_id)
 
@@ -68,7 +73,7 @@ export function GrupoCategorias({ groupId }: { groupId: string }) {
   function alTacho(c: Categoria) {
     // En uso no se borra: se archiva (la reasignacion es 3b.3). Fuera de uso, se
     // borra directo.
-    setAccion({ tipo: enUso.has(c.id) ? "archivar" : "eliminar", c })
+    setAccion({ tipo: enUso.has(c.id) ? "archivar" : "eliminar", c, desdeEliminar: true })
   }
   function alArchivar(c: Categoria) {
     if (c.archived) archivar(c, 0)
@@ -149,12 +154,19 @@ export function GrupoCategorias({ groupId }: { groupId: string }) {
         onOpenChange={(v) => {
           if (!v) setAccion(null)
         }}
-        titulo={accion?.tipo === "eliminar" ? "Eliminar categoría" : "Archivar categoría"}
+        // Tocar eliminar en una en uso dice POR QUE se ofrece archivar (1.12.0).
+        titulo={
+          accion?.tipo === "eliminar"
+            ? "Eliminar categoría"
+            : accion?.desdeEliminar
+              ? "No se puede eliminar: está en uso"
+              : "Archivar categoría"
+        }
         detalle={
           accion?.tipo === "eliminar"
             ? `Se elimina "${accion.c.name}". No está en uso.`
             : accion
-              ? `"${accion.c.name}" se oculta de los selectores. Está en uso o tiene subcategorías; podés desarchivarla cuando quieras.`
+              ? `"${accion.c.name}" tiene gastos o subcategorías. Archivala: deja de elegirse al cargar, sus gastos la conservan y la podés desarchivar cuando quieras.`
               : undefined
         }
         etiqueta={accion?.tipo === "eliminar" ? "Eliminar" : "Archivar"}

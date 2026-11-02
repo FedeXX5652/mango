@@ -116,6 +116,18 @@ export function SelectorEspacio({ className }: { className?: string }) {
   )
 }
 
+// El logo y el espacio, arriba a la izquierda en el movil (1.12.0): en todas
+// las pestañas y en los dos espacios, asi el selector no se corre al cambiar de
+// pantalla. En escritorio los dos estan arriba de la barra lateral.
+function MarcaYEspacio() {
+  return (
+    <div className="flex min-w-0 items-center gap-2 lg:hidden">
+      <img src="/icons/svg/mango.svg" alt="" className="h-7 w-7 shrink-0" />
+      <SelectorEspacio className="min-w-0" />
+    </div>
+  )
+}
+
 // Cabecera de una pestaña (1.9.0). En el movil, la fila del selector ES la del
 // titulo: el selector a la izquierda, en el mismo lugar que en el Inicio, y a la
 // derecha los controles de la pantalla. El nombre de la seccion ya lo dice la
@@ -131,20 +143,20 @@ export function CabeceraPestana({
 }) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-2">
-      <SelectorEspacio className="min-w-0 lg:hidden" />
+      <MarcaYEspacio />
       <h1 className="sr-only lg:not-sr-only lg:text-2xl lg:font-semibold">{titulo}</h1>
       {children && <div className="flex shrink-0 items-center gap-1">{children}</div>}
     </div>
   )
 }
 
-// Fila de arriba del Inicio de un grupo en el movil: el selector y, a la
-// derecha, las acciones de la pantalla. En escritorio el selector esta arriba de
-// la barra lateral, asi que esta fila no se muestra.
+// Fila de arriba del Inicio (personal o de un grupo) en el movil: el logo, el
+// selector y, a la derecha, las acciones de la pantalla. En escritorio el
+// selector esta arriba de la barra lateral, asi que esta fila no se muestra.
 export function EncabezadoEspacio({ children }: { children?: React.ReactNode }) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-2 lg:hidden">
-      <SelectorEspacio />
+      <MarcaYEspacio />
       {children && <div className="flex shrink-0 items-center gap-1">{children}</div>}
     </div>
   )

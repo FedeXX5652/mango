@@ -6,13 +6,14 @@ import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
 import { Vacio } from "@/componentes/Vacio"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
-import { Aviso, Confirmar } from "@/componentes/ui/confirmar"
+import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { PALETA, SIN_COLOR } from "@/lib/paleta"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
+import { anunciar } from "@/lib/anuncios"
 
 // Las etiquetas de un ambito: las personales (pantalla Etiquetas) o las de un
 // grupo (Ajustes del grupo, 1.7.0). Crear, editar, archivar y eliminar las que no
@@ -54,8 +55,13 @@ export function GestorEtiquetas({
   // Se cierra sola si la etiqueta ya no esta (se elimino desde su edicion).
   const editandoVigente =
     editando === "nueva" || (editando !== null && etiquetas.some((e) => e.id === editando.id))
-  const [accion, setAccion] = useState<{ tipo: "archivar" | "eliminar"; e: Etiqueta } | null>(null)
-  const [aviso, setAviso] = useState<string | null>(null)
+  // `enUso`: se pidio eliminar una que tiene movimientos. En vez de un aviso sin
+  // salida, se ofrece archivarla (DESIGN.md 7, "Acciones de fila"; 1.12.0).
+  const [accion, setAccion] = useState<{
+    tipo: "archivar" | "eliminar"
+    e: Etiqueta
+    enUso?: number
+  } | null>(null)
 
   // Alfabetico con localeCompare: ordena bien acentos y ñ (LOWER de SQLite no).
   const ordenadas = useMemo(
@@ -67,17 +73,21 @@ export function GestorEtiquetas({
 
   async function archivar(e: Etiqueta, valor: number) {
     await db.execute("UPDATE tags SET archived = ? WHERE id = ?", [valor, e.id])
+    anunciar(
+      valor
+        ? `«${e.name}» archivada: ya no se elige al cargar, y sus movimientos la conservan.`
+        : `«${e.name}» volvió a las etiquetas activas.`,
+    )
   }
   async function borrar(e: Etiqueta) {
     await db.execute("DELETE FROM tags WHERE id = ?", [e.id])
+    anunciar(`Etiqueta «${e.name}» eliminada.`)
   }
 
   function alTacho(e: Etiqueta) {
     const n = uso.get(e.id) ?? 0
     if (n > 0) {
-      setAviso(
-        `No se puede eliminar: hay ${n} movimiento${n === 1 ? "" : "s"} con esta etiqueta. Archivala en su lugar.`,
-      )
+      setAccion({ tipo: "archivar", e, enUso: n })
       return
     }
     setAccion({ tipo: "eliminar", e })
@@ -197,13 +207,21 @@ export function GestorEtiquetas({
         onOpenChange={(v) => {
           if (!v) setAccion(null)
         }}
-        titulo={accion?.tipo === "eliminar" ? "Eliminar etiqueta" : "Archivar etiqueta"}
+        titulo={
+          accion?.tipo === "eliminar"
+            ? "Eliminar etiqueta"
+            : accion?.enUso
+              ? "No se puede eliminar: está en uso"
+              : "Archivar etiqueta"
+        }
         detalle={
           accion?.tipo === "eliminar"
             ? `Se elimina "${accion.e.name}". No tiene movimientos.`
-            : accion
-              ? `"${accion.e.name}" se oculta de los selectores, pero los movimientos que ya la tienen la conservan.`
-              : undefined
+            : accion?.enUso
+              ? `Hay ${accion.enUso} movimiento${accion.enUso === 1 ? "" : "s"} con "${accion.e.name}". Archivala: deja de elegirse al cargar, y esos movimientos la conservan.`
+              : accion
+                ? `"${accion.e.name}" se oculta de los selectores, pero los movimientos que ya la tienen la conservan.`
+                : undefined
         }
         etiqueta={accion?.tipo === "eliminar" ? "Eliminar" : "Archivar"}
         destructivo={accion?.tipo === "eliminar"}
@@ -213,14 +231,6 @@ export function GestorEtiquetas({
           else archivar(accion.e, 1)
           setEditando(null)
         }}
-      />
-      <Aviso
-        abierta={aviso !== null}
-        onOpenChange={(v) => {
-          if (!v) setAviso(null)
-        }}
-        titulo="No se puede eliminar"
-        detalle={aviso ?? ""}
       />
     </div>
   )
@@ -267,9 +277,12 @@ function FormEtiqueta({
           [uuidv4(), limpio, color, grupo ?? null],
         )
       }
+      anunciar(inicial ? `Cambios guardados en «${limpio}».` : `Etiqueta «${limpio}» creada.`)
       onCerrar()
     } catch {
-      setError("No se pudo guardar")
+      setError(
+        "No se pudo guardar en este dispositivo. Probá de nuevo; si sigue pasando, cerrá y volvé a abrir Mango.",
+      )
     }
   }
 

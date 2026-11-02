@@ -9,9 +9,14 @@ import { usuarioActualId } from "@/lib/sesion"
 // reactivos: si los edito en otro dispositivo, cambian aca solos.
 //
 // Mientras la fila no bajo (primer arranque) son los de fabrica.
-export function useAccesos(): { ids: string[]; guardar: (ids: string[] | null) => Promise<void> } {
+export function useAccesos(): {
+  ids: string[]
+  guardar: (ids: string[] | null) => Promise<void>
+  // Mientras no bajo la fila, los de fabrica: para no mostrarlos y cambiarlos.
+  cargando: boolean
+} {
   const mi = usuarioActualId() ?? ""
-  const { data } = useQuery<{ home_shortcuts: string | null }>(
+  const { data, isLoading } = useQuery<{ home_shortcuts: string | null }>(
     "SELECT home_shortcuts FROM users WHERE id = ?",
     [mi],
   )
@@ -21,5 +26,6 @@ export function useAccesos(): { ids: string[]; guardar: (ids: string[] | null) =
     ids,
     // null vuelve a los de fabrica. Escribe local; la sync lo sube.
     guardar: (nuevos) => guardarPreferencias({ home_shortcuts: nuevos }),
+    cargando: isLoading,
   }
 }

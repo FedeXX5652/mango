@@ -22,10 +22,47 @@ import {
 export interface Generado {
   movimientos: number
   sobres: number
+  // Las reglas que cargaron algo, en orden y sin repetir: para decirlo (1.12.0).
+  nombres: string[]
+}
+
+/** Lo que se cargo, dicho para la persona: "Se cargaron 2 movimientos
+ *  recurrentes: Alquiler y Sueldo." null si no se cargo nada. */
+export function textoGenerado(g: Generado): string | null {
+  const partes: string[] = []
+  if (g.movimientos > 0) {
+    const n = g.movimientos
+    const cuales = g.nombres.length > 0 ? `: ${enumerar(g.nombres)}` : ""
+    partes.push(
+      n === 1
+        ? `Se cargó 1 movimiento recurrente${cuales}`
+        : `Se cargaron ${n} movimientos recurrentes${cuales}`,
+    )
+  }
+  if (g.sobres > 0) {
+    const [verbo, cuantos] =
+      g.sobres === 1
+        ? ["se asignó", "1 sobre del mes"]
+        : ["se asignaron", `${g.sobres} sobres del mes`]
+    partes.push(partes.length ? `y ${verbo} ${cuantos}` : `${mayuscula(verbo)} ${cuantos}`)
+  }
+  return partes.length ? `${partes.join(" ")}.` : null
+}
+
+const mayuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+// "A", "A y B", "A, B y C", "A, B y 3 más".
+function enumerar(nombres: string[]): string {
+  if (nombres.length <= 3) {
+    return nombres.length === 1
+      ? nombres[0]
+      : `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`
+  }
+  return `${nombres.slice(0, 2).join(", ")} y ${nombres.length - 2} más`
 }
 
 const SQL_REGLAS = `
-  SELECT id, kind, account_id, transfer_account_id, category_id,
+  SELECT id, name, kind, account_id, transfer_account_id, category_id,
          amount, currency, payee, notes, frequency, interval_count,
          start_date, next_run_date, end_date, active
   FROM recurring_rules
@@ -65,7 +102,7 @@ export async function generarVencidas(
   const movimientos = candidatos.filter((o) => !yaGenerados.has(o.id))
 
   if (movimientos.length === 0 && sobres.length === 0) {
-    return { movimientos: 0, sobres: 0 }
+    return { movimientos: 0, sobres: 0, nombres: [] }
   }
 
   await db.writeTransaction(async (tx) => {
@@ -74,8 +111,8 @@ export async function generarVencidas(
       await tx.execute(
         `INSERT INTO transactions
            (id, owner_id, kind, occurred_at, amount, currency, account_id, transfer_account_id,
-            category_id, payee, notes, source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'recurring')`,
+            category_id, payee, notes, source, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'recurring', 'confirmed')`,
         [
           o.id,
           // Como en el alta: la fila local con su dueño (el servidor lo ignora).
@@ -108,7 +145,10 @@ export async function generarVencidas(
     }
   })
 
-  return { movimientos: movimientos.length, sobres: sobres.length }
+  // Confirmado desde ya, como el alta: el saldo cambia en el momento, tambien
+  // sin conexion (sin status no contaba hasta que volvia de la sincronizacion).
+  const nombres = [...new Set(movimientos.map((o) => o.regla.name).filter((n): n is string => !!n))]
+  return { movimientos: movimientos.length, sobres: sobres.length, nombres }
 }
 
 // Cuales de esos ids ya estan en la base. En bloques, porque SQLite tiene un

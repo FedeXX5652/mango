@@ -10,6 +10,7 @@ import {
   type PayerRow,
   type SplitRow,
   type TxGrupo,
+  EX_MIEMBRO,
   historiaGrupo,
   resumenGrupo,
 } from "@/lib/grupo"
@@ -67,26 +68,26 @@ export function useGrupo(groupId: string) {
      ORDER BY t.occurred_at DESC`,
     [groupId],
   )
-  const { data: splits } = useQuery<SplitRow>(
+  const { data: splits, isLoading: cargandoSplits } = useQuery<SplitRow>(
     `SELECT s.transaction_id, s.user_id, s.amount
      FROM transaction_splits s JOIN ${TX_GRUPO} t ON t.id = s.transaction_id
      WHERE t.group_id = ? AND t.visibility = 'shared' AND t.deleted_at IS NULL AND s.deleted_at IS NULL`,
     [groupId],
   )
   // Quien mas puso en cada gasto (0032).
-  const { data: pagadores } = useQuery<PayerRow>(
+  const { data: pagadores, isLoading: cargandoPagadores } = useQuery<PayerRow>(
     `SELECT p.id, p.transaction_id, p.user_id, p.account_id, p.amount, p.status
      FROM transaction_payers p JOIN ${TX_GRUPO} t ON t.id = p.transaction_id
      WHERE t.group_id = ? AND t.visibility = 'shared' AND t.deleted_at IS NULL AND p.deleted_at IS NULL`,
     [groupId],
   )
   // `pago_real` dice si fue un pago con plata (0017) sin decir de que cuenta.
-  const { data: pagos } = useQuery<PagoGrupo>(
+  const { data: pagos, isLoading: cargandoPagos } = useQuery<PagoGrupo>(
     `SELECT id, from_user_id, to_user_id, amount, currency, occurred_at, account_id, pago_real
      FROM settlements WHERE group_id = ? AND deleted_at IS NULL ORDER BY occurred_at DESC`,
     [groupId],
   )
-  const { data: aportes } = useQuery<AporteGrupo>(
+  const { data: aportes, isLoading: cargandoAportes } = useQuery<AporteGrupo>(
     `SELECT t.id, t.owner_id, t.amount, t.currency, t.occurred_at,
             CASE WHEN ca.id IS NOT NULL THEN 'entra' ELSE 'sale' END AS sentido,
             COALESCE(ca.name, co.name) AS cuenta
@@ -97,12 +98,16 @@ export function useGrupo(groupId: string) {
      ORDER BY t.occurred_at DESC`,
     [groupId, groupId],
   )
-  const { data: miembrosRows } = useQuery<{ user_id: string; display_name: string | null }>(
-    `SELECT gm.user_id, u.display_name FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
+  const { data: miembrosRows, isLoading: cargandoMiembros } = useQuery<{
+    user_id: string
+    display_name: string | null
+    username: string | null
+  }>(
+    `SELECT gm.user_id, u.display_name, u.username FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
      WHERE gm.group_id = ? AND gm.deleted_at IS NULL`,
     [groupId],
   )
-  const { data: categorias } = useQuery<CategoriaGrupo>(
+  const { data: categorias, isLoading: cargandoCategorias } = useQuery<CategoriaGrupo>(
     "SELECT id, name, icon, parent_id FROM categories WHERE group_id = ? AND deleted_at IS NULL",
     [groupId],
   )
@@ -111,7 +116,9 @@ export function useGrupo(groupId: string) {
     () =>
       miembrosRows.map((m) => ({
         user_id: m.user_id,
-        nombre: m.display_name || m.user_id.slice(0, 8),
+        // Sin nombre para mostrar, el de usuario; los primeros caracteres del
+        // id no le decian nada a nadie.
+        nombre: m.display_name || m.username || "Miembro",
       })),
     [miembrosRows],
   )
@@ -133,9 +140,9 @@ export function useGrupo(groupId: string) {
     [gastos, miembros, splits, pagos, pagadores],
   )
 
-  // "Vos" para mi; el nombre para los demas; un respaldo si alguien dejo el grupo.
+  // "Vos" para mi; el nombre para los demas; "Ex miembro" si alguien dejo el grupo.
   const nombre = (userId: string) =>
-    userId === miId ? "Vos" : (miembros.find((m) => m.user_id === userId)?.nombre ?? "Otro")
+    userId === miId ? "Vos" : (miembros.find((m) => m.user_id === userId)?.nombre ?? EX_MIEMBRO)
 
   return {
     miId,
@@ -149,7 +156,16 @@ export function useGrupo(groupId: string) {
     categorias,
     balance,
     nombre,
-    cargando: cargandoGastos,
+    // Todas sus consultas: con los gastos pero sin los repartos o los pagos, el
+    // balance sale mal y enseguida cambia (1.12.0).
+    cargando:
+      cargandoGastos ||
+      cargandoSplits ||
+      cargandoPagadores ||
+      cargandoPagos ||
+      cargandoAportes ||
+      cargandoMiembros ||
+      cargandoCategorias,
   }
 }
 

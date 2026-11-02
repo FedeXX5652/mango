@@ -17,6 +17,7 @@ import { formatearFechaCorta } from "@/lib/fecha"
 import { saldoCuenta } from "@/lib/saldos"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
+import { anunciar } from "@/lib/anuncios"
 
 // Metas de ahorro (fase 5). Cada meta se asocia a una cuenta; el progreso es el
 // saldo de esa cuenta contra el objetivo. Escribe local (goals) y sube por /goals.
@@ -60,6 +61,7 @@ export function Metas() {
   async function borrar(m: Meta) {
     await db.execute("DELETE FROM goals WHERE id = ?", [m.id])
     setABorrar(null)
+    anunciar(`Meta «${m.name}» eliminada.`)
   }
 
   return (
@@ -207,9 +209,18 @@ function FormularioMeta({
           [uuidv4(), name.trim(), centavos, moneda, fecha || null, cuentaId || null],
         )
       }
+      anunciar(
+        inicial
+          ? `Cambios guardados en «${name.trim()}».`
+          : cuentaId
+            ? `Meta «${name.trim()}» creada: avanza con el saldo de su cuenta.`
+            : `Meta «${name.trim()}» creada. Elegí una cuenta para ver cómo avanza.`,
+      )
       onCerrar()
     } catch {
-      setError("No se pudo guardar")
+      setError(
+        "No se pudo guardar en este dispositivo. Probá de nuevo; si sigue pasando, cerrá y volvé a abrir Mango.",
+      )
     }
   }
 

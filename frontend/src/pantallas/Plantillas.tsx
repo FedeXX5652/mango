@@ -1,9 +1,10 @@
 import { usePowerSync, useQuery } from "@powersync/react"
-import { Pencil, Trash2 } from "lucide-react"
+import { Files, Pencil, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
+import { Vacio } from "@/componentes/Vacio"
 import { FormPlantilla, type PlantillaEditable } from "@/componentes/FormPlantilla"
 import { Button } from "@/componentes/ui/button"
 import { Confirmar } from "@/componentes/ui/confirmar"
@@ -24,7 +25,7 @@ export function Plantillas() {
   // A donde se vino (Inicio, Accesos, Ajustes o un atajo), no a un lugar fijo.
   const volver = useVolver("/accesos")
   const db = usePowerSync()
-  const { data: plantillas } = useQuery<PlantillaEditable>(
+  const { data: plantillas, isLoading } = useQuery<PlantillaEditable>(
     `SELECT id, name, kind, account_id, category_id, amount, currency, payee, notes
      FROM templates WHERE deleted_at IS NULL AND group_id IS NULL ORDER BY sort_order, name`,
   )
@@ -60,10 +61,14 @@ export function Plantillas() {
         )}
       </Hoja>
 
-      {plantillas.length === 0 ? (
-        <p className="p-8 text-center text-sm text-muted-foreground">
-          Todavía no tenés plantillas.
-        </p>
+      {/* Sin respuesta todavia no hay "vacio" que mostrar (DESIGN.md 7). */}
+      {isLoading ? null : plantillas.length === 0 ? (
+        <Vacio
+          icono={Files}
+          titulo="Todavía no tenés plantillas"
+          detalle="Guardá lo que cargás seguido —el café, la nafta— y usalo de un toque."
+          accion={{ onClick: () => setEditando("nueva"), etiqueta: "Nueva plantilla" }}
+        />
       ) : (
         <ul className="divide-y divide-border">
           {plantillas.map((t) => (

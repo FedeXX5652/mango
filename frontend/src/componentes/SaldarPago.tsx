@@ -9,6 +9,7 @@ import { Input } from "@/componentes/ui/input"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
+import { anunciar } from "@/lib/anuncios"
 
 // Saldar una deuda del grupo (fase 3b.3, ver 0017). Dos formas:
 //   - "Marcar saldado": queda registrado y reversible, NO mueve plata (se salda
@@ -71,21 +72,36 @@ export function SaldarPago({
     if (centavos > sugerido) return setError("No puede ser mayor a la deuda")
     const real = modo === "pagar"
     if (real && !cuentaId) return setError("Elegí la cuenta")
-    await db.execute(
-      `INSERT INTO settlements
+    try {
+      await db.execute(
+        `INSERT INTO settlements
          (id, group_id, from_user_id, to_user_id, amount, currency, occurred_at, created_by, account_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        uuidv4(),
-        groupId,
-        de,
-        a,
-        centavos,
-        currency,
-        new Date().toISOString(),
-        miId,
-        real ? cuentaId : null,
-      ],
+        [
+          uuidv4(),
+          groupId,
+          de,
+          a,
+          centavos,
+          currency,
+          new Date().toISOString(),
+          miId,
+          real ? cuentaId : null,
+        ],
+      )
+    } catch {
+      return setError(
+        "No se pudo guardar en este dispositivo. Probá de nuevo; si sigue pasando, cerrá y volvé a abrir Mango.",
+      )
+    }
+    // Que paso con la deuda y si se movio plata (1.12.0).
+    const cuanto = formatearMonto(centavos, { moneda: currency })
+    anunciar(
+      real
+        ? `Registraste un pago de ${cuanto} a ${nombre(a)}: salió de tu cuenta y le llega para que lo confirme.`
+        : centavos === sugerido
+          ? `Listo: ${nombre(de)} ya no le debe a ${nombre(a)}. No se movió plata.`
+          : `Listo: la deuda de ${nombre(de)} con ${nombre(a)} bajó ${cuanto}. No se movió plata.`,
     )
     onClose()
   }

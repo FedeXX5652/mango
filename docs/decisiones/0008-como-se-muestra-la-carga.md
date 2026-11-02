@@ -118,3 +118,36 @@ decorativa, que no era el problema.
 - Si alguna vez hace falta motion de verdad (gestos, transiciones compartidas),
   la conversacion sobre la dependencia se reabre con otro caso de uso; este no
   la justificaba.
+
+## Enmienda 1.12.0: la pantalla espera a todos sus bloques
+
+El corte "por pantalla" se cumplia a medias. Inicio esperaba su consulta propia,
+pero cada tarjeta (el resumen, los cobros por confirmar, los accesos, los
+grupos) tenia las suyas, y algunas dibujaban un total con la mitad de los datos:
+los flujos antes que la cotizacion, el balance del grupo antes que sus topes. Se
+veia un numero y al instante otro. Exactamente lo que el "Por que" de arriba
+dice que no tiene que pasar.
+
+Se evaluaron tres salidas:
+
+- **Animar el numero** (contar de uno a otro): disimula el cambio pero lo
+  muestra igual, y obliga a esperar para leer. Descartada.
+- **Esqueleto por bloque**: cada tarjeta espera lo suyo. Vuelve la escalera.
+- **La pantalla espera a todos y aparece una vez** (elegida).
+
+`PantallaLista` (en `cargando.tsx`) da un contexto donde cada bloque se anota
+con `useBloqueListo(cargando)`. Mientras alguno falte, va el esqueleto (con el
+mismo umbral de 120 ms); cuando ninguno falta, se muestra todo junto con un
+fundido de opacidad de 200 ms (`motion-safe:animate-fundir`). Los bloques se
+montan ocultos desde el principio, asi sus consultas corren en paralelo y la
+espera es la del mas lento, no la suma.
+
+Dos resguardos: la cuenta se hace despues de que todos los bloques del mismo
+render se anotaron (si no, el primero que llega listo abriria la pantalla), y a
+los 6 s se muestra igual aunque algo no haya terminado. Una vez mostrada, la
+pantalla no vuelve al esqueleto: lo que llegue despues (la sync) se actualiza en
+el lugar.
+
+El "cargando" de un bloque incluye todo lo que su numero necesita: la consulta,
+las cotizaciones y las preferencias de cotizacion (`useCotizaciones().cargando`),
+los siete pedidos de `useGrupo`.

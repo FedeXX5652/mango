@@ -72,7 +72,7 @@ export function FilaHistoria({
               className="font-medium"
             />
             <span className="block truncate text-xs text-muted-foreground">
-              {esPagoReal(p) ? "Pago" : "Saldado"}
+              {esPagoReal(p) ? "Pago" : "Marcado como saldado (sin plata)"}
               {conFecha && ` · ${formatearFechaCorta(p.occurred_at)}`}
             </span>
           </span>

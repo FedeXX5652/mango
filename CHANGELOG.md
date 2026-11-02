@@ -4,6 +4,53 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.12.0] - 2026-10-30
+
+### Agregado
+
+- **El total de cada día** en Movimientos, a la derecha de la fecha: cuánto
+  entró y salió ese día (sin contar transferencias), en cada moneda. En un grupo,
+  cuánto gastó el grupo.
+- **Avisos que dicen qué pasó**: al guardar un movimiento ("Gasto de $ 1.500,00
+  guardado en Casa, en septiembre de 2026"), al cargar las recurrentes vencidas,
+  al archivar, borrar o saldar algo. Algunos traen "Ver" o "Deshacer".
+- **Todo lo del grupo a un toque**: los accesos del grupo suman Sacar plata,
+  Calendario y "Más", con presupuesto, estadísticas, plantillas, categorías,
+  etiquetas, miembros y ajustes. En la computadora, la barra lateral del grupo
+  muestra lo del grupo.
+- **Si un cambio no se pudo guardar en el servidor**, una franja roja arriba lo
+  avisa y te lleva a ver por qué, explicado en palabras.
+- **Cerrar un movimiento a medio cargar pregunta** antes de descartarlo.
+- Si se te venció la sesión, el inicio de sesión te lo dice.
+
+### Cambiado
+
+- **Las pantallas aparecen enteras**: Inicio (personal y del grupo) espera a
+  tener todos sus números y aparece de una vez, con un fundido suave. Ya no se ve
+  un número que al instante cambia por otro.
+- **El logo está arriba a la izquierda en todas las pantallas**, también dentro
+  de un grupo.
+- **Todas las pestañas tienen el mismo ancho y los mismos márgenes**: pasar de una
+  a otra no mueve nada de lugar.
+- Al guardar un movimiento de otro mes, la lista se abre en ese mes.
+- Lo que no se puede hacer sin conexión (adjuntar, exportar) se apaga y dice por
+  qué antes de tocarlo. Sin conexión, Movimientos dice cuántos cambios faltan
+  subir.
+- Al cambiar el espacio de un movimiento, se explica por qué se quitaron la
+  categoría o las etiquetas.
+- Los errores dicen qué hacer, no un código.
+- Quien dejó un grupo aparece como "Ex miembro".
+
+### Corregido
+
+- Un movimiento recién cargado no contaba en los saldos hasta que se subía al
+  servidor.
+- En pantallas de 360 px, el botón de calendario de Movimientos se salía por la
+  derecha.
+- Un movimiento que ya no existe quedaba en "Cargando…" para siempre.
+- Algunos cambios que el servidor rechazaba se daban por guardados.
+- Dejar en cero el tope de una categoría del grupo lo borraba sin avisar.
+
 ## [1.11.0] - 2026-10-30
 
 ### Agregado

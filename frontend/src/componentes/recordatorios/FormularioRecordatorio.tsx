@@ -28,6 +28,7 @@ import {
   textoVinculo,
 } from "@/lib/recordatorios"
 import type { CorrimientoFinde } from "@/lib/repeticion"
+import { anunciar } from "@/lib/anuncios"
 
 // Alta y edicion de un recordatorio (1.5.0, 0030). Con `semilla`, el alta de
 // "Avisarme" en una tarjeta o una deuda (1.6.0): arranca armado y queda
@@ -171,9 +172,16 @@ export function FormularioRecordatorio({
         hoy,
         inicial,
       )
+      anunciar(
+        inicial
+          ? `Cambios guardados en «${titulo.trim()}».`
+          : `Recordatorio «${titulo.trim()}» creado.`,
+      )
       onCerrar()
     } catch {
-      setError("No se pudo guardar")
+      setError(
+        "No se pudo guardar en este dispositivo. Probá de nuevo; si sigue pasando, cerrá y volvé a abrir Mango.",
+      )
       setGuardando(false)
     }
   }
@@ -182,6 +190,7 @@ export function FormularioRecordatorio({
     if (!inicial) return
     await borrarRecordatorio(db, inicial.id)
     setBorrando(false)
+    anunciar(`Recordatorio «${inicial.title}» eliminado: no te avisa más.`)
     onCerrar()
   }
 

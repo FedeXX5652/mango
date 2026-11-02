@@ -10,6 +10,8 @@ import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { cotizacionDe } from "@/lib/conversion"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
+import { useBloqueListo } from "@/hooks/bloquesListos"
+import { anunciar } from "@/lib/anuncios"
 
 // Lo que puse en un gasto que cargó otro (0032): un movimiento mío, pendiente
 // hasta que digo de qué cuenta salió. "Sí, la pagué" es lo principal, con la
@@ -64,9 +66,11 @@ function useCuentas(): { cuentas: Cuenta[]; ultima: string } {
 
 // La tarjeta del Inicio: lo que falta confirmar.
 export function PagosPorConfirmar() {
-  const { data: pagos } = useQuery<PagoMio>(
+  const { data: pagos, isLoading: cargaPagos } = useQuery<PagoMio>(
     `${SQL_PAGOS_MIOS} AND t.status IN ('pending', 'rejected') ORDER BY t.occurred_at DESC`,
   )
+  // Si no, aparece despues y empuja lo de abajo.
+  useBloqueListo(cargaPagos)
   // Los que acabo de rechazar siguen a la vista el rato para deshacer.
   const [recientes, setRecientes] = useState<string[]>([])
   const visibles = pagos.filter((p) => p.status === "pending" || recientes.includes(p.id))
@@ -154,6 +158,10 @@ export function TuParte({
       )
     await (salir ? salir(escribir) : escribir())
     setCambiando(false)
+    // La fila se va: se dice de donde salio (1.12.0).
+    anunciar(
+      `Listo: tu parte de ${formatearMonto(pago.amount, { moneda: pago.currency })} salió de ${cuenta.name}.`,
+    )
   }
 
   async function noLaPague() {

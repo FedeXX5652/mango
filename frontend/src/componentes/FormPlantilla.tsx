@@ -11,6 +11,7 @@ import { ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
 import { aCentavos, aTextoEditable } from "@/lib/dinero"
 import { TIPOS_PLANTILLA } from "@/lib/plantillas"
 import { uuidv4 } from "@/lib/uuid"
+import { anunciar } from "@/lib/anuncios"
 
 // Alta y edicion de una plantilla, personal o de un grupo (1.6.0, T1).
 //
@@ -118,9 +119,14 @@ export function FormPlantilla({
           [...valores, uuidv4(), kind, grupo?.id ?? null],
         )
       }
+      anunciar(
+        inicial ? `Cambios guardados en «${name.trim()}».` : `Plantilla «${name.trim()}» creada.`,
+      )
       onCerrar()
     } catch {
-      setError("No se pudo guardar")
+      setError(
+        "No se pudo guardar en este dispositivo. Probá de nuevo; si sigue pasando, cerrá y volvé a abrir Mango.",
+      )
     }
   }
 

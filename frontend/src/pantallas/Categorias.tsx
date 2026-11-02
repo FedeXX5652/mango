@@ -19,6 +19,7 @@ import { useVolver } from "@/hooks/useVolver"
 import { ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
 import { iconoDe } from "@/lib/iconos"
 import { cn } from "@/lib/utils"
+import { anunciar } from "@/lib/anuncios"
 
 interface Categoria {
   id: string
@@ -69,10 +70,16 @@ export function Categorias() {
 
   async function archivar(c: Categoria, valor: number) {
     await db.execute("UPDATE categories SET archived = ? WHERE id = ?", [valor, c.id])
+    anunciar(
+      valor
+        ? `«${c.name}» archivada: ya no se elige al cargar, y sus movimientos la conservan.`
+        : `«${c.name}» volvió a las categorías activas.`,
+    )
   }
 
   async function borrar(c: Categoria) {
     await db.execute("DELETE FROM categories WHERE id = ?", [c.id])
+    anunciar(`Categoría «${c.name}» eliminada.`)
   }
 
   function alTacho(c: Categoria) {
@@ -338,9 +345,14 @@ function FormularioCategoria({
           [uuidv4(), name.trim(), kind, parentId || null, icono],
         )
       }
+      anunciar(
+        inicial ? `Cambios guardados en «${name.trim()}».` : `Categoría «${name.trim()}» creada.`,
+      )
       onCerrar()
     } catch {
-      setError("No se pudo guardar")
+      setError(
+        "No se pudo guardar en este dispositivo. Probá de nuevo; si sigue pasando, cerrá y volvé a abrir Mango.",
+      )
     }
   }
 

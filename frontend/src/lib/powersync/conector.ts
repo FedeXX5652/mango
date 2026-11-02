@@ -9,6 +9,8 @@ import { API_BASE, api, conAuth } from "@/lib/api"
 import { borrarToken } from "@/lib/sesion"
 import { registrarRechazo } from "@/lib/rechazados"
 import { urlAbsoluta } from "@/lib/url"
+import { anunciar } from "@/lib/anuncios"
+import { describirCambio } from "@/lib/describirCambio"
 
 // Endpoint del servicio PowerSync. En la imagen de produccion es `/powersync`
 // (mismo origen, nginx hace de proxy, ver 0020); en desarrollo puede ser la IP
@@ -120,7 +122,7 @@ export async function subir({ tabla, op, id, datos }: Subida): Promise<Resultado
     // Sesion vencida o ausente: NO es un rechazo del dato, no se descarta. Se
     // borra el token (la app vuelve al login) y se relanza: PowerSync reintenta
     // la subida con el token nuevo.
-    borrarToken()
+    borrarToken("vencida")
     throw new Error(`Sin sesion al subir ${tabla}`)
   }
 
@@ -134,8 +136,28 @@ export async function subir({ tabla, op, id, datos }: Subida): Promise<Resultado
   throw new Error(`Subida fallida ${resp.status} en ${tabla}`)
 }
 
+// Los mensajes de Pydantic vienen en ingles: los comunes, en castellano (1.12.0).
+export function traducirValidacion(msg: string): string {
+  const m = msg.trim()
+  let r: RegExpMatchArray | null
+  if ((r = m.match(/greater than or equal to (-?\d+)/))) return `tiene que ser ${r[1]} o más`
+  if ((r = m.match(/greater than (-?\d+)/))) return `tiene que ser mayor a ${r[1]}`
+  if ((r = m.match(/less than or equal to (-?\d+)/))) return `tiene que ser ${r[1]} o menos`
+  if ((r = m.match(/less than (-?\d+)/))) return `tiene que ser menor a ${r[1]}`
+  if (/field required/i.test(m)) return "falta"
+  if (/valid (integer|number)/i.test(m)) return "tiene que ser un número"
+  if (/should match pattern/i.test(m)) return "no tiene el formato esperado"
+  if (/valid UUID/i.test(m)) return "no es un identificador válido"
+  if (/valid (datetime|date)/i.test(m)) return "no es una fecha válida"
+  if (/Input should be/i.test(m)) return "no es un valor permitido"
+  if (/at most \d+ character/i.test(m)) return "es demasiado largo"
+  return m
+}
+
 // El `detail` de FastAPI, en texto legible. Un 422 de Pydantic trae una lista
-// de errores; se arma una frase con el primero, que es el accionable.
+// de errores; se arma una frase con el primero, que es el accionable. El campo
+// queda con su nombre crudo (campoDelMotivo lo usa para marcarlo); la pantalla
+// lo muestra con su nombre de pantalla (motivoLegible).
 async function motivoDe(resp: Response): Promise<string> {
   try {
     const cuerpo = await resp.json()
@@ -144,12 +166,16 @@ async function motivoDe(resp: Response): Promise<string> {
     if (Array.isArray(d) && d.length > 0) {
       const e = d[0]
       const campo = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : ""
-      return campo ? `${campo}: ${e.msg}` : e.msg
+      const msg = traducirValidacion(String(e.msg ?? ""))
+      return campo ? `${campo}: ${msg}` : msg
     }
   } catch {
     /* respuesta sin JSON: se cae al generico */
   }
-  return `El servidor rechazó el cambio (${resp.status})`
+  if (resp.status === 403)
+    return "No tenés permiso para cambiar esto: es de otro miembro, o ya no estás en el grupo."
+  if (resp.status === 404) return "Ya no existe en el servidor: se borró en otro dispositivo."
+  return `El servidor rechazó el cambio (código ${resp.status}).`
 }
 
 async function aplicar(db: AbstractPowerSyncDatabase, entry: CrudEntry): Promise<void> {
@@ -168,6 +194,12 @@ async function aplicar(db: AbstractPowerSyncDatabase, entry: CrudEntry): Promise
       fila_id: entry.id,
       datos: JSON.stringify(entry.opData ?? {}),
       motivo: r.motivo,
+    })
+    // Se dice en el momento (1.12.0): si no, en la proxima sincronizacion el
+    // dato vuelve a como estaba en el servidor y parece que se borro solo.
+    anunciar(`No se guardó: ${describirCambio(entry.table, entry.op, entry.opData ?? {})}.`, {
+      importante: true,
+      accion: { etiqueta: "Revisar", to: "/rechazados" },
     })
   }
 }

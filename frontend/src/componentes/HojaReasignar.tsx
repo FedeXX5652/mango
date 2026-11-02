@@ -6,6 +6,7 @@ import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Campo } from "@/componentes/ui/campo"
 import { Hoja } from "@/componentes/ui/hoja"
 import type { Plan } from "@/lib/reasignar"
+import { anunciar } from "@/lib/anuncios"
 
 export interface Destino {
   id: string
@@ -70,6 +71,10 @@ export function HojaReasignar({
         for (const s of sentencias) await tx.execute(s.sql, s.params)
       })
       onOpenChange(false)
+      // Que se borro y adonde fue lo suyo (1.12.0).
+      anunciar(
+        `Se eliminó «${nombre}». Lo que la usaba ahora está en «${elegido?.nombre ?? "el destino"}».`,
+      )
       onListo?.()
     } catch {
       setError("No se pudo completar. No se movió nada.")

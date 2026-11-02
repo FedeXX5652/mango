@@ -45,6 +45,7 @@ export function SelectorEntidad({
   titulo,
   placeholder,
   vacio,
+  vacioSinOpciones = "No hay opciones todavía.",
   className,
 }: {
   opciones: OpcionEntidad[]
@@ -57,6 +58,9 @@ export function SelectorEntidad({
   // Opcion para no elegir ninguna ("Sin medio", "Toda cuenta"). Sin esto, la
   // eleccion es obligatoria.
   vacio?: string
+  // Lo que dice la hoja cuando no hay ninguna opcion (no cuando la busqueda no
+  // encontro nada): que falta y, si se puede, donde se crea.
+  vacioSinOpciones?: string
   className?: string
 }) {
   const [abierta, setAbierta] = useState(false)
@@ -132,7 +136,11 @@ export function SelectorEntidad({
             />
           )}
           <div className="max-h-96 overflow-y-auto">
-            {visibles.length === 0 ? (
+            {/* Lista vacia y busqueda sin resultados no son lo mismo: "Ninguna
+                coincide" sin haber buscado nada no se entendia. */}
+            {opciones.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">{vacioSinOpciones}</p>
+            ) : visibles.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">Ninguna coincide.</p>
             ) : (
               <ListaInset>
