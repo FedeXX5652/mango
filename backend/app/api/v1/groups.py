@@ -14,7 +14,14 @@ from app.api.deps import get_current_user_id
 from app.core.errors import DomainError
 from app.crud import group as crud
 from app.db import get_session
-from app.schemas.group import GroupCreate, GroupRead, GroupUpdate, MemberAdd, MemberRead
+from app.schemas.group import (
+    GroupCreate,
+    GroupRead,
+    GroupUpdate,
+    MemberAdd,
+    MemberAliasUpdate,
+    MemberRead,
+)
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
@@ -86,3 +93,21 @@ async def remove_member(
         raise _422(exc) from exc
     if quitado is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No es miembro")
+
+
+@router.patch("/{group_id}/members/me", response_model=MemberRead)
+async def update_my_alias(
+    group_id: uuid.UUID,
+    data: MemberAliasUpdate,
+    session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+) -> MemberRead:
+    # Como me llamo en este grupo (0035): cada uno edita el suyo y nada mas, por
+    # eso la ruta es "me" y no lleva el id de nadie.
+    try:
+        miembro = await crud.set_alias(session, group_id, user_id, data.alias)
+    except DomainError as exc:
+        raise _422(exc) from exc
+    if miembro is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo no encontrado")
+    return miembro

@@ -4,6 +4,16 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.12.1] - 2026-11-02
+
+### Agregado
+
+- **Tu nombre en cada grupo** (0035): en Ajustes del grupo, tocá el lápiz al lado
+  de tu nombre y elegí cómo te llaman en ese grupo ("Mamá" en Familia, "Fefi" en
+  Casa). Lo ven todos los del grupo: en los gastos, el balance y los avisos. En
+  tus otros grupos no cambia, y si lo dejás vacío vuelve tu nombre de Mango.
+  Cada uno cambia solo el suyo.
+
 ## [1.12.0] - 2026-10-30
 
 ### Agregado

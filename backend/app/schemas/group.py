@@ -48,6 +48,11 @@ class MemberAdd(BaseModel):
     username: str
 
 
+class MemberAliasUpdate(BaseModel):
+    # Como me llamo en este grupo (0035). Vacio o null = mi nombre de Mango.
+    alias: str | None = None
+
+
 class MemberRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -55,3 +60,4 @@ class MemberRead(BaseModel):
     group_id: uuid.UUID
     user_id: uuid.UUID
     role: str
+    alias: str | None = None

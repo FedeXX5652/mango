@@ -13,10 +13,10 @@ from app.core.errors import DomainError
 from app.crud import category as categorias
 from app.crud import notification as notif
 from app.crud._borrado import vivo
-from app.crud.group import membresia
+from app.crud.group import membresia, nombre_en_grupo
 from app.models.account import Account, PaymentMethod
 from app.models.transaction import Transaction
-from app.models.user import Group, Settlement, User
+from app.models.user import Group, Settlement
 from app.schemas.settlement import SettlementCreate
 
 
@@ -70,8 +70,10 @@ async def create_settlement(
     # Lo crea el servidor (id propio): el acreedor no lo cargo. Queda 'pending' con
     # source='api' (nunca 'manual', regla 4) hasta que le asigne cuenta y confirme.
     if data.account_id is not None:
-        quien = await session.get(User, data.from_user_id)
-        nombre = quien.display_name if quien else "otro miembro"
+        # Como se llama en el grupo (0035), no su nombre de Mango.
+        nombre = (
+            await nombre_en_grupo(session, data.group_id, data.from_user_id)
+        ) or "otro miembro"
         # Con la categoria "Reintegros de grupo" ya puesta (0026, etapa 3): el
         # acreedor no tiene que elegir una para confirmarlo.
         reintegros = await categorias.asegurar_de_sistema(
@@ -148,8 +150,9 @@ async def soft_delete_settlement(session: AsyncSession, pago: Settlement) -> Non
         cobro.deleted_at = func.now()
     elif cobro is not None:
         # Ya estaba confirmado: queda, pero se avisa (la deuda "vuelve", 0019).
-        quien = await session.get(User, pago.from_user_id)
-        nombre = quien.display_name if quien else "otro miembro"
+        nombre = (
+            await nombre_en_grupo(session, pago.group_id, pago.from_user_id)
+        ) or "otro miembro"
         monto = notif.formatear_monto(pago.amount, pago.currency)
         grupo = await session.get(Group, pago.group_id)
         await notif.crear(

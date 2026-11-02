@@ -1,7 +1,7 @@
 import { useQuery } from "@powersync/react"
 
 import { useGrupoDeRuta } from "@/hooks/useEspacio"
-import { EX_MIEMBRO } from "@/lib/grupo"
+import { EX_MIEMBRO, NOMBRE_EN_GRUPO } from "@/lib/grupo"
 import { usuarioActualId } from "@/lib/sesion"
 import { CalendarioPagos } from "@/pantallas/CalendarioPagos"
 import { CargandoGrupo, GrupoNoEncontrado } from "@/pantallas/grupo/comun"
@@ -17,7 +17,7 @@ export function CalendarioGrupo() {
     display_name: string | null
     username: string | null
   }>(
-    `SELECT gm.user_id, u.display_name, u.username FROM group_members gm
+    `SELECT gm.user_id, ${NOMBRE_EN_GRUPO} AS display_name, u.username FROM group_members gm
      LEFT JOIN member_profiles u ON u.id = gm.user_id WHERE gm.group_id = ?`,
     [id],
   )

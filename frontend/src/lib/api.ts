@@ -116,6 +116,12 @@ export const api = {
     }),
   quitarMiembro: (groupId: string, userId: string) =>
     pedir<void>(`/groups/${groupId}/members/${userId}`, { method: "DELETE" }),
+  // Como me llamo en este grupo (0035). null o "" = mi nombre de Mango.
+  editarMiAlias: (groupId: string, alias: string | null) =>
+    pedir<{ alias: string | null }>(`/groups/${groupId}/members/me`, {
+      method: "PATCH",
+      body: JSON.stringify({ alias }),
+    }),
   getSyncToken: () => pedir<CredencialesSync>("/sync/token"),
   // Adjuntos (fase 5): el binario va/viene por la API, no por la sync. La
   // metadata (fila) baja por PowerSync; aca solo subimos, bajamos y borramos.

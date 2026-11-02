@@ -466,6 +466,8 @@ const group_members = new Table(
     group_id: column.text,
     user_id: column.text,
     role: column.text,
+    // Como se llama en este grupo (0035). NULL = su nombre de Mango.
+    alias: column.text,
     joined_at: column.text,
     updated_at: column.text,
     deleted_at: column.text,

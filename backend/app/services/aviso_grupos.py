@@ -23,10 +23,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.crud import notification as notif
+from app.crud.group import nombres_por_grupo
 from app.models.budget import Budget
 from app.models.category import Category
 from app.models.transaction import Transaction, TransactionPayer, TransactionSplit
-from app.models.user import Group, GroupMember, Notification, User
+from app.models.user import Group, GroupMember, Notification
 
 # Lo que se le da al resto del gasto (sus partes) para llegar despues del
 # movimiento: suben en la misma tanda, a segundos.
@@ -54,7 +55,9 @@ async def _miembros(
 
 
 async def _nombres(session: AsyncSession, modelo, ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
-    columna = modelo.display_name if modelo is User else modelo.name
+    """Nombre de grupos o categorias. Las personas van por `nombres_por_grupo`:
+    se llaman como eligieron en cada grupo (0035)."""
+    columna = modelo.name
     return dict((await session.execute(select(modelo.id, columna).where(modelo.id.in_(ids)))).all())
 
 
@@ -121,7 +124,7 @@ async def gastos_compartidos(session: AsyncSession, ahora: datetime) -> int:
     grupos = {t.group_id for t in gastos}
     miembros = await _miembros(session, grupos)
     nombres_grupo = await _nombres(session, Group, grupos)
-    autores = await _nombres(session, User, {t.owner_id for t in gastos})
+    autores = await nombres_por_grupo(session, {(t.group_id, t.owner_id) for t in gastos})
     categorias = await _nombres(session, Category, {t.category_id for t in gastos if t.category_id})
 
     creados = 0
@@ -134,7 +137,7 @@ async def gastos_compartidos(session: AsyncSession, ahora: datetime) -> int:
         )
         donde = t.payee or categorias.get(t.category_id)
         monto = notif.formatear_monto(t.amount, t.currency)
-        texto = f"{autores.get(t.owner_id, 'Alguien')} cargó {monto}"
+        texto = f"{autores.get((t.group_id, t.owner_id), 'Alguien')} cargó {monto}"
         if donde:
             texto += f" en {donde}"
         for uid in sorted((con_parte & miembros[t.group_id]) - {t.owner_id}):
@@ -266,7 +269,7 @@ async def pagos_rechazados(session: AsyncSession, ahora: datetime) -> int:
             )
         ).all()
     )
-    nombres = await _nombres(session, User, {p.user_id for p, _ in filas})
+    nombres = await nombres_por_grupo(session, {(t.group_id, p.user_id) for p, t in filas})
     grupos = await _nombres(session, Group, {t.group_id for _, t in filas})
     categorias = await _nombres(
         session, Category, {t.category_id for _, t in filas if t.category_id}
@@ -276,7 +279,7 @@ async def pagos_rechazados(session: AsyncSession, ahora: datetime) -> int:
         desde = p.updated_at.isoformat()
         if (str(p.id), desde) in ya:
             continue
-        quien = nombres.get(p.user_id, "Alguien")
+        quien = nombres.get((t.group_id, p.user_id), "Alguien")
         donde = t.payee or categorias.get(t.category_id) or "un gasto"
         await notif.crear(
             session,

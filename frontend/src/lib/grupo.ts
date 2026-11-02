@@ -37,6 +37,12 @@ export interface PayerRow {
   status?: string
 }
 
+// Como se llama cada miembro en un grupo (0035): el alias que eligio ahi o, sin
+// alias, su nombre de Mango. Va en el SELECT de toda consulta que une
+// `group_members gm` con `member_profiles u`, para que el nombre sea el mismo en
+// todas las pantallas.
+export const NOMBRE_EN_GRUPO = "COALESCE(gm.alias, u.display_name)"
+
 export interface MiembroGrupo {
   user_id: string
   nombre: string

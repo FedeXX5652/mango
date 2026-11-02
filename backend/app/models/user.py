@@ -101,6 +101,9 @@ class GroupMember(Base, IdMixin):
     group_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("groups.id"), nullable=False)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     role: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'member'"))
+    # Como se llama esta persona en este grupo (1.12.1, 0035): lo elige cada uno
+    # para si y lo ve todo el grupo. NULL = su nombre de Mango.
+    alias: Mapped[str | None] = mapped_column(Text)
     joined_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
     )
@@ -114,6 +117,10 @@ class GroupMember(Base, IdMixin):
 
     __table_args__ = (
         CheckConstraint("role IN ('owner','member')", name="group_members_role_chk"),
+        CheckConstraint(
+            "alias IS NULL OR (alias = btrim(alias) AND length(alias) BETWEEN 1 AND 40)",
+            name="group_members_alias_chk",
+        ),
         UniqueConstraint("group_id", "user_id", name="group_members_uniq"),
     )
 

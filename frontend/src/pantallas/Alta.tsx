@@ -27,6 +27,7 @@ import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
 import { tipoDesdeParametro, type TipoMovimiento } from "@/lib/atajos"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
 import { PERSONAL, rutaEspacio } from "@/lib/espacios"
+import { NOMBRE_EN_GRUPO } from "@/lib/grupo"
 import { opcionesCuotas, repartirCuotas } from "@/lib/tarjeta"
 import { anunciar, textoGuardado } from "@/lib/anuncios"
 import { formatearFechaCorta, mesAnio } from "@/lib/fecha"
@@ -148,7 +149,7 @@ export function FormularioMovimiento({
   const [pagadores, setPagadores] = useState<ValorPagadores>(LO_PAGUE_YO)
   // Miembros del grupo elegido, para repartir el gasto (fase 3b.3).
   const { data: miembrosRows } = useQuery<{ user_id: string; display_name: string | null }>(
-    `SELECT gm.user_id, u.display_name FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
+    `SELECT gm.user_id, ${NOMBRE_EN_GRUPO} AS display_name FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
      WHERE gm.group_id = ? AND gm.deleted_at IS NULL`,
     [grupoId || ""],
   )

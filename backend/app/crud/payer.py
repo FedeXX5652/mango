@@ -18,11 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import DomainError
 from app.crud import notification as notif
 from app.crud._borrado import vivo
-from app.crud.group import membresia
+from app.crud.group import membresia, nombre_en_grupo
 from app.models.account import Account
 from app.models.category import Category
 from app.models.transaction import Transaction, TransactionPayer
-from app.models.user import Group, User
+from app.models.user import Group
 from app.schemas.payer import PayerCreate, PayerUpdate
 
 # El motivo del movimiento pendiente de quien pago (0032).
@@ -66,12 +66,13 @@ async def get_payer(
 async def _textos(session: AsyncSession, tx: Transaction) -> tuple[str | None, str, str]:
     """(nombre del grupo, quien lo cargo, donde: comercio o categoria)."""
     grupo = await session.get(Group, tx.group_id)
-    autor = await session.get(User, tx.owner_id)
+    # Como se llama en el grupo (0035), no su nombre de Mango.
+    autor = await nombre_en_grupo(session, tx.group_id, tx.owner_id)
     cat = await session.get(Category, tx.category_id) if tx.category_id else None
     donde = tx.payee or (cat.name if cat else "un gasto")
     return (
         grupo.name if grupo else None,
-        autor.display_name if autor else "Alguien",
+        autor or "Alguien",
         donde,
     )
 

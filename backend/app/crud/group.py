@@ -7,13 +7,13 @@ privado (cuenta, medio de pago) no viaja (ver ESPECIFICACION §3.10).
 
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
 from app.crud import notification as notif
 from app.crud.user import por_username
-from app.models.user import Group, GroupMember
+from app.models.user import Group, GroupMember, User
 from app.schemas.group import GroupCreate, GroupUpdate
 
 
@@ -185,3 +185,88 @@ async def remove_member(
     )
     await session.commit()
     return m
+
+
+ALIAS_MAX = 40
+
+
+async def set_alias(
+    session: AsyncSession, group_id: uuid.UUID, user_id: uuid.UUID, alias: str | None
+) -> GroupMember | None:
+    """Como se llama un miembro en el grupo (0035). Cada uno edita el suyo; vacio
+    vuelve a su nombre de Mango. None si no es miembro.
+
+    No puede ser el nombre con que ya figura otro miembro del grupo: dos "Ana" en
+    el balance no se distinguen."""
+    m = await membresia(session, group_id, user_id)
+    if m is None:
+        return None
+    limpio = (alias or "").strip() or None
+    if limpio is not None and len(limpio) > ALIAS_MAX:
+        raise DomainError(f"El nombre en el grupo puede tener hasta {ALIAS_MAX} caracteres")
+    if limpio is not None:
+        otros = await nombres_en_grupo(session, group_id, await _otros_miembros(session, m))
+        if any(n.casefold() == limpio.casefold() for n in otros.values()):
+            raise DomainError("Otro miembro del grupo ya se llama así")
+    m.alias = limpio
+    await session.commit()
+    await session.refresh(m)
+    return m
+
+
+async def _otros_miembros(session: AsyncSession, m: GroupMember) -> set[uuid.UUID]:
+    stmt = select(GroupMember.user_id).where(
+        GroupMember.group_id == m.group_id,
+        GroupMember.user_id != m.user_id,
+        GroupMember.deleted_at.is_(None),
+    )
+    return set((await session.execute(stmt)).scalars().all())
+
+
+async def nombres_por_grupo(
+    session: AsyncSession, pares: set[tuple[uuid.UUID, uuid.UUID]]
+) -> dict[tuple[uuid.UUID, uuid.UUID], str]:
+    """(grupo, usuario) -> como se llama en ese grupo: su alias o, sin alias, su
+    nombre de Mango (0035). Sirve tambien para quien ya se fue del grupo: los
+    avisos de lo que hizo antes lo nombran igual."""
+    if not pares:
+        return {}
+    stmt = (
+        select(GroupMember.group_id, User.id, func.coalesce(GroupMember.alias, User.display_name))
+        .select_from(User)
+        .join(GroupMember, GroupMember.user_id == User.id)
+        .where(
+            tuple_(GroupMember.group_id, GroupMember.user_id).in_(list(pares)),
+        )
+    )
+    nombres = {(g, u): n for g, u, n in (await session.execute(stmt)).all()}
+    # Quien nunca fue miembro (no deberia pasar): su nombre de Mango.
+    faltan = {u for g, u in pares if (g, u) not in nombres}
+    if faltan:
+        sueltos = dict(
+            (await session.execute(select(User.id, User.display_name).where(User.id.in_(faltan))))
+            .tuples()
+            .all()
+        )
+        for g, u in pares:
+            if (g, u) not in nombres and u in sueltos:
+                nombres[(g, u)] = sueltos[u]
+    return nombres
+
+
+async def nombres_en_grupo(
+    session: AsyncSession, group_id: uuid.UUID, user_ids: set[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """usuario -> como se llama en el grupo (ver `nombres_por_grupo`)."""
+    pares = await nombres_por_grupo(session, {(group_id, u) for u in user_ids})
+    return {u: n for (_, u), n in pares.items()}
+
+
+async def nombre_en_grupo(
+    session: AsyncSession, group_id: uuid.UUID | None, user_id: uuid.UUID
+) -> str | None:
+    """Como se llama alguien en un grupo; sin grupo, su nombre de Mango."""
+    if group_id is None:
+        user = await session.get(User, user_id)
+        return user.display_name if user else None
+    return (await nombres_en_grupo(session, group_id, {user_id})).get(user_id)

@@ -1,5 +1,5 @@
 import { useQuery } from "@powersync/react"
-import { UserPlus, X } from "lucide-react"
+import { Pencil, UserPlus, X } from "lucide-react"
 import { useState } from "react"
 
 import { EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
@@ -27,6 +27,9 @@ import { CargandoGrupo, GrupoNoEncontrado } from "@/pantallas/grupo/comun"
 interface Membresia {
   user_id: string
   role: string
+  // Como se llama en el grupo (0035) y su nombre de Mango, para decir quien es.
+  alias: string | null
+  nombre_mango: string | null
 }
 
 // Ajustes de un grupo (0026): lo que se ADMINISTRA, fuera de las pantallas de
@@ -37,7 +40,9 @@ export function AjustesGrupo() {
   const { miembros, nombre, miId } = useGrupo(id)
   const volver = useVolver(`/grupos/${id}`)
   const { data: membresias } = useQuery<Membresia>(
-    "SELECT user_id, role FROM group_members WHERE group_id = ? AND deleted_at IS NULL",
+    `SELECT gm.user_id, gm.role, gm.alias, u.display_name AS nombre_mango
+     FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
+     WHERE gm.group_id = ? AND gm.deleted_at IS NULL`,
     [id],
   )
   const [nombreNuevo, setNombreNuevo] = useState<string | null>(null)
@@ -57,6 +62,16 @@ export function AjustesGrupo() {
   const [error, setError] = useState("")
   const [errorAgregar, setErrorAgregar] = useState("")
   const [trabajando, setTrabajando] = useState(false)
+  // Mi nombre en este grupo (0035). Lo mandado se muestra hasta que baja por la
+  // sync, igual que el nombre del grupo.
+  const [editandoAlias, setEditandoAlias] = useState(false)
+  const [aliasTexto, setAliasTexto] = useState("")
+  const [aliasEnviado, setAliasEnviado] = useState<{
+    valor: string | null
+    antes: string | null
+  } | null>(null)
+  const [errorAlias, setErrorAlias] = useState("")
+  const [guardandoAlias, setGuardandoAlias] = useState(false)
   // Nombre, color y miembros los cambia el servidor: sin conexion se apagan y
   // se dice por que (DESIGN.md 7, "Estado sin conexion").
   const hayConexion = useConexion()
@@ -76,6 +91,44 @@ export function AjustesGrupo() {
   const colorActual =
     colorEnviado && grupo.color === colorEnviado.antes ? colorEnviado.valor : grupo.color
   const editando = nombreNuevo ?? nombreActual
+  const miFila = membresias.find((m) => m.user_id === miId)
+  const miNombreMango = miFila?.nombre_mango ?? ""
+  const miAlias =
+    aliasEnviado && (miFila?.alias ?? null) === aliasEnviado.antes
+      ? aliasEnviado.valor
+      : (miFila?.alias ?? null)
+  const aliasDe = (uid: string) =>
+    uid === miId ? miAlias : (membresias.find((m) => m.user_id === uid)?.alias ?? null)
+
+  function abrirAlias() {
+    setAliasTexto(miAlias ?? "")
+    setErrorAlias("")
+    setEditandoAlias(true)
+  }
+
+  async function guardarAlias() {
+    const limpio = aliasTexto.trim()
+    setGuardandoAlias(true)
+    setErrorAlias("")
+    try {
+      await api.editarMiAlias(id, limpio || null)
+      setAliasEnviado({ valor: limpio || null, antes: miFila?.alias ?? null })
+      setEditandoAlias(false)
+      anunciar(
+        limpio
+          ? `En ${nombreActual} ahora te llamás «${limpio}». Los demás lo ven en unos segundos.`
+          : `En ${nombreActual} volvés a figurar con tu nombre de Mango, ${miNombreMango}.`,
+      )
+    } catch (e) {
+      setErrorAlias(
+        e instanceof ApiError && e.status === 422
+          ? e.detalle
+          : "No se pudo guardar. ¿Hay conexión?",
+      )
+    } finally {
+      setGuardandoAlias(false)
+    }
+  }
 
   async function guardarNombre() {
     const limpio = editando.trim()
@@ -189,12 +242,36 @@ export function AjustesGrupo() {
         <ListaInset>
           {miembros.map((m) => (
             <FilaInset key={m.user_id} className="min-h-16">
-              <span className="min-w-0 truncate text-sm">
-                {nombre(m.user_id)}
-                {rolDe.get(m.user_id) === "owner" && (
-                  <span className="ml-2 text-xs text-muted-foreground">dueño</span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm">
+                  {m.user_id === miId
+                    ? miAlias || miNombreMango || nombre(m.user_id)
+                    : nombre(m.user_id)}
+                  {m.user_id === miId && (
+                    <span className="ml-2 text-xs text-muted-foreground">vos</span>
+                  )}
+                  {rolDe.get(m.user_id) === "owner" && (
+                    <span className="ml-2 text-xs text-muted-foreground">dueño</span>
+                  )}
+                </span>
+                {/* Con alias, quien es en Mango: si no, "Fefi" no le dice nada a
+                    quien recien entra. */}
+                {aliasDe(m.user_id) && (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    En Mango: {membresias.find((x) => x.user_id === m.user_id)?.nombre_mango ?? ""}
+                  </span>
                 )}
               </span>
+              {m.user_id === miId && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Cambiar tu nombre en ${nombreActual}`}
+                  onClick={abrirAlias}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden />
+                </Button>
+              )}
               {soyDueño && rolDe.get(m.user_id) !== "owner" && (
                 <Button
                   variant="ghost"
@@ -253,6 +330,48 @@ export function AjustesGrupo() {
             disabled={trabajando || !username.trim() || !hayConexion}
           >
             {trabajando ? "Agregando…" : "Agregar al grupo"}
+          </Button>
+        </div>
+      </Hoja>
+
+      <Hoja
+        abierta={editandoAlias}
+        onOpenChange={setEditandoAlias}
+        titulo={`Tu nombre en ${nombreActual}`}
+      >
+        <div className="space-y-3">
+          <Campo etiqueta="Cómo te llaman en este grupo">
+            <Input
+              value={aliasTexto}
+              onChange={(e) => setAliasTexto(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && hayConexion && !guardandoAlias) void guardarAlias()
+              }}
+              placeholder={miNombreMango}
+              maxLength={40}
+            />
+          </Campo>
+          <p className="text-sm text-muted-foreground">
+            Lo ven todos en {nombreActual}: en los gastos, el balance y los avisos. En tus otros
+            grupos no cambia. Vacío, se usa tu nombre de Mango
+            {miNombreMango ? ` (${miNombreMango})` : ""}.
+          </p>
+          {errorAlias && (
+            <p role="alert" className="text-sm text-destructive">
+              {errorAlias}
+            </p>
+          )}
+          {!hayConexion && (
+            <p className="text-sm text-muted-foreground">
+              Necesita conexión: lo guarda el servidor.
+            </p>
+          )}
+          <Button
+            className="w-full"
+            onClick={() => void guardarAlias()}
+            disabled={guardandoAlias || !hayConexion || aliasTexto.trim() === (miAlias ?? "")}
+          >
+            {guardandoAlias ? "Guardando…" : "Guardar"}
           </Button>
         </div>
       </Hoja>

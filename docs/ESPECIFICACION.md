@@ -1205,7 +1205,9 @@ Estadisticas) y un selector siempre a la vista. Un grupo vive en
 Movimientos del grupo los pagos entre miembros y los aportes a la conjunta van
 intercalados con los gastos; un gasto ajeno se ve en solo lectura (solo lo edita
 quien lo cargo). Administrar el grupo (nombre, color, miembros, reparto por
-defecto, categorias) esta en **Ajustes del grupo**.
+defecto, categorias) esta en **Ajustes del grupo**. Ahi tambien cada miembro
+elige **como se llama en ese grupo** (1.12.1, 0035): lo edita cada uno para si,
+lo ve todo el grupo (gastos, balance, avisos), y vacio es su nombre de Mango.
 
 El "+" carga en el espacio actual (`/grupos/<grupo>/nuevo`: compartido, con las
 categorias, las cuentas y el reparto del grupo). **Poner plata** en la conjunta

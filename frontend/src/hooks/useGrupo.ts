@@ -11,6 +11,7 @@ import {
   type SplitRow,
   type TxGrupo,
   EX_MIEMBRO,
+  NOMBRE_EN_GRUPO,
   historiaGrupo,
   resumenGrupo,
 } from "@/lib/grupo"
@@ -103,7 +104,7 @@ export function useGrupo(groupId: string) {
     display_name: string | null
     username: string | null
   }>(
-    `SELECT gm.user_id, u.display_name, u.username FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
+    `SELECT gm.user_id, ${NOMBRE_EN_GRUPO} AS display_name, u.username FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
      WHERE gm.group_id = ? AND gm.deleted_at IS NULL`,
     [groupId],
   )

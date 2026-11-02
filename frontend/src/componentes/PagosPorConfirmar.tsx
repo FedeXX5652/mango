@@ -10,6 +10,7 @@ import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { cotizacionDe } from "@/lib/conversion"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
+import { NOMBRE_EN_GRUPO } from "@/lib/grupo"
 import { useBloqueListo } from "@/hooks/bloquesListos"
 import { anunciar } from "@/lib/anuncios"
 
@@ -34,11 +35,12 @@ export interface PagoMio {
 
 export const SQL_PAGOS_MIOS = `
   SELECT t.id, t.amount, t.currency, COALESCE(t.payee, c.name) AS payee, t.status,
-         t.account_id, t.paid_for_id, u.display_name AS autor, g.amount AS total, g.group_id
+         t.account_id, t.paid_for_id, ${NOMBRE_EN_GRUPO} AS autor, g.amount AS total, g.group_id
   FROM transactions t
   LEFT JOIN categories c ON c.id = t.category_id
   LEFT JOIN group_transactions g ON g.id = t.paid_for_id
   LEFT JOIN member_profiles u ON u.id = g.owner_id
+  LEFT JOIN group_members gm ON gm.group_id = g.group_id AND gm.user_id = g.owner_id
   WHERE t.paid_for_id IS NOT NULL AND t.deleted_at IS NULL`
 
 // El rato para deshacer "No la pagué" (el servidor espera lo mismo, 0032).

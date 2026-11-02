@@ -1075,6 +1075,15 @@ historial en vez de apilarla.
 nombres que se truncan cada uno: el navegador los achicaba en proporcion y un
 nombre corto ("Vos") terminaba en "V…".
 
+### Nombre en el grupo
+
+Una persona se llama en cada grupo como eligio ahi (0035), y ese es el nombre en
+toda pantalla del grupo; "Vos" sigue siendo uno mismo. En Ajustes del grupo, la
+fila propia dice "vos" y tiene un lapiz ("Cambiar tu nombre en Casa") que abre
+una `Hoja` con el campo, el nombre de Mango de ejemplo y que se ve en todo el
+grupo. Una fila con alias muestra debajo, en `muted`, "En Mango: Ana López":
+sin eso, quien recien entra no sabe quien es "Fefi".
+
 ### Un monto no se parte
 
 `Monto` no se corta en dos lineas (`whitespace-nowrap`): en una columna angosta

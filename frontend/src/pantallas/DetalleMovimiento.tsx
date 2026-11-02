@@ -25,6 +25,7 @@ import { cotizacionDe, cotizacionLegible } from "@/lib/conversion"
 import { anunciar } from "@/lib/anuncios"
 import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { rutaEspacio } from "@/lib/espacios"
+import { NOMBRE_EN_GRUPO } from "@/lib/grupo"
 import {
   LO_PAGUE_YO,
   type PagadorGuardado,
@@ -124,7 +125,7 @@ export function DetalleMovimiento() {
 
   // Miembros del grupo y splits ya guardados, para editar el reparto (3b.3).
   const { data: miembrosRows } = useQuery<{ user_id: string; display_name: string | null }>(
-    `SELECT gm.user_id, u.display_name FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
+    `SELECT gm.user_id, ${NOMBRE_EN_GRUPO} AS display_name FROM group_members gm LEFT JOIN member_profiles u ON u.id = gm.user_id
      WHERE gm.group_id = ? AND gm.deleted_at IS NULL`,
     [tx?.group_id ?? ""],
   )

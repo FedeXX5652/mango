@@ -111,10 +111,8 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
     se reabre en otro modo del que se guardo; ofrecer la huella justo despues de
     crear el PIN; el error al no poder leer una cuenta compartida; probar a mano
     las escrituras que no paso la sonda (metas, deudas, cotizaciones a mano).
-  - **Pregunta abierta: nombre por grupo.** Que cada miembro tenga un alias en
-    cada grupo ("Mamá" en Familia, "Ana" en Casa). Falta decidir quien lo edita
-    (cada uno el suyo, o cualquiera el de todos) y si reemplaza al nombre en
-    todo el grupo o solo para quien lo puso.
+- ~~**1.12.1 - Nombre por grupo**~~ (hecho, 0035): cada miembro elige como se
+  llama en cada grupo; lo edita cada uno para si y lo ve todo el grupo.
 - **1.13.0 - Herramientas del grupo**: recurrentes, metas y plantillas del grupo
   con pantalla propia; y todo lo demas que tenga lo personal (deudas, etc).
 - **Contraer medios de pago** (posterior): borrar `payment_methods`,
