@@ -18,16 +18,19 @@ import {
   armarCalendario,
 } from "@/lib/recordatorios"
 import { useBloqueListo } from "@/hooks/bloquesListos"
+import { useNombresDeMiembros } from "@/hooks/useNombresDeMiembros"
 
 // "Próximos pagos" del Inicio (1.5.0, 0030): lo vencido sin marcar y lo que vence
 // en la semana, para marcarlo sin salir del Inicio. Si no hay nada, no se dibuja.
-// En el Inicio de un grupo, los del grupo (1.6.0, G1).
+// En el Inicio de un grupo, los del grupo (1.6.0, G1); en el personal, los mios y
+// los de mis grupos, cada uno con su grupo (1.13.0).
 
 const DIAS = 7
 const MAX_FILAS = 3
 
 export function TarjetaProximosPagos({ grupo }: { grupo?: string }) {
   const navigate = useNavigate()
+  const nombre = useNombresDeMiembros()
   const { data: recordatorios, isLoading: cargaRecordatorios } = useQuery<RecordatorioLocal>(
     grupo ? SQL_RECORDATORIOS_GRUPO : SQL_RECORDATORIOS,
     grupo ? [grupo] : [],
@@ -65,6 +68,8 @@ export function TarjetaProximosPagos({ grupo }: { grupo?: string }) {
             v={v}
             hoy={hoy}
             cuantos={cuantos}
+            nombre={nombre}
+            conGrupo={!grupo}
             onAbrir={setAbierto}
           />
         ))}
@@ -81,8 +86,16 @@ export function TarjetaProximosPagos({ grupo }: { grupo?: string }) {
           <AccionesVencimiento
             v={abierto}
             hoy={hoy}
+            nombre={nombre}
             onListo={() => setAbierto(null)}
-            onEditar={() => navigate(calendario)}
+            // A editarlo en el calendario de su espacio.
+            onEditar={() =>
+              navigate(
+                abierto.recordatorio.group_id
+                  ? `/grupos/${abierto.recordatorio.group_id}/calendario`
+                  : calendario,
+              )
+            }
           />
         )}
       </Hoja>

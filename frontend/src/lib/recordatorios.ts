@@ -48,6 +48,9 @@ export type RecordatorioLocal = Regla & {
   debt_id: string | null
   tarjeta: string | null
   deuda_con: string | null
+  // El grupo, para decir de cual es en lo personal (1.13.0).
+  grupo_nombre: string | null
+  grupo_color: string | null
 }
 
 export type CicloLocal = {
@@ -86,16 +89,20 @@ export type Calendario = {
 
 const SELECT_RECORDATORIOS = `
   SELECT r.*, t.name AS plantilla, t.amount AS monto, t.currency AS moneda,
-         COALESCE(ac.name, pm.name) AS tarjeta, d.counterparty AS deuda_con
+         COALESCE(ac.name, pm.name) AS tarjeta, d.counterparty AS deuda_con,
+         g.name AS grupo_nombre, g.color AS grupo_color
   FROM reminders r
+  LEFT JOIN groups g ON g.id = r.group_id
   LEFT JOIN templates t ON t.id = r.template_id AND t.deleted_at IS NULL
   LEFT JOIN accounts ac ON ac.id = r.account_id AND ac.deleted_at IS NULL
   LEFT JOIN payment_methods pm ON pm.id = r.payment_method_id AND pm.deleted_at IS NULL
   LEFT JOIN debts d ON d.id = r.debt_id AND d.deleted_at IS NULL
   WHERE r.deleted_at IS NULL`
 
-// Los personales. Los de un grupo se ven en el espacio del grupo (1.6.0, G1).
-export const SQL_RECORDATORIOS = `${SELECT_RECORDATORIOS} AND r.group_id IS NULL ORDER BY r.title`
+// Los de lo personal: los mios y los de mis grupos (1.13.0; hasta la 1.12 los de
+// un grupo se veian solo en el grupo, G1). Lo personal es todo lo que tengo que
+// pagar, como Movimientos muestra tambien lo cargado en un grupo.
+export const SQL_RECORDATORIOS = `${SELECT_RECORDATORIOS} ORDER BY r.title`
 
 // Los de un grupo (el parametro).
 export const SQL_RECORDATORIOS_GRUPO = `${SELECT_RECORDATORIOS} AND r.group_id = ? ORDER BY r.title`

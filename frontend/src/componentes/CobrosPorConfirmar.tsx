@@ -25,12 +25,16 @@ interface Cobro {
   category_id: string | null
 }
 
-export function CobrosPorConfirmar() {
+// En el Inicio de un grupo, los cobros de ese grupo (1.13.0, igual que en el
+// personal).
+export function CobrosPorConfirmar({ grupo }: { grupo?: string } = {}) {
   const db = usePowerSync()
   const { data: cobros, isLoading: cargaCobros } = useQuery<Cobro>(
     `SELECT id, amount, currency, payee, category_id FROM transactions
      WHERE status = 'pending' AND kind = 'income' AND settlement_id IS NOT NULL
+       ${grupo ? "AND settlement_id IN (SELECT id FROM settlements WHERE group_id = ?)" : ""}
        AND deleted_at IS NULL ORDER BY occurred_at DESC`,
+    grupo ? [grupo] : [],
   )
   const { data: cuentas } = useQuery<{ id: string; name: string; currency: string }>(
     "SELECT id, name, currency FROM accounts WHERE owner_id IS NOT NULL AND deleted_at IS NULL AND archived = 0 ORDER BY sort_order, name",

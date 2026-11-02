@@ -127,6 +127,8 @@ type Campos = Partial<Pick<Preferencias, "display_name" | "base_currency" | "the
   fx_dolar?: Record<string, Casa> | null
   // null = volver a los de fabrica.
   home_shortcuts?: string[] | null
+  // Los de cada grupo (1.13.0): {grupo: [ids]}. null = de fabrica en todos.
+  group_shortcuts?: Record<string, string[]> | null
   // "Más tarde" desde el botón del aviso (0030). null = 3 horas.
   snooze_default?: "1h" | "3h" | "manana" | null
 }
@@ -143,7 +145,7 @@ export async function guardarPreferencias(campos: Campos): Promise<void> {
   // Las listas y los objetos van como texto JSON (en SQLite no hay ni uno ni
   // otro); null queda null.
   const valores = entradas.map(([k, v]) =>
-    k === "fx_manual" || k === "home_shortcuts" || k === "fx_dolar"
+    k === "fx_manual" || k === "home_shortcuts" || k === "group_shortcuts" || k === "fx_dolar"
       ? v === null
         ? null
         : JSON.stringify(v)

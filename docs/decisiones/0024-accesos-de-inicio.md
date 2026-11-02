@@ -96,3 +96,22 @@ reinstalar la app o cambiar de teléfono no debería borrarla.
   PowerSync y la columna en el esquema local.
 - Tests: el catálogo y su edición (`accesos.test.ts`) y el ida y vuelta en la API
   con la forma que manda la sync (`test_users.py`).
+
+## Enmienda (1.13.0): los mismos accesos en cada grupo
+
+Un grupo funciona igual que lo personal (ESPECIFICACION 3.10). Sus accesos
+dejan de ser fijos: el mismo panel, la misma pantalla "Más"
+(`/grupos/<grupo>/accesos`) y el mismo editor, con el catalogo del grupo
+(`accesosDeGrupo` en `componentes/accesos.ts`, que reemplaza a
+`herramientasGrupo`). Los dos catalogos se ordenan en las mismas secciones
+(Acciones, Lugares, Configuración) y cada acceso dice para que sirve.
+
+- **Son de cada persona y de cada grupo**: `users.group_shortcuts`,
+  `{grupo: [ids]}` (migracion `cc484544619a`). Van en la fila de `users`, y no en
+  `group_members`, para que se editen sin conexion por la cola de sync, como
+  los personales (los miembros se escriben por la API). Un grupo sin clave usa
+  los de fabrica del grupo: Saldar, Poner plata, Calendario, Miembros.
+- Las acciones del grupo (saldar, poner y sacar plata) las resuelve
+  `useAccionesGrupo`, que usan el panel y "Más".
+- El mismo deploy lleva la columna en la regla de sync de `users`, el reinicio
+  de PowerSync y la columna en el esquema local.

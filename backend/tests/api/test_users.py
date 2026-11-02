@@ -102,3 +102,49 @@ async def test_accesos_con_forma_invalida_se_rechazan(api: SimpleNamespace) -> N
             f"/api/v1/users/{api.owner_id}", json={"home_shortcuts": malo}
         )
         assert resp.status_code == 422, malo
+
+
+# --- Accesos del Inicio de cada grupo (1.13.0) ---
+
+GRUPO_A = "3f2b9c1e-8d4a-4f6b-9e2d-1a7c5b8e0f13"
+GRUPO_B = "7a1d4e2f-5b3c-4d8e-a6f9-2c0b1e3d4a57"
+
+
+async def test_accesos_de_grupo_por_grupo_y_en_orden(api: SimpleNamespace) -> None:
+    mapa = {GRUPO_A: ["saldar", "calendario"], GRUPO_B: []}
+    resp = await api.client.patch(f"/api/v1/users/{api.owner_id}", json={"group_shortcuts": mapa})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["group_shortcuts"] == mapa
+    assert (await api.fila("users", api.owner_id))["group_shortcuts"] == mapa
+
+
+async def test_accesos_de_grupo_aceptan_el_json_de_la_sync(api: SimpleNamespace) -> None:
+    resp = await api.client.patch(
+        f"/api/v1/users/{api.owner_id}",
+        json={"group_shortcuts": f'{{"{GRUPO_A}": ["miembros"]}}'},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["group_shortcuts"] == {GRUPO_A: ["miembros"]}
+
+
+async def test_accesos_de_grupo_no_tocan_los_personales(api: SimpleNamespace) -> None:
+    await api.client.patch(f"/api/v1/users/{api.owner_id}", json={"home_shortcuts": ["metas"]})
+    resp = await api.client.patch(
+        f"/api/v1/users/{api.owner_id}", json={"group_shortcuts": {GRUPO_A: ["saldar"]}}
+    )
+    assert resp.json()["home_shortcuts"] == ["metas"]
+
+
+async def test_accesos_de_grupo_con_forma_invalida_se_rechazan(api: SimpleNamespace) -> None:
+    for malo in (
+        {"no-es-un-grupo": ["saldar"]},
+        {GRUPO_A.upper(): ["saldar"]},
+        {GRUPO_A: ["Saldar!"]},
+        {GRUPO_A: [f"a{i}" for i in range(13)]},
+        ["saldar"],
+        "no-json",
+    ):
+        resp = await api.client.patch(
+            f"/api/v1/users/{api.owner_id}", json={"group_shortcuts": malo}
+        )
+        assert resp.status_code == 422, malo

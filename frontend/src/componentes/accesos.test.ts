@@ -3,9 +3,17 @@ import { describe, expect, it } from "vitest"
 import {
   ACCESOS,
   DE_FABRICA,
+  DE_FABRICA_GRUPO,
   HERRAMIENTAS_ESCRITORIO,
+  HERRAMIENTAS_GRUPO_ESCRITORIO,
   MAX_EN_INICIO,
+  SECCIONES,
+  accesosDeGrupo,
   agregarAcceso,
+  catalogoDe,
+  conAccesosDeGrupo,
+  deFabricaDe,
+  mapaJson,
   moverAcceso,
   normalizarAccesos,
   quitarAcceso,
@@ -71,5 +79,50 @@ describe("editar", () => {
     expect(moverAcceso(["a", "b", "c"], "b", 1)).toEqual(["a", "c", "b"])
     expect(moverAcceso(["a", "b", "c"], "a", -1)).toEqual(["a", "b", "c"])
     expect(moverAcceso(["a", "b", "c"], "c", 1)).toEqual(["a", "b", "c"])
+  })
+})
+
+describe("el mismo sistema en un grupo (1.13.0)", () => {
+  const grupo = accesosDeGrupo("g1")
+  const espacioGrupo = { tipo: "grupo" as const, id: "g1" }
+
+  it("el catalogo del grupo cumple las mismas reglas que el personal", () => {
+    const ids = grupo.map((a) => a.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const a of grupo) {
+      expect(a.id).toMatch(/^[a-z0-9-]{1,40}$/)
+      expect(a.corta.length).toBeLessThanOrEqual(12)
+      expect(a.detalle).not.toBe("")
+    }
+    for (const id of [...DE_FABRICA_GRUPO, ...HERRAMIENTAS_GRUPO_ESCRITORIO])
+      expect(ids).toContain(id)
+    expect(DE_FABRICA_GRUPO).toHaveLength(MAX_EN_INICIO)
+  })
+
+  it("los dos espacios usan las mismas secciones, en el mismo orden", () => {
+    for (const catalogo of [ACCESOS, grupo])
+      for (const s of SECCIONES) expect(catalogo.some((a) => a.seccion === s.id)).toBe(true)
+  })
+
+  it("normaliza contra el catalogo de su espacio", () => {
+    expect(catalogoDe(espacioGrupo)).toEqual(grupo)
+    expect(normalizarAccesos(null, grupo, deFabricaDe(espacioGrupo))).toEqual(DE_FABRICA_GRUPO)
+    // "metas" es personal: en un grupo no existe.
+    expect(normalizarAccesos(["metas", "saldar"], grupo, DE_FABRICA_GRUPO)).toEqual(["saldar"])
+    expect(agregarAcceso([], "metas", grupo)).toEqual([])
+    expect(agregarAcceso([], "miembros", grupo)).toEqual(["miembros"])
+  })
+
+  it("cada grupo guarda los suyos sin tocar los de otro", () => {
+    const mapa = conAccesosDeGrupo({ g2: ["saldar"] }, "g1", ["calendario"])
+    expect(mapa).toEqual({ g2: ["saldar"], g1: ["calendario"] })
+    expect(conAccesosDeGrupo(mapa, "g1", null)).toEqual({ g2: ["saldar"] })
+  })
+
+  it("lee el mapa guardado y descarta lo que no tiene forma", () => {
+    expect(mapaJson('{"g1":["saldar"],"g2":"x"}')).toEqual({ g1: ["saldar"] })
+    expect(mapaJson("no-json")).toEqual({})
+    expect(mapaJson('["saldar"]')).toEqual({})
+    expect(mapaJson(null)).toEqual({})
   })
 })

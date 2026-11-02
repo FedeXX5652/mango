@@ -66,10 +66,12 @@ function useCuentas(): { cuentas: Cuenta[]; ultima: string } {
   return { cuentas, ultima: ultimas[0]?.account_id ?? cuentas[0]?.id ?? "" }
 }
 
-// La tarjeta del Inicio: lo que falta confirmar.
-export function PagosPorConfirmar() {
+// La tarjeta del Inicio: lo que falta confirmar. En el Inicio de un grupo, lo
+// de ese grupo (1.13.0, igual que en el personal).
+export function PagosPorConfirmar({ grupo }: { grupo?: string } = {}) {
   const { data: pagos, isLoading: cargaPagos } = useQuery<PagoMio>(
-    `${SQL_PAGOS_MIOS} AND t.status IN ('pending', 'rejected') ORDER BY t.occurred_at DESC`,
+    `${SQL_PAGOS_MIOS}${grupo ? " AND g.group_id = ?" : ""} AND t.status IN ('pending', 'rejected') ORDER BY t.occurred_at DESC`,
+    grupo ? [grupo] : [],
   )
   // Si no, aparece despues y empuja lo de abajo.
   useBloqueListo(cargaPagos)

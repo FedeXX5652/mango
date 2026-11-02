@@ -4,6 +4,24 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.13.0] - 2026-11-02
+
+### Cambiado
+
+- **Accesos iguales en lo personal y en cada grupo**: en un grupo también elegís
+  y ordenás tus cuatro accesos, y "Más" es la misma pantalla que en lo personal
+  (antes era una ventana distinta y sin editar). Los dos van en Acciones,
+  Lugares y Configuración, y cada uno dice para qué sirve. Los de cada grupo son
+  tuyos: los demás miembros eligen los suyos.
+- **El Inicio del grupo, en el mismo orden que el personal**: primero lo que hay
+  que confirmar y los próximos pagos, después el balance, los accesos, la cuenta
+  conjunta, el mes y los últimos movimientos.
+- **Tus próximos pagos incluyen los de tus grupos**: el calendario y la tarjeta
+  del Inicio personal muestran también lo que vence en tus grupos, con el nombre
+  del grupo. El calendario de cada grupo sigue con lo del grupo.
+- Lo que tenés que confirmar de un grupo (pagos y cobros) aparece también en el
+  Inicio de ese grupo.
+
 ## [1.12.2] - 2026-11-02
 
 ### Agregado

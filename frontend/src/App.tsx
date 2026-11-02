@@ -95,6 +95,8 @@ function Rutas() {
         <Route path="grupos/:grupo/ajustes" element={<AjustesGrupo />} />
         {/* El calendario de pagos del grupo (1.6.0, 0030 G1). */}
         <Route path="grupos/:grupo/calendario" element={<CalendarioGrupo />} />
+        {/* "Más" de los accesos del grupo: la misma pantalla que la personal (1.13.0). */}
+        <Route path="grupos/:grupo/accesos" element={<Accesos />} />
         <Route path="cuentas" element={<Cuentas />} />
         <Route path="categorias" element={<Categorias />} />
         {/* Los medios de pago se fueron (0034): la tarjeta es una cuenta. */}

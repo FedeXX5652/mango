@@ -1,32 +1,74 @@
 import { ChevronDown, ChevronRight, ChevronUp, Minus, Plus } from "lucide-react"
-import { useState } from "react"
-import { Link } from "react-router-dom"
+import { type ReactNode, useState } from "react"
+import { Link, useLocation } from "react-router-dom"
 
 import {
-  ACCESOS,
   type Acceso,
   MAX_EN_INICIO,
-  acceso,
+  SECCIONES,
   agregarAcceso,
+  catalogoDe,
   moverAcceso,
   quitarAcceso,
 } from "@/componentes/accesos"
 import { EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
+import { useAccionesGrupo } from "@/componentes/grupo/useAccionesGrupo"
 import { Button } from "@/componentes/ui/button"
 import { ListaInset } from "@/componentes/ui/listaInset"
 import { useAccesos } from "@/hooks/useAccesos"
+import { useGrupoDeRuta } from "@/hooks/useEspacio"
 import { useVolver } from "@/hooks/useVolver"
+import { type Espacio, PERSONAL, espacioDeRuta, rutaEspacio } from "@/lib/espacios"
+import { cn } from "@/lib/utils"
+import { CargandoGrupo, GrupoNoEncontrado } from "@/pantallas/grupo/comun"
 
 // "Más" del panel de Inicio (0024): todos los accesos, y la edicion de los
-// cuatro que van en Inicio. Se ordena con botones de subir/bajar y no
-// arrastrando: arrastrar en una lista que scrollea es impreciso con el dedo, y
-// WCAG 2.2 (2.5.7) pide una alternativa de un solo toque de todas formas.
+// cuatro que van en Inicio. La misma pantalla en Personal (`/accesos`) y en
+// cada grupo (`/grupos/<grupo>/accesos`, 1.13.0): antes la del grupo era una
+// hoja distinta y sin editar.
+//
+// Se ordena con botones de subir/bajar y no arrastrando: arrastrar en una lista
+// que scrollea es impreciso con el dedo, y WCAG 2.2 (2.5.7) pide una
+// alternativa de un solo toque de todas formas.
 export function Accesos() {
-  const volver = useVolver("/")
-  const { ids, guardar } = useAccesos()
-  const [editando, setEditando] = useState(false)
+  const espacio = espacioDeRuta(useLocation().pathname)
+  return espacio.tipo === "grupo" ? <AccesosDeGrupo /> : <PantallaAccesos espacio={PERSONAL} />
+}
 
-  const elegidos = ids.map((id) => acceso(id)).filter((a): a is Acceso => Boolean(a))
+function AccesosDeGrupo() {
+  const { id, grupo, cargando } = useGrupoDeRuta()
+  const acciones = useAccionesGrupo(id)
+  if (cargando) return <CargandoGrupo />
+  if (!grupo) return <GrupoNoEncontrado />
+  return (
+    <PantallaAccesos
+      espacio={{ tipo: "grupo", id }}
+      usar={acciones.usar}
+      motivo={acciones.motivo}
+      hojas={acciones.hojas}
+    />
+  )
+}
+
+function PantallaAccesos({
+  espacio,
+  usar,
+  motivo,
+  hojas,
+}: {
+  espacio: Espacio
+  usar?: (a: Acceso) => void
+  motivo?: (a: Acceso) => string | null
+  hojas?: ReactNode
+}) {
+  const volver = useVolver(rutaEspacio(espacio))
+  const { ids, guardar } = useAccesos(espacio)
+  const [editando, setEditando] = useState(false)
+  const catalogo = catalogoDe(espacio)
+
+  const elegidos = ids
+    .map((id) => catalogo.find((a) => a.id === id))
+    .filter((a): a is Acceso => Boolean(a))
   const lleno = ids.length >= MAX_EN_INICIO
 
   return (
@@ -108,21 +150,23 @@ export function Accesos() {
               </p>
             )}
             <ListaInset>
-              {ACCESOS.filter((a) => !ids.includes(a.id)).map((a) => (
-                <div key={a.id} className="flex items-center gap-3 px-4 py-2">
-                  <IconoAcceso a={a} />
-                  <span className="min-w-0 flex-1 break-words text-sm">{a.etiqueta}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Sumar ${a.etiqueta} a Inicio`}
-                    disabled={lleno}
-                    onClick={() => guardar(agregarAcceso(ids, a.id))}
-                  >
-                    <Plus className="h-4 w-4" aria-hidden />
-                  </Button>
-                </div>
-              ))}
+              {catalogo
+                .filter((a) => !ids.includes(a.id))
+                .map((a) => (
+                  <div key={a.id} className="flex items-center gap-3 px-4 py-2">
+                    <IconoAcceso a={a} />
+                    <span className="min-w-0 flex-1 break-words text-sm">{a.etiqueta}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Sumar ${a.etiqueta} a Inicio`}
+                      disabled={lleno}
+                      onClick={() => guardar(agregarAcceso(ids, a.id, catalogo))}
+                    >
+                      <Plus className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </div>
+                ))}
             </ListaInset>
           </section>
 
@@ -131,36 +175,62 @@ export function Accesos() {
           </Button>
         </>
       ) : (
-        <>
-          <Grupo titulo="Funciones" accesos={ACCESOS.filter((a) => a.grupo === "funciones")} />
-          <Grupo
-            titulo="Configuración"
-            accesos={ACCESOS.filter((a) => a.grupo === "configuracion")}
-          />
-        </>
+        SECCIONES.map((s) => {
+          const accesos = catalogo.filter((a) => a.seccion === s.id)
+          if (accesos.length === 0) return null
+          return (
+            <section key={s.id} className="space-y-3">
+              <h2 className="text-sm font-semibold text-muted-foreground">{s.titulo}</h2>
+              <ListaInset>
+                {accesos.map((a) => (
+                  <FilaAcceso key={a.id} a={a} usar={usar} motivo={motivo?.(a) ?? null} />
+                ))}
+              </ListaInset>
+            </section>
+          )
+        })
       )}
+      {hojas}
     </div>
   )
 }
 
-function Grupo({ titulo, accesos }: { titulo: string; accesos: Acceso[] }) {
+const FILA =
+  "flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+
+// Un lugar es un enlace; una accion, un boton. Cada uno dice para que sirve (o
+// por que no se puede usar ahora).
+function FilaAcceso({
+  a,
+  usar,
+  motivo,
+}: {
+  a: Acceso
+  usar?: (a: Acceso) => void
+  motivo: string | null
+}) {
+  const contenido = (
+    <>
+      <IconoAcceso a={a} />
+      <span className="min-w-0 flex-1">
+        <span className={cn("block text-sm font-medium", motivo && "text-muted-foreground")}>
+          {a.etiqueta}
+        </span>
+        <span className="block text-xs text-muted-foreground">{motivo ?? a.detalle}</span>
+      </span>
+      {!motivo && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />}
+    </>
+  )
+  if (a.to)
+    return (
+      <Link to={a.to} className={FILA}>
+        {contenido}
+      </Link>
+    )
   return (
-    <section className="space-y-3">
-      <h2 className="text-sm font-semibold text-muted-foreground">{titulo}</h2>
-      <ListaInset>
-        {accesos.map((a) => (
-          <Link
-            key={a.id}
-            to={a.to}
-            className="flex min-h-14 items-center gap-3 px-4 py-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-          >
-            <IconoAcceso a={a} />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">{a.etiqueta}</span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-          </Link>
-        ))}
-      </ListaInset>
-    </section>
+    <button type="button" disabled={motivo !== null} onClick={() => usar?.(a)} className={FILA}>
+      {contenido}
+    </button>
   )
 }
 

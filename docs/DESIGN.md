@@ -857,12 +857,20 @@ botones de icono y su `aria-label` ("Subir Metas de ahorro"). Nada de
 arrastrar: con el dedo, en una lista que scrollea, es impreciso, y WCAG 2.5.7 pide
 una alternativa igual.
 
-En un **grupo** los accesos son fijos (0026) y van como los personales, en cinco
-columnas: Saldar, Poner plata, Sacar plata, Calendario y **"Más"**, que abre la
-hoja "Todo lo del grupo" con todo lo que el grupo tiene (presupuesto,
-estadisticas, plantillas, categorias, etiquetas, miembros, ajustes; 1.12.0). La
-lista sale de un solo lugar (`herramientasGrupo`), asi el movil y el escritorio
-no se separan. Sacar plata sin cuenta conjunta queda apagado y dice por que.
+En un **grupo** es **lo mismo** (1.13.0): el mismo panel (`PanelAccesos`), la
+misma pantalla "Más" (`/grupos/<grupo>/accesos`) y el mismo editor; cada
+persona elige los suyos en cada grupo. Cambia solo el catalogo: el del grupo
+tiene acciones (Saldar, Poner y Sacar plata) y Miembros; el personal, Metas,
+Deudas, Cotizaciones. "Más" va en tres secciones en los dos espacios
+(**Acciones, Lugares, Configuración**) y cada fila dice para que sirve. Los dos
+catalogos viven en `componentes/accesos.ts`, asi el movil y el escritorio no se
+separan. Sacar plata sin cuenta conjunta queda apagado y dice por que; desde la
+baldosa, lo anuncia. Antes el del grupo era fijo y su "Más" una hoja sin editar.
+
+**El Inicio tiene los mismos bloques en el mismo orden** en Personal y en un
+grupo: lo que hay que confirmar, Próximos pagos, el numero principal (Resumen o
+Balance), Accesos (solo movil), las cuentas (o la conjunta), lo del mes o de los
+grupos, y Últimos movimientos.
 
 En **escritorio**, estando en un grupo, la barra lateral muestra las
 herramientas del grupo, no las personales: antes, tocar "Plantillas" desde un

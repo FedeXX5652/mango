@@ -94,7 +94,7 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   propia. Evaluar despues de los espacios de grupo (y si hace falta una vista
   "Todo" que sume patrimonios).
 
-## Plan 1.11.0 a 1.14.0 (2026-10-30, ampliado el 2026-11-02)
+## Plan 1.11.0 a 1.15.0 (2026-10-30, ampliado el 2026-11-02)
 
 - **1.11.0 - Tarjeta es una cuenta** (0034): tarjeta de credito como tipo de
   cuenta con brand, last4, closing_day, due_day, credit_limit; saldo en otra
@@ -116,19 +116,18 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
 - ~~**1.12.2 - Categorias y plantillas del grupo**~~ (hecho): Categorias
   personal sin las del grupo; la plantilla del grupo propone la ultima cuenta de
   quien paga (enmienda de 0030); iconos nuevos para madres e hijas.
-- **1.13.0 - Coherencia** (pedido del 2026-11-02): un grupo funciona igual que
-  lo personal, de a varios (ESPECIFICACION 3.10).
+- ~~**1.13.0 - Coherencia, Inicio y Accesos**~~ (hecho): accesos iguales en los
+  dos espacios, editables por persona y por grupo (enmienda de 0024); Inicio
+  del grupo en el orden del personal; lo personal muestra los pagos de los
+  grupos (G1 cambiado, 0030).
+- **1.14.0 - Coherencia, montos y categorias** (pedido del 2026-11-02):
   - **Selector de categoria nuevo**: hoja casi entera con buscador fijo,
     "Frecuentes" del espacio y una seccion por categoria madre con sus hijas en
     baldosas; la madre se elige con "(en general)".
   - **Calculadora en todos los montos**: `CampoMonto` que abre la calculadora en
     una ventana con titulo y "Listo" (en la computadora se escribe directo). El
     alta la sigue teniendo en pantalla. La cotizacion a mano no es un monto.
-  - **Accesos iguales en los dos espacios**: 4 elegidos y "Más", editables en
-    los dos; los del grupo, por persona y por grupo; el mismo "Más" en
-    secciones (Acciones, Lugares, Configuracion) con una linea de para que
-    sirve cada uno.
-- **1.14.0 - Herramientas del grupo**: recurrentes, metas y plantillas del grupo
+- **1.15.0 - Herramientas del grupo**: recurrentes, metas y plantillas del grupo
   con pantalla propia; y todo lo demas que tenga lo personal (deudas, etc).
 - **Etiquetas** (a ver con el usuario): propuestas Viaje, Reintegrable,
   Equipamiento, Juntadas.

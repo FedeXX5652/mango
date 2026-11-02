@@ -51,6 +51,7 @@ CREATE TABLE users (
     -- cliente (frontend/src/componentes/accesos.ts). NULL = los de fabrica.
     -- Viaja con la sync, como el tema (ver 0024).
     home_shortcuts  JSONB,
+    group_shortcuts JSONB,           -- {grupo: [ids]}: los accesos de cada grupo (1.13.0)
     -- Hasta cuando calla el boton "Mas tarde" del aviso push (0030): 1h, 3h o
     -- manana (a las 9). NULL = 3 horas. En la app se elige cada vez.
     snooze_default  TEXT,

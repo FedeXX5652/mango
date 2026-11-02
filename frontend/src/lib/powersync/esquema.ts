@@ -381,6 +381,8 @@ const users = new Table({
   // Accesos del panel de Inicio, en orden (0024). JSONB en Postgres: baja como
   // texto con el JSON adentro, igual que fx_manual. NULL = los de fabrica.
   home_shortcuts: column.text,
+  // Los del Inicio de cada grupo (1.13.0): JSON {grupo: [ids]}.
+  group_shortcuts: column.text,
   // "Más tarde" desde el botón del aviso (0030): 1h, 3h o manana. NULL = 3 horas.
   snooze_default: column.text,
   // El dolar de cada moneda (0031): {moneda: casa}, JSON en texto. NULL = MEP.

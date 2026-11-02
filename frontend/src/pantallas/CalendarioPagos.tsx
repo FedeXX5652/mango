@@ -14,6 +14,7 @@ import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { Hoja } from "@/componentes/ui/hoja"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { Segmentado } from "@/componentes/ui/segmentado"
+import { useNombresDeMiembros } from "@/hooks/useNombresDeMiembros"
 import { useVolver } from "@/hooks/useVolver"
 import { fechaISO } from "@/lib/fecha"
 import {
@@ -38,7 +39,8 @@ import { describir, siguiente } from "@/lib/repeticion"
 //
 // Con `grupo`, el calendario de un grupo (1.6.0, G1): sus recordatorios, que
 // avisan a todos y los responde cualquiera (dice quien). Las recurrentes son
-// personales: ahi no van.
+// personales: ahi no van. Sin `grupo`, lo personal: lo mio y lo de mis grupos,
+// cada uno con su grupo (1.13.0).
 
 type Vista = "proximos" | "todos"
 
@@ -46,11 +48,10 @@ const DIAS = 30
 
 export function CalendarioPagos({
   grupo,
-  nombreMiembro,
 }: {
   grupo?: { id: string; nombre: string; color: string | null }
-  nombreMiembro?: (id: string) => string
 } = {}) {
+  const nombreMiembro = useNombresDeMiembros()
   const volver = useVolver(grupo ? `/grupos/${grupo.id}` : "/accesos")
   const { data: recordatorios, isLoading } = useQuery<RecordatorioLocal>(
     grupo ? SQL_RECORDATORIOS_GRUPO : SQL_RECORDATORIOS,
@@ -100,6 +101,7 @@ export function CalendarioPagos({
       hoy={hoy}
       cuantos={cuantos}
       nombre={nombreMiembro}
+      conGrupo={!grupo}
       onAbrir={setAbierto}
     />
   )
@@ -225,7 +227,10 @@ export function CalendarioPagos({
           <FormularioRecordatorio
             key={editando === "nuevo" ? "nuevo" : editando.id}
             inicial={editando === "nuevo" ? undefined : editando}
-            grupo={grupo?.id}
+            // Uno de un grupo se edita en su grupo, aunque se abra desde lo personal.
+            grupo={
+              grupo?.id ?? (editando === "nuevo" ? undefined : (editando.group_id ?? undefined))
+            }
             onCerrar={() => setEditando(null)}
           />
         )}

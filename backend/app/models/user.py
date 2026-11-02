@@ -60,6 +60,10 @@ class User(Base, IdMixin, TimestampMixin):
     # NULL = los de fabrica. Viaja con la sync, como el tema: iguales en todos
     # los dispositivos.
     home_shortcuts: Mapped[list[str] | None] = mapped_column(JSONB(none_as_null=True))
+    # Los mismos accesos en el Inicio de cada grupo (1.13.0): {grupo: [ids]}.
+    # Son de cada persona, como los personales: en el mismo grupo, cada miembro
+    # tiene los suyos. Un grupo sin clave usa los de fabrica del grupo.
+    group_shortcuts: Mapped[dict[str, list[str]] | None] = mapped_column(JSONB(none_as_null=True))
 
     # "Mas tarde" desde el boton del aviso en Android (0030, R2): hasta cuando
     # calla. Ahi no se puede elegir (es un boton); en la app si. NULL = 3 horas.

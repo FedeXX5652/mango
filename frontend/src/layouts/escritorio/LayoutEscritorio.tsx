@@ -2,11 +2,12 @@ import { Plus, Settings2 } from "lucide-react"
 import { useState } from "react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
 
-import { HERRAMIENTAS_ESCRITORIO, acceso } from "@/componentes/accesos"
 import {
+  HERRAMIENTAS_ESCRITORIO,
   HERRAMIENTAS_GRUPO_ESCRITORIO,
-  herramientasGrupo,
-} from "@/componentes/grupo/herramientasGrupo"
+  acceso,
+  accesosDeGrupo,
+} from "@/componentes/accesos"
 import { DESTINOS, type Destino as DestinoNav } from "@/componentes/navegacion"
 import { Notificaciones } from "@/componentes/Notificaciones"
 import { SelectorEspacio } from "@/componentes/SelectorEspacio"
@@ -89,12 +90,14 @@ export function LayoutEscritorio() {
           {espacio.tipo === "grupo"
             ? // En un grupo, las del grupo (1.12.0): antes Plantillas o Metas
               // llevaban a lo personal sin avisar.
-              herramientasGrupo(espacio.id)
+              accesosDeGrupo(espacio.id)
                 .filter((h) => HERRAMIENTAS_GRUPO_ESCRITORIO.includes(h.id) && h.to)
                 .map((h) => <Destino key={h.id} to={h.to!} etiqueta={h.etiqueta} icono={h.icono} />)
             : HERRAMIENTAS_ESCRITORIO.map((id) => acceso(id))
                 .filter((a) => a !== undefined)
-                .map((a) => <Destino key={a.id} to={a.to} etiqueta={a.etiqueta} icono={a.icono} />)}
+                .map((a) => (
+                  <Destino key={a.id} to={a.to!} etiqueta={a.etiqueta} icono={a.icono} />
+                ))}
           <div className="mt-4">
             {DESTINOS.filter((d) => d.to === "/ajustes").map((d) => (
               <Destino key={d.to} {...d} />

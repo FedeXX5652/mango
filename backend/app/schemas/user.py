@@ -13,6 +13,11 @@ ColorScheme = Literal["light", "dark", "system"]
 # ("metas", "deudas"). El servidor no conoce el catalogo, solo cuida la forma.
 IdAcceso = Annotated[str, StringConstraints(pattern=r"^[a-z0-9-]{1,40}$")]
 
+# La clave de `group_shortcuts`: el id de un grupo, como texto (va a un JSONB, que
+# no acepta otra cosa de clave). Minusculas, como los genera el cliente.
+_UUID = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+IdGrupo = Annotated[str, StringConstraints(pattern=_UUID)]
+
 # El dolar con que se convierte cada moneda a pesos (0031).
 Casa = Literal["oficial", "mep", "blue", "tarjeta"]
 
@@ -32,6 +37,8 @@ class UserRead(BaseModel):
     fx_dolar: dict[str, str] | None = None
     # Accesos del panel de Inicio, en orden (0024). None = los de fabrica.
     home_shortcuts: list[str] | None
+    # Los de cada grupo (1.13.0): {grupo: [ids]}. None = los de fabrica en todos.
+    group_shortcuts: dict[str, list[str]] | None = None
     snooze_default: str | None = None
     created_at: datetime
     updated_at: datetime
@@ -56,10 +63,15 @@ class UserUpdate(BaseModel):
     # El tope de la pantalla (4) lo pone el cliente; aca solo un techo holgado,
     # para no tener que aflojar una validacion si el panel crece (0012).
     home_shortcuts: list[IdAcceso] | None = Field(default=None, max_length=12)
+    # Los del Inicio de cada grupo (1.13.0), con la misma forma por grupo. Llega
+    # como texto con el JSON, como los personales. Techo holgado de grupos.
+    group_shortcuts: dict[IdGrupo, Annotated[list[IdAcceso], Field(max_length=12)]] | None = Field(
+        default=None, max_length=100
+    )
     # Hasta cuando calla el boton "Mas tarde" del aviso (0030). NULL = 3 horas.
     snooze_default: Literal["1h", "3h", "manana"] | None = None
 
-    @field_validator("fx_manual", "home_shortcuts", "fx_dolar", mode="before")
+    @field_validator("fx_manual", "home_shortcuts", "group_shortcuts", "fx_dolar", mode="before")
     @classmethod
     def _lista_o_json(cls, v: Any) -> Any:
         if isinstance(v, str):

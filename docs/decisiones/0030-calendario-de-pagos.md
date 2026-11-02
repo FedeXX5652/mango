@@ -229,6 +229,10 @@ Plan aprobado el 2026-10-09, en incrementos. Lo que el usuario decidió ese día
 - **G1.** Los recordatorios de grupo se ven en el espacio del grupo: su
   calendario y la tarjeta de su Inicio. El calendario personal queda con lo
   personal (la regla de los espacios, 0026).
+  - **Cambiado en la 1.13.0** (pedido del usuario, 2026-11-02): lo personal
+    muestra tambien los de mis grupos, cada uno con su grupo en la linea de la
+    fecha, como Movimientos. Lo personal es todo lo que tengo que pagar. El
+    calendario del grupo sigue con lo del grupo.
 - **G2.** "Calendario" reemplaza a "Categorías" en los accesos fijos del grupo;
   Categorías sigue en Ajustes del grupo.
 - **G3.** "Más tarde" en un recordatorio de grupo calla solo a quien lo pidió.
@@ -322,8 +326,8 @@ de un recordatorio del grupo (incremento 5).
 - **Se ven en el espacio del grupo** (G1): `/grupos/<grupo>/calendario`, la
   tarjeta "Próximos pagos" del Inicio del grupo y el acceso **"Calendario"**,
   que reemplaza a "Categorías" (G2; Categorías sigue en Ajustes del grupo). El
-  calendario personal y su tarjeta quedan con lo personal. Las recurrentes son
-  personales: el del grupo no las muestra.
+  calendario personal y su tarjeta los muestran tambien desde la 1.13.0 (G1).
+  Las recurrentes son personales: el del grupo no las muestra.
 - **El calendario es una sección común de los espacios** (como Movimientos,
   0026): cambiar de espacio desde el calendario deja en el del otro, y en
   escritorio la herramienta "Calendario de pagos" de la barra lateral lleva al

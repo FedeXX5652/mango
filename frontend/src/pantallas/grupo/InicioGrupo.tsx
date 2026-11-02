@@ -3,7 +3,9 @@ import { ChevronRight, Settings } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 
+import { CobrosPorConfirmar } from "@/componentes/CobrosPorConfirmar"
 import { CuentaConjunta } from "@/componentes/CuentaConjunta"
+import { PagosPorConfirmar } from "@/componentes/PagosPorConfirmar"
 import { Monto } from "@/componentes/Monto"
 import { Notificaciones } from "@/componentes/Notificaciones"
 import { EncabezadoEspacio } from "@/componentes/SelectorEspacio"
@@ -11,6 +13,7 @@ import { AccesosGrupo } from "@/componentes/grupo/AccesosGrupo"
 import { BalanceGrupo } from "@/componentes/grupo/BalanceGrupo"
 import { FilaHistoria, HojaPago } from "@/componentes/grupo/Historia"
 import { TarjetaProximosPagos } from "@/componentes/recordatorios/TarjetaProximosPagos"
+import { ENLACE_SECCION } from "@/componentes/ui/enlaceSeccion"
 import { ListaInset } from "@/componentes/ui/listaInset"
 import { type PagoGrupo, armarHistoria, useGrupo } from "@/hooks/useGrupo"
 import { LS_ULTIMO_GRUPO } from "@/lib/atajos"
@@ -21,12 +24,10 @@ import { Esqueleto, PantallaLista } from "@/componentes/ui/cargando"
 import { useBloqueListo } from "@/hooks/bloquesListos"
 
 const MAX_ULTIMOS = 5
-const ENLACE =
-  "-my-3 inline-flex items-center gap-1 rounded-md py-3 text-sm font-medium text-enlace hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
-// Inicio de un grupo (0026): como quede yo y como saldar, como viene el mes, la
-// cuenta conjunta y lo ultimo que paso. Lo que antes era una sola pagina larga
-// quedo repartido en las cuatro pantallas del grupo.
+// Inicio de un grupo (0026), con los mismos bloques y en el mismo orden que el
+// personal (1.13.0): lo que hay que confirmar, lo que vence, como quede yo, los
+// accesos, la cuenta conjunta, como viene el mes y lo ultimo que paso.
 export function InicioGrupo() {
   const { id, grupo, cargando } = useGrupoDeRuta()
 
@@ -73,11 +74,16 @@ export function InicioGrupo() {
           </>
         }
       >
-        <BalanceGrupo groupId={id} />
-        <AccesosGrupo groupId={id} />
+        {/* El mismo orden que el Inicio personal (1.13.0): lo que hay que
+          confirmar, lo que vence, el numero principal, los accesos, las
+          cuentas y lo ultimo que paso. */}
+        <CobrosPorConfirmar grupo={id} />
+        <PagosPorConfirmar grupo={id} />
         <TarjetaProximosPagos grupo={id} />
-        <MesGrupo groupId={id} moneda={grupo.base_currency} />
+        <BalanceGrupo groupId={id} />
+        <AccesosGrupo groupId={id} className="lg:hidden" />
         <CuentaConjunta groupId={id} />
+        <MesGrupo groupId={id} moneda={grupo.base_currency} />
         <UltimosGrupo groupId={id} />
       </PantallaLista>
     </div>
@@ -124,11 +130,11 @@ function MesGrupo({ groupId, moneda }: { groupId: string; moneda: string }) {
         )}
       </p>
       <div className="flex flex-wrap gap-x-6 border-t border-border pt-1">
-        <Link to={rutaEspacio(espacio, "presupuesto")} className={ENLACE}>
+        <Link to={rutaEspacio(espacio, "presupuesto")} className={ENLACE_SECCION}>
           Presupuesto
           <ChevronRight className="h-4 w-4" aria-hidden />
         </Link>
-        <Link to={rutaEspacio(espacio, "estadisticas")} className={ENLACE}>
+        <Link to={rutaEspacio(espacio, "estadisticas")} className={ENLACE_SECCION}>
           Estadísticas
           <ChevronRight className="h-4 w-4" aria-hidden />
         </Link>
@@ -150,10 +156,13 @@ function UltimosGrupo({ groupId }: { groupId: string }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-muted-foreground">Lo último del grupo</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground">Últimos movimientos</h2>
         {items.length > 0 && (
-          <Link to={rutaEspacio({ tipo: "grupo", id: groupId }, "movimientos")} className={ENLACE}>
-            Ver todo
+          <Link
+            to={rutaEspacio({ tipo: "grupo", id: groupId }, "movimientos")}
+            className={ENLACE_SECCION}
+          >
+            Ver todos
             <ChevronRight className="h-4 w-4" aria-hidden />
           </Link>
         )}

@@ -3,10 +3,12 @@ import { Check, SkipForward } from "lucide-react"
 import { useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 
+import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { Monto } from "@/componentes/Monto"
 import { PagarTarjeta } from "@/componentes/PagarTarjeta"
 import { Button, botonVariants } from "@/componentes/ui/button"
 import { Input } from "@/componentes/ui/input"
+import type { NombreMiembro } from "@/hooks/useNombresDeMiembros"
 import { useTarjetas } from "@/hooks/useTarjetas"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { formatearFechaCorta } from "@/lib/fecha"
@@ -45,9 +47,9 @@ const ESTADO: Record<Exclude<EstadoCiclo, "pending">, string> = {
 }
 
 // En uno de grupo se dice quien lo respondio ("pagado por Beto", "por vos").
-function quienRespondio(v: Vencimiento, nombre?: (id: string) => string): string | undefined {
+function quienRespondio(v: Vencimiento, nombre?: NombreMiembro): string | undefined {
   if (!v.respondidoPor || !nombre || !v.recordatorio.group_id) return undefined
-  const n = nombre(v.respondidoPor)
+  const n = nombre(v.respondidoPor, v.recordatorio.group_id)
   return n === "Vos" ? "vos" : n
 }
 
@@ -56,14 +58,17 @@ export function FilaVencimiento({
   hoy,
   cuantos = 1,
   nombre,
+  conGrupo = false,
   onAbrir,
 }: {
   v: Vencimiento
   hoy: string
   // Vencidos sin responder de este recordatorio (se muestra el mas viejo).
   cuantos?: number
-  // El nombre de un miembro, en el calendario de un grupo.
-  nombre?: (id: string) => string
+  // Como se llama un miembro en su grupo: "pagado por Beto".
+  nombre?: NombreMiembro
+  // En lo personal, que tambien muestra los de los grupos (1.13.0): de cual es.
+  conGrupo?: boolean
   onAbrir: (v: Vencimiento) => void
 }) {
   const r = v.recordatorio
@@ -84,9 +89,24 @@ export function FilaVencimiento({
         </span>
         {/* La fecha va completa (dd/mm/aaaa): la linea puede bajar a dos. */}
         <span
-          className={cn("block text-xs", vencido ? "text-destructive" : "text-muted-foreground")}
+          className={cn(
+            "flex min-w-0 items-center gap-1 text-xs",
+            vencido ? "text-destructive" : "text-muted-foreground",
+          )}
         >
-          {detalle}
+          {/* El grupo, en la linea de la fecha, como en Movimientos. */}
+          {conGrupo && r.group_id && r.grupo_nombre && (
+            <>
+              <EtiquetaGrupo
+                variante="punto"
+                nombre={r.grupo_nombre}
+                color={r.grupo_color}
+                className="min-w-0 max-w-[45%] shrink-0"
+              />
+              <span aria-hidden>·</span>
+            </>
+          )}
+          <span className="min-w-0">{detalle}</span>
         </span>
       </span>
       <span className="flex shrink-0 items-center gap-2">
@@ -112,7 +132,7 @@ export function AccionesVencimiento({
   hoy: string
   onListo: () => void
   onEditar: () => void
-  nombre?: (id: string) => string
+  nombre?: NombreMiembro
 }) {
   const db = usePowerSync()
   const navigate = useNavigate()

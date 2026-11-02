@@ -22,6 +22,7 @@ import { type Direccion } from "@/lib/dinero"
 import { formatearFechaCorta } from "@/lib/fecha"
 import type { SaldoMoneda } from "@/lib/patrimonio"
 import { saldoCuenta } from "@/lib/saldos"
+import { PERSONAL } from "@/lib/espacios"
 import { cn } from "@/lib/utils"
 
 interface SaldoCuenta {
@@ -159,7 +160,7 @@ export function Inicio() {
 
             {/* Accesos (0024): lo que no esta en la barra, a un toque. Solo en el
               movil: en escritorio la barra lateral ya tiene todo. */}
-            <PanelAccesos className="lg:hidden" />
+            <PanelAccesos espacio={PERSONAL} className="lg:hidden" />
 
             {/* Cuentas: bloque 2x2 con las primeras segun el orden de Ajustes. */}
             <section className="space-y-3">

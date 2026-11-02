@@ -94,7 +94,8 @@ export function Ajustes() {
           escritorio, en la barra lateral. */}
       <Seccion titulo="Configuración">
         <ListaInset>
-          {ACCESOS.filter((a) => a.grupo === "configuracion").map((a) => (
+          {/* Sin "Ajustes": es esta pantalla. */}
+          {ACCESOS.filter((a) => a.seccion === "configuracion" && a.id !== "ajustes").map((a) => (
             <FilaInset key={a.id} to={a.to} chevron>
               <span className="flex min-w-0 items-center gap-3">
                 <Mosaico icono={a.icono} />

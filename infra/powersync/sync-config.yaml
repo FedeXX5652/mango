@@ -89,8 +89,9 @@ streams:
       # `home_shortcuts`: los accesos del panel de Inicio (0024).
       # `snooze_default`: hasta cuando calla el boton "Mas tarde" del aviso (0030).
       # `fx_dolar`: con que dolar se convierte cada moneda (0031).
+      # `group_shortcuts`: los accesos del Inicio de cada grupo (1.13.0).
       - SELECT id, display_name, base_currency, theme_id, color_scheme, fx_manual,
-               home_shortcuts, snooze_default, fx_dolar
+               home_shortcuts, snooze_default, fx_dolar, group_shortcuts
         FROM users WHERE id = auth.user_id()
 
   # Las cotizaciones son **compartidas y a proposito**: el dolar del 12/09 es el

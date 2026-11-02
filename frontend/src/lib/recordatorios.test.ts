@@ -61,6 +61,8 @@ function recordatorio(over: Partial<RecordatorioLocal> = {}): RecordatorioLocal 
     debt_id: null,
     tarjeta: null,
     deuda_con: null,
+    grupo_nombre: null,
+    grupo_color: null,
     ...over,
   }
 }
@@ -246,6 +248,7 @@ describe("contra el SQLite del dispositivo", () => {
       CREATE TABLE templates (id, name, amount, currency, deleted_at);
       CREATE TABLE payment_methods (id, name, deleted_at);
       CREATE TABLE debts (id, counterparty, deleted_at);
+      CREATE TABLE groups (id, name, color);
       CREATE TABLE reminder_cycles (id, owner_id, reminder_id, nominal_date, status,
                                     transaction_id, snoozed_until, deleted_at, snoozes);
     `)
@@ -366,17 +369,29 @@ describe("contra el SQLite del dispositivo", () => {
     ])
   })
 
-  it("los personales y los de un grupo, cada uno en su espacio", () => {
+  it("lo personal trae todo, con su grupo; el grupo, solo lo suyo (1.13.0)", () => {
     sq.exec(`
+      INSERT INTO groups VALUES ('casa', 'Casa', '#f00');
+      INSERT INTO groups VALUES ('otro', 'Club', NULL);
       INSERT INTO reminders VALUES ('r1', 'yo', 'Mío', NULL, NULL, NULL, NULL, NULL, NULL);
       INSERT INTO reminders VALUES ('r2', 'yo', 'Expensas', NULL, NULL, NULL, NULL, 'casa', NULL);
       INSERT INTO reminders VALUES ('r3', 'beto', 'Luz', NULL, NULL, NULL, NULL, 'casa', NULL);
-      INSERT INTO reminders VALUES ('r4', 'ana', 'Club', NULL, NULL, NULL, NULL, 'otro', NULL);
+      INSERT INTO reminders VALUES ('r4', 'ana', 'Cuota', NULL, NULL, NULL, NULL, 'otro', NULL);
     `)
-    const titulos = (sql: string, params: string[] = []) =>
-      (sq.prepare(sql).all(...params) as { title: string }[]).map((f) => f.title)
-    expect(titulos(SQL_RECORDATORIOS)).toEqual(["Mío"])
-    expect(titulos(SQL_RECORDATORIOS_GRUPO, ["casa"])).toEqual(["Expensas", "Luz"])
+    const filas = (sql: string, params: string[] = []) =>
+      (sq.prepare(sql).all(...params) as { title: string; grupo_nombre: string | null }[]).map(
+        (f) => [f.title, f.grupo_nombre],
+      )
+    expect(filas(SQL_RECORDATORIOS)).toEqual([
+      ["Cuota", "Club"],
+      ["Expensas", "Casa"],
+      ["Luz", "Casa"],
+      ["Mío", null],
+    ])
+    expect(filas(SQL_RECORDATORIOS_GRUPO, ["casa"])).toEqual([
+      ["Expensas", "Casa"],
+      ["Luz", "Casa"],
+    ])
   })
 
   it("más tarde en uno de grupo: solo mi clave del mapa", async () => {
