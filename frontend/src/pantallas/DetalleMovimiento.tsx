@@ -3,6 +3,7 @@ import { Scale, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
 
+import { CampoMonto } from "@/componentes/CampoMonto"
 import { Adjuntos } from "@/componentes/Adjuntos"
 import { BotonSalir } from "@/componentes/BotonSalir"
 import { EspacioDelMovimiento } from "@/componentes/EspacioDelMovimiento"
@@ -12,6 +13,7 @@ import { type PagoMio, SQL_PAGOS_MIOS, TuParte } from "@/componentes/PagosPorCon
 import { EtiquetaGrupo } from "@/componentes/EtiquetaGrupo"
 import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
 import { Button } from "@/componentes/ui/button"
+import { CampoNota } from "@/componentes/CampoNota"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Input } from "@/componentes/ui/input"
@@ -425,10 +427,10 @@ export function DetalleMovimiento() {
       </header>
 
       <Campo etiqueta={`Monto (${tx.currency})`}>
-        <Input
+        <CampoMonto
+          moneda={tx.currency}
           value={monto}
-          onChange={(e) => setMonto(e.target.value)}
-          inputMode="decimal"
+          onChange={setMonto}
           className="tabular text-lg"
         />
         <span className="text-xs text-muted-foreground">
@@ -440,11 +442,11 @@ export function DetalleMovimiento() {
           es informativa: se deduce del monto debitado (ver 0005). */}
       {monedaCuentaSel !== tx.currency && (
         <Campo etiqueta={`Monto debitado de la cuenta (${monedaCuentaSel})`}>
-          <Input
+          <CampoMonto
+            moneda={monedaCuentaSel}
             value={debitado}
-            onChange={(e) => setDebitado(e.target.value)}
+            onChange={setDebitado}
             placeholder="Lo que figura en el resumen"
-            inputMode="decimal"
             className="tabular"
           />
           <span className="text-xs text-muted-foreground">
@@ -567,9 +569,7 @@ export function DetalleMovimiento() {
         <Input type="datetime-local" value={cuando} onChange={(e) => setCuando(e.target.value)} />
       </Campo>
 
-      <Campo etiqueta="Notas">
-        <Input value={notas} onChange={(e) => setNotas(e.target.value)} />
-      </Campo>
+      <CampoNota valor={notas} onCambio={setNotas} />
 
       <Campo etiqueta="Etiquetas">
         <SelectorEtiquetas

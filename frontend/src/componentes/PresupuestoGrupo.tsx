@@ -2,11 +2,11 @@ import { usePowerSync, useQuery } from "@powersync/react"
 import { Plus, X } from "lucide-react"
 import { useMemo, useState } from "react"
 
+import { CampoMonto } from "@/componentes/CampoMonto"
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Hoja } from "@/componentes/ui/hoja"
-import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { anunciar } from "@/lib/anuncios"
 import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
@@ -134,6 +134,7 @@ export function PresupuestoGrupo({ groupId }: { groupId: string }) {
                       {editando === c.id ? (
                         <ToqueMonto
                           inicial={tope ? aTextoEditable(tope, moneda) : ""}
+                          moneda={moneda}
                           onGuardar={(v) => guardar(c.id, v, c.name)}
                           onCancelar={() => setEditando(null)}
                         />
@@ -232,10 +233,10 @@ function HojaAgregarTope({
           <SelectorCategoria categorias={candidatas} valor={catId} onCambio={setCatId} />
         </Campo>
         <Campo etiqueta={`Tope del mes (${moneda})`}>
-          <Input
+          <CampoMonto
+            moneda={moneda}
             value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            inputMode="decimal"
+            onChange={setMonto}
             placeholder="0"
             className="tabular"
           />
@@ -265,23 +266,27 @@ function inicioDeMes(primerDia: string): string {
 
 function ToqueMonto({
   inicial,
+  moneda,
   onGuardar,
   onCancelar,
 }: {
   inicial: string
+  moneda: string
   onGuardar: (v: string) => void
   onCancelar: () => void
 }) {
   const [v, setV] = useState(inicial)
   return (
     <span className="flex shrink-0 items-center gap-1">
-      <Input
+      <CampoMonto
+        moneda={moneda}
         value={v}
-        onChange={(e) => setV(e.target.value)}
-        inputMode="decimal"
+        onChange={setV}
         autoFocus
         placeholder="0"
-        className="tabular h-9 w-24 text-right"
+        contenedor="w-28"
+        compacto
+        className="tabular h-9 text-right"
         onKeyDown={(e) => {
           if (e.key === "Enter") onGuardar(v)
           if (e.key === "Escape") onCancelar()

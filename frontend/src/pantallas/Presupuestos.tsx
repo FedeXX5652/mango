@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { Cell, Pie, PieChart } from "recharts"
 
+import { CampoMonto } from "@/componentes/CampoMonto"
 import { Monto } from "@/componentes/Monto"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
 import { SelectorMoneda } from "@/componentes/SelectorMoneda"
@@ -22,7 +23,6 @@ import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Desplegable } from "@/componentes/ui/desplegable"
 import { Hoja } from "@/componentes/ui/hoja"
-import { Input } from "@/componentes/ui/input"
 import { Interruptor } from "@/componentes/ui/interruptor"
 import { CabeceraPestana } from "@/componentes/SelectorEspacio"
 import { useColoresTokens } from "@/hooks/useColoresTokens"
@@ -557,6 +557,18 @@ function FilaSobre({
     timerGuardado.current = window.setTimeout(() => setGuardado(false), 2000)
   }
   useEffect(() => () => window.clearTimeout(timerGuardado.current), [])
+  // Solo se avisa si cambio el monto: sin el aviso no se veia que paso nada.
+  function guardarAsignado(t: string) {
+    const c = Math.max(0, aCentavos(t, moneda) ?? 0)
+    const cambio = c !== asignadoSel
+    onAsignar(cat.id, c).then(
+      () => {
+        if (cambio) marcarGuardado()
+      },
+      () => anunciar("No se pudo guardar el monto asignado.", { importante: true }),
+    )
+    setTexto(fmtAsignado(c, moneda))
+  }
   // Resincroniza el input si la asignacion cambia por fuera (recurrente, otra
   // pestaña) y no lo estoy editando ahora mismo.
   useEffect(() => {
@@ -619,28 +631,20 @@ function FilaSobre({
           <span role="status" className="sr-only">
             {guardado ? `Asignado de ${cat.name} guardado` : ""}
           </span>
-          <Input
+          <CampoMonto
             ref={inputRef}
+            moneda={moneda}
+            titulo={`Asignado a ${cat.name}`}
             value={texto}
-            onChange={(e) => setTexto(e.target.value)}
+            onChange={setTexto}
             onFocus={() => setTexto(editableAsignado(asignadoSel, moneda))}
-            onBlur={() => {
-              const c = Math.max(0, aCentavos(texto, moneda) ?? 0)
-              // Se guarda al salir del campo: sin esto no se veia que paso nada.
-              // Solo se avisa si cambio el monto.
-              const cambio = c !== asignadoSel
-              onAsignar(cat.id, c).then(
-                () => {
-                  if (cambio) marcarGuardado()
-                },
-                () => anunciar("No se pudo guardar el monto asignado.", { importante: true }),
-              )
-              setTexto(fmtAsignado(c, moneda))
-            }}
+            // Se guarda al salir del campo, o al tocar Listo en la calculadora.
+            onBlur={() => guardarAsignado(texto)}
+            onListo={guardarAsignado}
             onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-            inputMode="decimal"
-            // `px-2`: en 360 px, con `px-3` "10.000,00" no entraba en el campo.
-            className="tabular h-11 px-2 text-right lg:h-8"
+            compacto
+            // `pl-2`: en 360 px, con `px-3` "10.000,00" no entraba en el campo.
+            className="tabular h-11 pl-2 text-right lg:h-8"
             aria-label="Asignado"
           />
         </div>
@@ -753,12 +757,7 @@ function FormAgregar({
         />
       </Campo>
       <Campo etiqueta="Asignación de este mes (opcional)">
-        <Input
-          value={monto}
-          onChange={(e) => setMonto(e.target.value)}
-          inputMode="decimal"
-          placeholder="0"
-        />
+        <CampoMonto moneda={moneda} value={monto} onChange={setMonto} placeholder="0" />
       </Campo>
       <div className="flex min-h-11 items-center justify-between gap-3 text-sm">
         <span>Sobre de ahorro (el saldo acumula mes a mes)</span>

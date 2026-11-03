@@ -2,6 +2,7 @@ import { usePowerSync, useQuery } from "@powersync/react"
 import { ChevronRight, Target } from "lucide-react"
 import { useMemo, useState } from "react"
 
+import { CampoMonto } from "@/componentes/CampoMonto"
 import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
 import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
@@ -240,10 +241,10 @@ function FormularioMeta({
       </Campo>
       <div className="grid grid-cols-2 gap-3">
         <Campo etiqueta={`Objetivo (${moneda})`}>
-          <Input
+          <CampoMonto
+            moneda={moneda}
             value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            inputMode="decimal"
+            onChange={setMonto}
             className="tabular"
             placeholder="500000"
           />

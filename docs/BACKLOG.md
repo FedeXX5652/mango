@@ -120,13 +120,10 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   dos espacios, editables por persona y por grupo (enmienda de 0024); Inicio
   del grupo en el orden del personal; lo personal muestra los pagos de los
   grupos (G1 cambiado, 0030).
-- **1.14.0 - Coherencia, montos y categorias** (pedido del 2026-11-02):
-  - **Selector de categoria nuevo**: hoja casi entera con buscador fijo,
-    "Frecuentes" del espacio y una seccion por categoria madre con sus hijas en
-    baldosas; la madre se elige con "(en general)".
-  - **Calculadora en todos los montos**: `CampoMonto` que abre la calculadora en
-    una ventana con titulo y "Listo" (en la computadora se escribe directo). El
-    alta la sigue teniendo en pantalla. La cotizacion a mano no es un monto.
+- ~~**1.14.0 - Montos y categorias**~~ (hecho): `SelectorCategoria` con
+  frecuentes y madres como titulo; `CampoMonto` con la calculadora del alta en
+  todos los montos (tambien los chicos de una fila); comercios sugeridos por
+  uso; `CampoNota`.
 - **1.15.0 - Herramientas del grupo**: recurrentes, metas y plantillas del grupo
   con pantalla propia; y todo lo demas que tenga lo personal (deudas, etc).
 - **Etiquetas** (a ver con el usuario): propuestas Viaje, Reintegrable,

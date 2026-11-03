@@ -1,11 +1,11 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { useState } from "react"
 
+import { CampoMonto } from "@/componentes/CampoMonto"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
 import { Hoja } from "@/componentes/ui/hoja"
-import { Input } from "@/componentes/ui/input"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
@@ -125,12 +125,7 @@ export function SaldarPago({
         )}
 
         <Campo etiqueta="Monto a saldar">
-          <Input
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            inputMode="decimal"
-            className="tabular"
-          />
+          <CampoMonto moneda={currency} value={monto} onChange={setMonto} className="tabular" />
           <p className="mt-1 text-xs text-muted-foreground">
             Podés saldar una parte: dejá menos que el total.
           </p>

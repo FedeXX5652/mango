@@ -2,6 +2,7 @@ import { usePowerSync, useQuery } from "@powersync/react"
 import { Pause, Play, Repeat, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 
+import { CampoMonto } from "@/componentes/CampoMonto"
 import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { Vacio } from "@/componentes/Vacio"
 import { Button } from "@/componentes/ui/button"
@@ -16,7 +17,7 @@ import { useVolver } from "@/hooks/useVolver"
 import { formatearFechaCorta } from "@/lib/fecha"
 import { generarVencidas, textoGenerado } from "@/lib/generar"
 import { ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
-import { aCentavos, formatearMonto } from "@/lib/dinero"
+import { aCentavos, formatearMonto, monedaBase } from "@/lib/dinero"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 
@@ -295,12 +296,7 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
           </Select>
         </Campo>
         <Campo etiqueta="Monto">
-          <Input
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            inputMode="decimal"
-            placeholder="0"
-          />
+          <CampoMonto moneda={monedaBase()} value={monto} onChange={setMonto} placeholder="0" />
         </Campo>
       </div>
 

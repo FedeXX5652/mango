@@ -1,6 +1,7 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { useMemo, useState } from "react"
 
+import { CampoMonto } from "@/componentes/CampoMonto"
 import { Calculadora } from "@/componentes/Calculadora"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Button } from "@/componentes/ui/button"
@@ -251,10 +252,10 @@ export function PagarTarjeta({
 
         {cruza && origen && (
           <Campo etiqueta={`Monto debitado de ${origen.name} (${origen.currency})`}>
-            <Input
+            <CampoMonto
+              moneda={origen.currency}
               value={debitado}
-              onChange={(e) => setEscrito(e.target.value)}
-              inputMode="decimal"
+              onChange={setEscrito}
               className="tabular"
               placeholder="Lo que figura en el resumen del banco"
             />

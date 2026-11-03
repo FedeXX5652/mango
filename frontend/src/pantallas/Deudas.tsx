@@ -3,6 +3,7 @@ import { BellPlus, BellRing, HandCoins } from "lucide-react"
 import { useState } from "react"
 import { useSearchParams } from "react-router-dom"
 
+import { CampoMonto } from "@/componentes/CampoMonto"
 import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
 import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
@@ -243,10 +244,10 @@ function HojaDeuda({
             {deuda.due_date ? ` · vence ${formatearFechaCorta(deuda.due_date)}` : ""}.
           </p>
           <Campo etiqueta={`Monto a saldar (${deuda.currency})`}>
-            <Input
+            <CampoMonto
+              moneda={deuda.currency}
               value={monto}
-              onChange={(e) => setMonto(e.target.value)}
-              inputMode="decimal"
+              onChange={setMonto}
               className="tabular"
             />
           </Campo>
@@ -338,12 +339,7 @@ function FormularioDeuda({ onCerrar }: { onCerrar: () => void }) {
       </Campo>
       <div className="grid grid-cols-2 gap-3">
         <Campo etiqueta="Monto (ARS)">
-          <Input
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            inputMode="decimal"
-            className="tabular"
-          />
+          <CampoMonto moneda={"ARS"} value={monto} onChange={setMonto} className="tabular" />
         </Campo>
         <Campo etiqueta="Vence (opcional)">
           <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />

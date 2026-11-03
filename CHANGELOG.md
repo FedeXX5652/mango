@@ -4,6 +4,22 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.14.0] - 2026-11-03
+
+### Cambiado
+
+- **Elegir la categoría es más rápido**: arriba están tus más usadas, el
+  buscador queda fijo y cada categoría madre es el título de su sección (para
+  elegirla está "Comida (en general)"). Es el mismo selector en el alta, el
+  detalle, las plantillas, las recurrentes y los topes.
+- **La calculadora, en todos los montos**: al lado de cada monto (metas, deudas,
+  topes, sobres, saldos, plantillas, recurrentes, saldar, quién pagó) hay un
+  botón que abre la misma calculadora del alta.
+- **Comercios sugeridos por uso**: al escribir el comercio, primero aparecen los
+  que usaste con esa categoría y los más usados.
+- **La nota, cuando la necesitás**: va detrás de "Agregar nota"; si el
+  movimiento tiene nota, se ve abierta.
+
 ## [1.13.0] - 2026-11-02
 
 ### Cambiado

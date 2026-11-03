@@ -844,6 +844,22 @@ area vacia un instante y no aporta nada (decision 0008).
 
 ---
 
+### Montos, categoria, comercio y nota (1.14.0)
+
+- **Un monto** fuera del alta es `CampoMonto`: se escribe directo y el boton de
+  calculadora abre la **misma** `Calculadora` del alta en una hoja con "Listo".
+  Una sola forma de calcular en toda la app. En los campos chicos de una fila
+  (reparto por persona, tope o asignado de cada sobre) va `compacto`, y el que
+  guarda solo recibe lo calculado con `onListo`. La cotizacion a mano no lleva:
+  no es un monto.
+- **La categoria** se elige con `SelectorCategoria` en todos lados: buscador fijo
+  arriba, "Frecuentes" (las 6 mas usadas del espacio en el ultimo año), y cada
+  madre con hijas es el titulo de su seccion; la madre se elige a proposito con
+  "Comida (en general)".
+- **El comercio** dice donde (un lugar real); sus sugerencias van por uso, primero
+  las usadas con la categoria elegida. **La nota** es lo demas y va detras de
+  "Agregar nota" (`CampoNota`) mientras este vacia.
+
 ### Accesos de Inicio
 
 El panel de Inicio en el movil (0024): **cuatro baldosas y "Más"**, en cinco

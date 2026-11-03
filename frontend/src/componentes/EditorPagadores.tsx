@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 
-import { Input } from "@/componentes/ui/input"
+import { CampoMonto } from "@/componentes/CampoMonto"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
 import { LO_PAGUE_YO, type ValorPagadores } from "@/lib/pagadores"
@@ -120,14 +120,16 @@ export function EditorPagadores({
                     </span>
                   )}
                 </label>
-                <Input
+                <CampoMonto
                   id={id}
+                  moneda={moneda}
                   value={textos[f.clave] ?? ""}
-                  onChange={(e) => setTextos((t) => ({ ...t, [f.clave]: e.target.value }))}
-                  inputMode="decimal"
+                  onChange={(v) => setTextos((t) => ({ ...t, [f.clave]: v }))}
                   placeholder="0"
                   aria-invalid={montos[f.clave] < 0 || undefined}
-                  className="tabular w-32 text-right"
+                  contenedor="w-32 shrink-0"
+                  compacto
+                  className="tabular text-right"
                 />
               </div>
             )

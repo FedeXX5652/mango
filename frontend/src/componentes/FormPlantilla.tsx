@@ -1,6 +1,7 @@
 import { usePowerSync, useQuery } from "@powersync/react"
 import { useMemo, useState } from "react"
 
+import { CampoMonto } from "@/componentes/CampoMonto"
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Button } from "@/componentes/ui/button"
@@ -8,7 +9,7 @@ import { Campo } from "@/componentes/ui/campo"
 import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
-import { aCentavos, aTextoEditable } from "@/lib/dinero"
+import { aCentavos, aTextoEditable, monedaBase } from "@/lib/dinero"
 import { TIPOS_PLANTILLA } from "@/lib/plantillas"
 import { uuidv4 } from "@/lib/uuid"
 import { anunciar } from "@/lib/anuncios"
@@ -165,10 +166,10 @@ export function FormPlantilla({
           </Campo>
         )}
         <Campo etiqueta={grupo ? `Monto (${grupo.moneda}, opcional)` : "Monto (opcional)"}>
-          <Input
+          <CampoMonto
+            moneda={grupo?.moneda ?? monedaBase()}
             value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            inputMode="decimal"
+            onChange={setMonto}
             placeholder="0"
           />
         </Campo>

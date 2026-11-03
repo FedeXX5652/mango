@@ -2,11 +2,11 @@ import { usePowerSync, useQuery } from "@powersync/react"
 import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 
+import { CampoMonto } from "@/componentes/CampoMonto"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
 import { Button } from "@/componentes/ui/button"
 import { Desplegable, useSalida } from "@/componentes/ui/desplegable"
 import { Insignia } from "@/componentes/ui/insignia"
-import { Input } from "@/componentes/ui/input"
 import { FilaInset, ListaInset } from "@/componentes/ui/listaInset"
 import { cotizacionDe } from "@/lib/conversion"
 import { aCentavos, formatearMonto } from "@/lib/dinero"
@@ -256,10 +256,10 @@ export function TuParte({
         onCambio={setCuentaElegida}
       />
       {difieren && (
-        <Input
+        <CampoMonto
+          moneda={cuenta!.currency}
           value={debitado}
-          onChange={(e) => setDebitado(e.target.value)}
-          inputMode="decimal"
+          onChange={setDebitado}
           aria-label={`Cuánto salió de la cuenta, en ${cuenta!.currency}`}
           placeholder={`Cuánto salió, en ${cuenta!.currency}`}
           className="tabular"

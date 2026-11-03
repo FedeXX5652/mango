@@ -2,6 +2,7 @@ import { usePowerSync, useQuery } from "@powersync/react"
 import { ArrowUpDown, BellRing, ChevronDown, ChevronUp, Scale, Wallet } from "lucide-react"
 import { useMemo, useState } from "react"
 
+import { CampoMonto } from "@/componentes/CampoMonto"
 import { AccionesEdicion, AccionesFila } from "@/componentes/AccionesEdicion"
 import { AjustarSaldo } from "@/componentes/AjustarSaldo"
 import { BotonNuevo, EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
@@ -690,11 +691,11 @@ function FormularioCuenta({
             avisar.
           </p>
           <Campo etiqueta={`Límite (opcional, ${currency.toUpperCase()})`}>
-            <Input
+            <CampoMonto
+              moneda={currency.toUpperCase()}
               value={limite}
-              onChange={(e) => setLimite(e.target.value)}
+              onChange={setLimite}
               placeholder="Para ver cuánto te queda disponible"
-              inputMode="decimal"
               className="tabular"
             />
           </Campo>
@@ -712,11 +713,11 @@ function FormularioCuenta({
             : "Saldo inicial (opcional)"
         }
       >
-        <Input
+        <CampoMonto
+          moneda={currency.toUpperCase()}
           value={apertura}
-          onChange={(e) => setApertura(e.target.value)}
+          onChange={setApertura}
           placeholder="0"
-          inputMode="decimal"
         />
       </Campo>
       {/* Binario: Interruptor, no checkbox nativo (DESIGN.md 7; el nativo media 13 px). */}

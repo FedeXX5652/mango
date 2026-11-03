@@ -3,6 +3,7 @@ import { Files, X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
+import { CampoMonto } from "@/componentes/CampoMonto"
 import { Calculadora } from "@/componentes/Calculadora"
 import { EditorPagadores } from "@/componentes/EditorPagadores"
 import { EditorSplit, type ValorSplit } from "@/componentes/EditorSplit"
@@ -12,6 +13,7 @@ import { SelectorEtiquetas } from "@/componentes/SelectorEtiquetas"
 import { SelectorMoneda } from "@/componentes/SelectorMoneda"
 import { type PagoDeCiclo } from "@/componentes/recordatorios/Vencimiento"
 import { Button, botonVariants } from "@/componentes/ui/button"
+import { CampoNota } from "@/componentes/CampoNota"
 import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
@@ -115,10 +117,6 @@ export function FormularioMovimiento({
   const { data: categorias } = useQuery<CategoriaLocal>(
     `SELECT id, name, kind, parent_id, icon, group_id FROM categories WHERE deleted_at IS NULL AND archived = 0 AND ${SIN_AJUSTE}`,
   )
-  const { data: comerciosRows } = useQuery<{ payee: string }>(
-    "SELECT DISTINCT payee FROM transactions WHERE payee IS NOT NULL AND deleted_at IS NULL ORDER BY payee",
-  )
-  const comercios = comerciosRows.map((r) => r.payee)
   const { data: plantillas } = useQuery<PlantillaLocal>(
     "SELECT id, group_id, name, kind, account_id, category_id, amount, currency, payee, notes FROM templates WHERE deleted_at IS NULL ORDER BY sort_order, name",
   )
@@ -134,6 +132,16 @@ export function FormularioMovimiento({
   const [notas, setNotas] = useState("")
   const [cuando, setCuando] = useState(ahoraLocal)
   const [etiquetas, setEtiquetas] = useState<string[]>([])
+  // Los comercios que se sugieren al escribir (1.14.0): primero los usados con
+  // la categoria elegida y, entre ellos, los mas usados. Antes eran todos en
+  // orden alfabetico, cientos. Sin tope: el navegador
+  // filtra por lo escrito, y uno raro tiene que poder aparecer.
+  const { data: comerciosRows } = useQuery<{ payee: string }>(
+    `SELECT payee FROM transactions WHERE payee IS NOT NULL AND deleted_at IS NULL
+     GROUP BY payee ORDER BY SUM(category_id = ?) DESC, COUNT(*) DESC, MAX(occurred_at) DESC`,
+    [categoriaId],
+  )
+  const comercios = comerciosRows.map((r) => r.payee)
   // Algo escrito que se perderia al cerrar.
   const sucio =
     centavos > 0 || comercio.trim() !== "" || notas.trim() !== "" || etiquetas.length > 0
@@ -567,11 +575,11 @@ export function FormularioMovimiento({
 
       {difieren && (
         <Campo etiqueta={`Monto debitado de la cuenta (${monedaCuenta})`}>
-          <Input
+          <CampoMonto
+            moneda={monedaCuenta}
             value={debitado}
-            onChange={(e) => setDebitado(e.target.value)}
+            onChange={setDebitado}
             placeholder="Lo que figura en el resumen"
-            inputMode="decimal"
             className="tabular"
           />
           {/* La cotizacion se muestra, no se pide: el dato del resumen es el
@@ -709,9 +717,7 @@ export function FormularioMovimiento({
             />
           </Campo>
 
-          <Campo etiqueta="Notas (opcional)">
-            <Input value={notas} onChange={(e) => setNotas(e.target.value)} />
-          </Campo>
+          <CampoNota valor={notas} onCambio={setNotas} />
 
           <Campo etiqueta="Etiquetas (opcional)">
             <SelectorEtiquetas
