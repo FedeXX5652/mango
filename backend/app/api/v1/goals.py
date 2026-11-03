@@ -1,4 +1,4 @@
-"""Rutas de metas de ahorro (fase 5). CRUD plano."""
+"""Rutas de metas de ahorro (fase 5), personales o de un grupo (1.15.0)."""
 
 import uuid
 
@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user_id
+from app.core.errors import DomainError
 from app.crud import goal as crud
 from app.db import get_session
 from app.schemas.goal import GoalCreate, GoalRead, GoalUpdate
@@ -21,7 +22,12 @@ async def create_goal(
     session: AsyncSession = Depends(get_session),
     owner_id: uuid.UUID = Depends(get_current_user_id),
 ) -> GoalRead:
-    return await crud.create_goal(session, owner_id, data)
+    try:
+        return await crud.create_goal(session, owner_id, data)
+    except DomainError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
 
 
 @router.patch("/{goal_id}", response_model=GoalRead)
@@ -34,7 +40,12 @@ async def update_goal(
     goal = await crud.get_goal(session, owner_id, goal_id)
     if goal is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
-    return await crud.update_goal(session, goal, data)
+    try:
+        return await crud.update_goal(session, owner_id, goal, data)
+    except DomainError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
 
 
 @router.delete("/{goal_id}", status_code=status.HTTP_204_NO_CONTENT)

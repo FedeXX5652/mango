@@ -5,7 +5,7 @@ import { Input } from "@/componentes/ui/input"
 import { Interruptor } from "@/componentes/ui/interruptor"
 import { Segmentado } from "@/componentes/ui/segmentado"
 import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
-import { aCentesimas, aPartes, repartirPorPesos } from "@/lib/reparto"
+import { aCentesimas, aPartes, filasDeReparto, repartirPorPesos } from "@/lib/reparto"
 import { cn } from "@/lib/utils"
 
 // Editor de reparto de un gasto compartido (fase 3b.3 y 0026), como Splitwise.
@@ -114,13 +114,11 @@ export function EditorSplit({
     const conPesos = (pesos: number[]) => {
       const reparto = repartirPorPesos(total, pesos)
       ordenados.forEach((m, i) => porMiembro.set(m.user_id, reparto[i]))
-      // Todos con el mismo peso es "igual entre todos": el default, sin filas.
-      const todosIgual = pesos.every((p) => p > 0 && p === pesos[0])
-      return todosIgual
-        ? null
-        : ordenados
-            .map((m, i) => ({ user_id: m.user_id, amount: reparto[i] }))
-            .filter((x) => x.amount > 0)
+      return filasDeReparto(
+        ordenados.map((m) => m.user_id),
+        pesos,
+        reparto,
+      )
     }
 
     if (modo === "igual") {

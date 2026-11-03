@@ -64,3 +64,31 @@ export function leerReparto(texto: string | null | undefined): Record<string, nu
     return null
   }
 }
+
+// Las filas de un reparto por pesos, con los ids en el orden de `pesos` (el del
+// balance: por id). Todos con el mismo peso es "igual entre todos", el default,
+// que no guarda filas: null.
+export function filasDeReparto(
+  ids: string[],
+  pesos: number[],
+  reparto: number[],
+): { user_id: string; amount: number }[] | null {
+  if (pesos.every((p) => p > 0 && p === pesos[0])) return null
+  return ids.map((id, i) => ({ user_id: id, amount: reparto[i] })).filter((x) => x.amount > 0)
+}
+
+// Un gasto nuevo del grupo con su reparto por defecto (0026), sin editor: el que
+// genera una recurrente del grupo (1.15.0). Como el alta, quien entro despues
+// de fijar el reparto tiene 0 partes. Sin reparto (o sin nadie con partes),
+// igual entre todos: null.
+export function splitsDelGrupo(
+  total: number,
+  miembros: string[],
+  partes: Record<string, number> | null,
+): { user_id: string; amount: number }[] | null {
+  if (!partes) return null
+  const ids = [...miembros].sort((a, b) => a.localeCompare(b))
+  const pesos = ids.map((id) => partes[id] ?? 0)
+  if (!pesos.some((p) => p > 0)) return null
+  return filasDeReparto(ids, pesos, repartirPorPesos(total, pesos))
+}

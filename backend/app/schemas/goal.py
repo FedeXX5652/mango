@@ -9,6 +9,9 @@ from app.schemas.account import Currency
 class GoalCreate(BaseModel):
     # El id lo genera el cliente (decision 5.1).
     id: uuid.UUID
+    # De un grupo (1.15.0): la plata es de todos, asi que la cuenta es una
+    # conjunta del grupo. Se elige al crearla.
+    group_id: uuid.UUID | None = None
     name: str
     target_amount: int = Field(ge=0)
     currency: Currency
@@ -29,6 +32,7 @@ class GoalRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    group_id: uuid.UUID | None
     name: str
     target_amount: int
     currency: str

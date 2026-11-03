@@ -54,6 +54,10 @@ describe("seccion actual", () => {
     expect(rutaEspacio({ tipo: "grupo", id: "casa-1" }, "calendario")).toBe(
       "/grupos/casa-1/calendario",
     )
+    // Plantillas, recurrentes y metas, desde la 1.15.0.
+    expect(seccionDeRuta("/metas")).toBe("metas")
+    expect(seccionDeRuta("/grupos/casa-1/recurrentes")).toBe("recurrentes")
+    expect(seccionDeRuta("/grupos/casa-1/plantillas")).toBe("plantillas")
   })
 
   it("Inicio, Ajustes y lo demas no son comunes", () => {
@@ -61,7 +65,7 @@ describe("seccion actual", () => {
     expect(seccionDeRuta("/grupos/casa-1")).toBe("")
     expect(seccionDeRuta("/ajustes")).toBe("")
     expect(seccionDeRuta("/grupos/casa-1/ajustes")).toBe("")
-    expect(seccionDeRuta("/metas")).toBe("")
+    expect(seccionDeRuta("/deudas")).toBe("")
   })
 })
 

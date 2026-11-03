@@ -109,13 +109,16 @@ export const SQL_RECORDATORIOS_GRUPO = `${SELECT_RECORDATORIOS} AND r.group_id =
 
 // Las recurrentes que se ven en el calendario como informacion (1.6.0): solo
 // las activas; las fechas salen de `recurrentesQueVienen` (lib/recurrentes.ts).
+// Tambien las de mis grupos (1.15.0): el calendario de un grupo muestra las
+// suyas y el personal todas, como los recordatorios.
 export const SQL_RECURRENTES = `
-  SELECT id, name, kind, amount, currency, frequency, interval_count, start_date,
+  SELECT id, group_id, name, kind, amount, currency, frequency, interval_count, start_date,
          next_run_date, end_date, active
   FROM recurring_rules WHERE deleted_at IS NULL AND active = 1`
 
 export type RecurrenteEnCalendario = FechasDeRegla & {
   id: string
+  group_id: string | null
   name: string
   kind: "expense" | "income" | "transfer"
   amount: number

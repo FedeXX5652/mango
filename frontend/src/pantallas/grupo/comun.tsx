@@ -1,7 +1,9 @@
 import { Users } from "lucide-react"
+import type { ReactNode } from "react"
 
 import { Vacio } from "@/componentes/Vacio"
 import { Cargando, Esqueleto, useDemora } from "@/componentes/ui/cargando"
+import { type GrupoInfo, useGrupoDeRuta } from "@/hooks/useEspacio"
 
 // Lo que muestran las pantallas de un grupo (0026) mientras carga o si no es (o
 // ya no es) uno de mis grupos. El grupo de la URL sale de `useGrupoDeRuta`.
@@ -30,4 +32,15 @@ export function GrupoNoEncontrado() {
       />
     </div>
   )
+}
+
+// Una pantalla que es la misma en Personal y en un grupo (1.15.0: plantillas,
+// recurrentes, metas): `/metas` y `/grupos/<grupo>/metas`. Fuera de un grupo,
+// `null`; dentro, espera al grupo de la URL.
+export function DelEspacio({ children }: { children: (grupo: GrupoInfo | null) => ReactNode }) {
+  const { id, grupo, cargando } = useGrupoDeRuta()
+  if (!id) return children(null)
+  if (cargando) return <CargandoGrupo />
+  if (!grupo) return <GrupoNoEncontrado />
+  return children(grupo)
 }

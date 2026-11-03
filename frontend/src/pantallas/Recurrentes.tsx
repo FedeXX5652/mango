@@ -13,16 +13,27 @@ import { Input } from "@/componentes/ui/input"
 import { Select } from "@/componentes/ui/select"
 import { SelectorCategoria } from "@/componentes/SelectorCategoria"
 import { SelectorEntidad } from "@/componentes/SelectorEntidad"
+import type { GrupoInfo } from "@/hooks/useEspacio"
+import { useNombresDeMiembros } from "@/hooks/useNombresDeMiembros"
 import { useVolver } from "@/hooks/useVolver"
 import { formatearFechaCorta } from "@/lib/fecha"
 import { generarVencidas, textoGenerado } from "@/lib/generar"
 import { ordenarJerarquico, SIN_AJUSTE } from "@/lib/categorias"
 import { aCentavos, formatearMonto, monedaBase } from "@/lib/dinero"
+import { PERSONAL, rutaEspacio } from "@/lib/espacios"
+import { usuarioActualId } from "@/lib/sesion"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
+import { DelEspacio } from "@/pantallas/grupo/comun"
+
+// Recurrentes: `/recurrentes` y, la misma pantalla, `/grupos/<grupo>/recurrentes`
+// (1.15.0). Una del grupo es un gasto del grupo que paga siempre quien la crea,
+// con su cuenta o la conjunta, y se reparte como el grupo. La ven todos, pero
+// la genera y la pausa o borra solo quien la creo: usa una cuenta suya.
 
 interface Regla {
   id: string
+  owner_id: string | null
   name: string
   kind: string
   amount: number
@@ -75,13 +86,24 @@ function hoyISO(): string {
 }
 
 export function Recurrentes() {
+  return <DelEspacio>{(grupo) => <PantallaRecurrentes grupo={grupo} />}</DelEspacio>
+}
+
+function PantallaRecurrentes({ grupo }: { grupo: GrupoInfo | null }) {
+  const espacio = grupo ? { tipo: "grupo" as const, id: grupo.id } : PERSONAL
   // A donde se vino (Inicio, Accesos, Ajustes o un atajo), no a un lugar fijo.
-  const volver = useVolver("/accesos")
+  const volver = useVolver(rutaEspacio(espacio, "accesos"))
   const db = usePowerSync()
+  const nombre = useNombresDeMiembros()
   const { data: reglas, isLoading } = useQuery<Regla>(
-    `SELECT id, name, kind, amount, currency, frequency, interval_count, next_run_date, active
-     FROM recurring_rules WHERE deleted_at IS NULL ORDER BY active DESC, next_run_date`,
+    `SELECT id, owner_id, name, kind, amount, currency, frequency, interval_count,
+            next_run_date, active
+     FROM recurring_rules WHERE deleted_at IS NULL AND COALESCE(group_id, '') = ?
+     ORDER BY active DESC, next_run_date`,
+    [grupo?.id ?? ""],
   )
+  // Recien creada, la fila local no tiene dueño hasta que vuelve de la sync.
+  const esMia = (r: Regla) => r.owner_id === null || r.owner_id === usuarioActualId()
   const [mostrarForm, setMostrarForm] = useState(false)
   const [corriendo, setCorriendo] = useState(false)
   const [aviso, setAviso] = useState("")
@@ -117,8 +139,9 @@ export function Recurrentes() {
       />
 
       <p className="text-sm text-muted-foreground">
-        Sueldo, alquiler, servicios: los definís una vez y cada vencimiento se carga solo cuando
-        abrís Mango, aunque no tengas conexión.
+        {grupo
+          ? "Alquiler, expensas, servicios: lo que pagás vos siempre para el grupo. Se carga solo cuando abrís Mango, desde tu cuenta y con el reparto del grupo."
+          : "Sueldo, alquiler, servicios: los definís una vez y cada vencimiento se carga solo cuando abrís Mango, aunque no tengas conexión."}
       </p>
 
       <Button variant="secondary" className="w-full" onClick={ejecutar} disabled={corriendo}>
@@ -127,15 +150,21 @@ export function Recurrentes() {
       {aviso && <p className="text-sm text-muted-foreground">{aviso}</p>}
 
       <Hoja abierta={mostrarForm} onOpenChange={setMostrarForm} titulo="Nueva regla">
-        <FormRegla onCerrar={() => setMostrarForm(false)} />
+        <FormRegla grupo={grupo} onCerrar={() => setMostrarForm(false)} />
       </Hoja>
 
       {/* Sin respuesta todavia no hay "vacio" que mostrar (DESIGN.md 7). */}
       {isLoading ? null : reglas.length === 0 ? (
         <Vacio
           icono={Repeat}
-          titulo="Todavía no tenés reglas recurrentes"
-          detalle="Creá una para lo que se repite: el alquiler, el sueldo, una suscripción."
+          titulo={
+            grupo ? "El grupo todavía no tiene recurrentes" : "Todavía no tenés reglas recurrentes"
+          }
+          detalle={
+            grupo
+              ? "Creá una para lo que pagás vos todos los meses: el alquiler, internet."
+              : "Creá una para lo que se repite: el alquiler, el sueldo, una suscripción."
+          }
           accion={{ onClick: () => setMostrarForm(true), etiqueta: "Nueva regla" }}
         />
       ) : (
@@ -151,27 +180,31 @@ export function Recurrentes() {
                   {etiquetaTipo(r.kind)} · {formatearMonto(r.amount, { moneda: r.currency })} ·{" "}
                   {etiquetaFrec(r.frequency, r.interval_count)} · Próxima:{" "}
                   {formatearFechaCorta(r.next_run_date)}
+                  {grupo && !esMia(r) && ` · La paga ${nombre(r.owner_id ?? "", grupo.id)}`}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => toggleActiva(r)}
-                  aria-label={r.active ? `Pausar ${r.name}` : `Reanudar ${r.name}`}
-                >
-                  {r.active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-expense"
-                  onClick={() => setABorrar(r)}
-                  aria-label={`Borrar ${r.name}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              {/* La de otro miembro se ve, pero la maneja quien la creo. */}
+              {esMia(r) && (
+                <div className="flex shrink-0 items-center">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => toggleActiva(r)}
+                    aria-label={r.active ? `Pausar ${r.name}` : `Reanudar ${r.name}`}
+                  >
+                    {r.active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-expense"
+                    onClick={() => setABorrar(r)}
+                    aria-label={`Borrar ${r.name}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -196,14 +229,21 @@ export function Recurrentes() {
   )
 }
 
-function FormRegla({ onCerrar }: { onCerrar: () => void }) {
+function FormRegla({ grupo, onCerrar }: { grupo: GrupoInfo | null; onCerrar: () => void }) {
   const db = usePowerSync()
+  // En un grupo: mis cuentas y la conjunta de ESTE grupo, no la de otro.
   const { data: cuentas } = useQuery<Opcion>(
-    "SELECT id, name, currency FROM accounts WHERE deleted_at IS NULL AND archived = 0 ORDER BY sort_order, created_at",
+    `SELECT id, name, currency FROM accounts
+     WHERE deleted_at IS NULL AND archived = 0 AND (? = '' OR COALESCE(group_id, ?) = ?)
+     ORDER BY sort_order, created_at`,
+    [grupo?.id ?? "", grupo?.id ?? "", grupo?.id ?? ""],
   )
   const { data: categorias } = useQuery<Opcion>(
-    // Las recurrentes son personales: las categorias de un grupo no van (1.12.2).
-    `SELECT id, name, kind, parent_id, icon FROM categories WHERE group_id IS NULL AND deleted_at IS NULL AND archived = 0 AND ${SIN_AJUSTE}`,
+    // Las del espacio: las personales en lo personal (1.12.2), las del grupo en
+    // el grupo (1.15.0).
+    `SELECT id, name, kind, parent_id, icon FROM categories
+     WHERE COALESCE(group_id, '') = ? AND deleted_at IS NULL AND archived = 0 AND ${SIN_AJUSTE}`,
+    [grupo?.id ?? ""],
   )
 
   const [name, setName] = useState("")
@@ -244,12 +284,15 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
     try {
       await db.execute(
         `INSERT INTO recurring_rules
-           (id, name, kind, account_id, transfer_account_id, category_id,
+           (id, owner_id, group_id, name, kind, account_id, transfer_account_id, category_id,
             amount, currency, frequency, interval_count, start_date, next_run_date, end_date,
             active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
         [
           uuidv4(),
+          // Como el alta: la fila local con su dueño (el servidor pone el suyo).
+          usuarioActualId(),
+          grupo?.id ?? null,
           name.trim(),
           kind,
           cuentaId,
@@ -279,28 +322,33 @@ function FormRegla({ onCerrar }: { onCerrar: () => void }) {
           placeholder="Alquiler, Sueldo…"
         />
       </Campo>
-      <div className="grid grid-cols-2 gap-3">
-        <Campo etiqueta="Tipo">
-          <Select
-            value={kind}
-            onChange={(e) => {
-              setKind(e.target.value)
-              setCategoriaId("")
-            }}
-          >
-            {TIPOS.map((t) => (
-              <option key={t.valor} value={t.valor}>
-                {t.etiqueta}
-              </option>
-            ))}
-          </Select>
-        </Campo>
+      <div className={cn("grid gap-3", !grupo && "grid-cols-2")}>
+        {/* En un grupo son gastos, como sus plantillas. */}
+        {!grupo && (
+          <Campo etiqueta="Tipo">
+            <Select
+              value={kind}
+              onChange={(e) => {
+                setKind(e.target.value)
+                setCategoriaId("")
+              }}
+            >
+              {TIPOS.map((t) => (
+                <option key={t.valor} value={t.valor}>
+                  {t.etiqueta}
+                </option>
+              ))}
+            </Select>
+          </Campo>
+        )}
         <Campo etiqueta="Monto">
           <CampoMonto moneda={monedaBase()} value={monto} onChange={setMonto} placeholder="0" />
         </Campo>
       </div>
 
-      <Campo etiqueta={kind === "transfer" ? "Desde" : "Cuenta"}>
+      <Campo
+        etiqueta={kind === "transfer" ? "Desde" : grupo ? "Cuenta con la que pagás" : "Cuenta"}
+      >
         <SelectorEntidad
           titulo="Cuenta"
           placeholder="Elegí una cuenta"

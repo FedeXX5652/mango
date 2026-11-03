@@ -12,6 +12,10 @@ Frequency = Literal["daily", "weekly", "monthly", "yearly"]
 
 class RecurringCreate(BaseModel):
     id: uuid.UUID
+    # De un grupo (1.15.0): un gasto con categoria del grupo, que paga siempre
+    # quien la crea (su cuenta o la conjunta) y se reparte como el grupo. Se
+    # elige al crearla.
+    group_id: uuid.UUID | None = None
     name: str
     kind: TxKind
     account_id: uuid.UUID
@@ -48,6 +52,7 @@ class RecurringRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    group_id: uuid.UUID | None
     name: str
     kind: TxKind
     account_id: uuid.UUID

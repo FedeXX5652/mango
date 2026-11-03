@@ -4,6 +4,23 @@ Todas las versiones de Mango. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versionado
 [SemVer](https://semver.org/lang/es/) (ver `docs/decisiones/0025-versionado.md`).
 
+## [1.15.0] - 2026-11-03
+
+### Agregado
+
+- **Recurrentes del grupo**: lo que pagás vos siempre para el grupo (el
+  alquiler, internet) se carga solo, desde tu cuenta o la conjunta y con el
+  reparto del grupo. Todos la ven, también en el calendario del grupo; la pausa
+  o borra quien la creó.
+- **Metas del grupo**: un objetivo de ahorro de todos, que avanza con el saldo
+  de una cuenta conjunta. La edita cualquier miembro.
+
+### Cambiado
+
+- **Plantillas, recurrentes y metas son la misma pantalla en lo personal y en
+  cada grupo**, con su acceso en los dos. Las plantillas del grupo dejan Ajustes
+  del grupo y tienen su pantalla, como las personales.
+
 ## [1.14.0] - 2026-11-03
 
 ### Cambiado

@@ -5,10 +5,12 @@ import { usuarioActualId } from "@/lib/sesion"
 import {
   type ReglaRecurrente,
   type ReglaSobre,
+  idDeterminista,
   inicioDeMes,
   ocurrenciasPendientes,
   sobresPendientes,
 } from "@/lib/recurrentes"
+import { leerReparto, splitsDelGrupo } from "@/lib/reparto"
 
 // Corre las recurrentes vencidas **contra la base local**. Sin red, sin
 // esperar a nadie: abrís la app en el avión y el alquiler del día 1 ya está.
@@ -61,12 +63,23 @@ function enumerar(nombres: string[]): string {
   return `${nombres.slice(0, 2).join(", ")} y ${nombres.length - 2} más`
 }
 
+// Solo las mias: las de un grupo (1.15.0) bajan a todos los miembros, pero las
+// paga y las genera quien las creo. Recien creada, la fila local no tiene dueño
+// hasta que vuelve de la sync.
 const SQL_REGLAS = `
-  SELECT id, name, kind, account_id, transfer_account_id, category_id,
+  SELECT id, name, group_id, kind, account_id, transfer_account_id, category_id,
          amount, currency, payee, notes, frequency, interval_count,
          start_date, next_run_date, end_date, active
   FROM recurring_rules
-  WHERE deleted_at IS NULL AND active = 1 AND next_run_date <= ?`
+  WHERE deleted_at IS NULL AND active = 1 AND next_run_date <= ?
+    AND (owner_id IS NULL OR owner_id = ?)`
+
+// Para repartir un gasto del grupo como el alta: su reparto por defecto entre
+// los miembros de hoy.
+const SQL_REPARTOS = `
+  SELECT g.id, g.default_split, m.user_id FROM groups g
+  JOIN group_members m ON m.group_id = g.id AND m.deleted_at IS NULL
+  WHERE g.deleted_at IS NULL`
 
 const SQL_REGLAS_SOBRE = `
   SELECT id, category_id, amount, currency, active
@@ -81,7 +94,7 @@ export async function generarVencidas(
   db: AbstractPowerSyncDatabase,
   hoy: string = fechaISO(new Date()),
 ): Promise<Generado> {
-  const reglas = await db.getAll<ReglaRecurrente>(SQL_REGLAS, [hoy])
+  const reglas = await db.getAll<ReglaRecurrente>(SQL_REGLAS, [hoy, usuarioActualId()])
   const reglasSobre = await db.getAll<ReglaSobre>(SQL_REGLAS_SOBRE)
   const yaEstan = await db.getAll<{ category_id: string; currency: string }>(SQL_SOBRES_DEL_MES, [
     inicioDeMes(hoy),
@@ -105,14 +118,37 @@ export async function generarVencidas(
     return { movimientos: 0, sobres: 0, nombres: [] }
   }
 
+  const delGrupo = movimientos.some((o) => o.regla.group_id)
+  const repartos = delGrupo
+    ? await db.getAll<{ id: string; default_split: string | null; user_id: string }>(SQL_REPARTOS)
+    : []
+  // Pagado con la conjunta no genera deuda (0016). El servidor lo marca al
+  // subir; se marca ya para que, sin conexion, el balance no muestre una deuda
+  // que no existe.
+  const conjuntas = new Set(
+    delGrupo
+      ? (await db.getAll<{ id: string }>("SELECT id FROM accounts WHERE group_id IS NOT NULL")).map(
+          (c) => c.id,
+        )
+      : [],
+  )
+  const splitsDe = (grupo: string, total: number) => {
+    const filas = repartos.filter((r) => r.id === grupo)
+    return splitsDelGrupo(
+      total,
+      filas.map((r) => r.user_id),
+      leerReparto(filas[0]?.default_split),
+    )
+  }
+
   await db.writeTransaction(async (tx) => {
     for (const o of movimientos) {
       const r = o.regla
       await tx.execute(
         `INSERT INTO transactions
            (id, owner_id, kind, occurred_at, amount, currency, account_id, transfer_account_id,
-            category_id, payee, notes, source, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'recurring', 'confirmed')`,
+            category_id, payee, notes, visibility, group_id, paid_from_group, source, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'recurring', 'confirmed')`,
         [
           o.id,
           // Como en el alta: la fila local con su dueño (el servidor lo ignora).
@@ -126,8 +162,19 @@ export async function generarVencidas(
           r.kind === "transfer" ? null : r.category_id,
           r.payee,
           r.notes,
+          r.group_id ? "shared" : "private",
+          r.group_id ?? null,
+          r.group_id ? (conjuntas.has(r.account_id) ? 1 : 0) : null,
         ],
       )
+      // El reparto del grupo, como el alta. Ids deterministas, como el del
+      // movimiento: dos dispositivos mios no suben dos repartos.
+      for (const parte of (r.group_id && splitsDe(r.group_id, r.amount)) || []) {
+        await tx.execute(
+          "INSERT INTO transaction_splits (id, transaction_id, user_id, amount) VALUES (?, ?, ?, ?)",
+          [idDeterminista(`split:${o.id}`, parte.user_id), o.id, parte.user_id, parte.amount],
+        )
+      }
     }
     for (const p of pendientes) {
       if (p.ocurrencias.length === 0) continue

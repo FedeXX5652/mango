@@ -269,6 +269,8 @@ const templates = new Table({
 
 const recurring_rules = new Table({
   owner_id: column.text,
+  // De un grupo (1.15.0): un gasto del grupo que paga quien la creo.
+  group_id: column.text,
   name: column.text,
   kind: column.text,
   account_id: column.text,

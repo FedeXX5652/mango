@@ -38,9 +38,9 @@ import { describir, siguiente } from "@/lib/repeticion"
 // recurrentes, como informacion: se cargan solas.
 //
 // Con `grupo`, el calendario de un grupo (1.6.0, G1): sus recordatorios, que
-// avisan a todos y los responde cualquiera (dice quien). Las recurrentes son
-// personales: ahi no van. Sin `grupo`, lo personal: lo mio y lo de mis grupos,
-// cada uno con su grupo (1.13.0).
+// avisan a todos y los responde cualquiera (dice quien), y sus recurrentes
+// (1.15.0). Sin `grupo`, lo personal: lo mio y lo de mis grupos, cada uno con su
+// grupo (1.13.0).
 
 type Vista = "proximos" | "todos"
 
@@ -65,11 +65,13 @@ export function CalendarioPagos({
     () => armarCalendario(recordatorios, ciclos, hoy, DIAS),
     [recordatorios, ciclos, hoy],
   )
-  const enGrupo = grupo !== undefined
-  const rec = useMemo(
-    () => recurrentesQueVienen(enGrupo ? [] : todasLasRecurrentes, hoy, DIAS),
-    [enGrupo, todasLasRecurrentes, hoy],
+  const grupoId = grupo?.id
+  const recurrentes = useMemo(
+    () =>
+      grupoId ? todasLasRecurrentes.filter((r) => r.group_id === grupoId) : todasLasRecurrentes,
+    [grupoId, todasLasRecurrentes],
   )
+  const rec = useMemo(() => recurrentesQueVienen(recurrentes, hoy, DIAS), [recurrentes, hoy])
   const [vista, setVista] = useState<Vista>("proximos")
   const [editando, setEditando] = useState<RecordatorioLocal | "nuevo" | null>(null)
   const [abierto, setAbierto] = useState<Vencimiento | null>(null)
@@ -150,7 +152,7 @@ export function CalendarioPagos({
           <Esqueleto className="h-11" />
           <Esqueleto className="h-48 w-full rounded-xl" />
         </Cargando>
-      ) : recordatorios.length === 0 && (enGrupo || todasLasRecurrentes.length === 0) ? (
+      ) : recordatorios.length === 0 && recurrentes.length === 0 ? (
         <Vacio
           icono={CalendarClock}
           titulo={grupo ? "Sin recordatorios del grupo" : "Sin recordatorios"}

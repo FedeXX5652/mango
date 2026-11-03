@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { aCentesimas, aPartes, leerReparto, repartirPorPesos } from "@/lib/reparto"
+import { aCentesimas, aPartes, leerReparto, repartirPorPesos, splitsDelGrupo } from "@/lib/reparto"
 
 const suma = (xs: number[]) => xs.reduce((s, x) => s + x, 0)
 
@@ -68,5 +68,29 @@ describe("reparto por defecto del grupo", () => {
     expect(leerReparto("[1, 2]")).toBeNull()
     expect(leerReparto('{"ana": 1.5}')).toBeNull()
     expect(leerReparto('{"ana": 0, "beto": 0}')).toBeNull()
+  })
+})
+
+describe("gasto del grupo con su reparto, sin editor (recurrentes 1.15.0)", () => {
+  it("sin reparto del grupo, igual entre todos: sin filas", () => {
+    expect(splitsDelGrupo(1000, ["b", "a"], null)).toBeNull()
+  })
+  it("60/40 en partes, por id y con los centavos exactos", () => {
+    expect(splitsDelGrupo(1001, ["b", "a"], { a: 3, b: 2 })).toEqual([
+      { user_id: "a", amount: 601 },
+      { user_id: "b", amount: 400 },
+    ])
+  })
+  it("partes iguales es igual entre todos", () => {
+    expect(splitsDelGrupo(1000, ["a", "b"], { a: 2, b: 2 })).toBeNull()
+  })
+  it("quien entro despues de fijar el reparto no paga", () => {
+    expect(splitsDelGrupo(900, ["a", "b", "c"], { a: 1, b: 2 })).toEqual([
+      { user_id: "a", amount: 300 },
+      { user_id: "b", amount: 600 },
+    ])
+  })
+  it("un reparto de gente que ya no esta: igual entre los que quedan", () => {
+    expect(splitsDelGrupo(900, ["a", "b"], { z: 1 })).toBeNull()
   })
 })

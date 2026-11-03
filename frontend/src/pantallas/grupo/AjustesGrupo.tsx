@@ -6,7 +6,6 @@ import { EncabezadoPantalla } from "@/componentes/EncabezadoPantalla"
 import { GrupoCategorias } from "@/componentes/GrupoCategorias"
 import { PaletaColor } from "@/componentes/PaletaColor"
 import { GrupoEtiquetas } from "@/componentes/grupo/GrupoEtiquetas"
-import { PlantillasDelGrupo } from "@/componentes/grupo/PlantillasDelGrupo"
 import { RepartoDelGrupo } from "@/componentes/grupo/RepartoDelGrupo"
 import { Button } from "@/componentes/ui/button"
 import { Campo } from "@/componentes/ui/campo"
@@ -292,10 +291,6 @@ export function AjustesGrupo() {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <RepartoDelGrupo groupId={id} miembros={miembros} nombre={nombre} />
-
-      <div id="plantillas" className="scroll-mt-4">
-        <PlantillasDelGrupo groupId={id} moneda={grupo.base_currency} />
-      </div>
 
       <div id="etiquetas" className="scroll-mt-4">
         <GrupoEtiquetas groupId={id} />

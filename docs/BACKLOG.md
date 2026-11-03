@@ -124,8 +124,10 @@ En este orden, cada uno con su version. La fase 2 (ingesta) va al final.
   frecuentes y madres como titulo; `CampoMonto` con la calculadora del alta en
   todos los montos (tambien los chicos de una fila); comercios sugeridos por
   uso; `CampoNota`.
-- **1.15.0 - Herramientas del grupo**: recurrentes, metas y plantillas del grupo
-  con pantalla propia; y todo lo demas que tenga lo personal (deudas, etc).
+- ~~**1.15.0 - Herramientas del grupo**~~ (hecho, 0036): plantillas,
+  recurrentes y metas son la misma pantalla en los dos espacios. La recurrente
+  del grupo la paga y la maneja quien la crea; la meta va con una conjunta.
+  Deudas quedan personales (lo de entre miembros es el balance).
 - **Etiquetas** (a ver con el usuario): propuestas Viaje, Reintegrable,
   Equipamiento, Juntadas.
 - **Contraer medios de pago** (posterior): borrar `payment_methods`,

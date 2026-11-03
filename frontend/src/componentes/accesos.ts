@@ -258,7 +258,25 @@ export function accesosDeGrupo(groupId: string): Acceso[] {
       detalle: "Gastos del grupo que se repiten, listos para cargar",
       icono: Files,
       seccion: "lugares",
-      to: `${ajustes}#plantillas`,
+      to: ruta("plantillas"),
+    },
+    {
+      id: "recurrentes",
+      etiqueta: "Recurrentes",
+      corta: "Recurrentes",
+      detalle: "Gastos del grupo que se cargan solos cada tanto",
+      icono: Repeat,
+      seccion: "lugares",
+      to: ruta("recurrentes"),
+    },
+    {
+      id: "metas",
+      etiqueta: "Metas de ahorro",
+      corta: "Metas",
+      detalle: "Lo que el grupo está juntando y cuánto falta",
+      icono: Target,
+      seccion: "lugares",
+      to: ruta("metas"),
     },
     {
       id: "categorias",
@@ -319,6 +337,8 @@ export const HERRAMIENTAS_ESCRITORIO = [
 ]
 export const HERRAMIENTAS_GRUPO_ESCRITORIO = [
   "calendario",
+  "metas",
+  "recurrentes",
   "plantillas",
   "categorias",
   "etiquetas",

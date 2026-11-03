@@ -666,7 +666,9 @@ y se pasa de uno a otro con un selector siempre visible. Ver decision 0026.
 otro, con los mismos valores por defecto, las mismas pantallas y la misma forma
 de usarse; solo cambia lo que obliga compartirlo (quien pago, el reparto, que
 la cuenta de cada uno es privada). Ante una diferencia entre los dos, la
-pregunta es que la justifica; si nada la justifica, se iguala.
+pregunta es que la justifica; si nada la justifica, se iguala. Plantillas,
+recurrentes y metas son la misma pantalla en los dos (1.15.0); deudas no, porque
+lo que se deben los miembros ya es el balance. Ver decision 0036.
 
 En el dispositivo, lo personal y lo del grupo viven en **tablas locales
 distintas**: mis movimientos completos en una y el "lente" del grupo (lo

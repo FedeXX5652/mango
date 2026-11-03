@@ -107,10 +107,10 @@ describe("el mismo sistema en un grupo (1.13.0)", () => {
   it("normaliza contra el catalogo de su espacio", () => {
     expect(catalogoDe(espacioGrupo)).toEqual(grupo)
     expect(normalizarAccesos(null, grupo, deFabricaDe(espacioGrupo))).toEqual(DE_FABRICA_GRUPO)
-    // "metas" es personal: en un grupo no existe.
-    expect(normalizarAccesos(["metas", "saldar"], grupo, DE_FABRICA_GRUPO)).toEqual(["saldar"])
-    expect(agregarAcceso([], "metas", grupo)).toEqual([])
-    expect(agregarAcceso([], "miembros", grupo)).toEqual(["miembros"])
+    // "deudas" es personal: en un grupo no existe (lo que se deben es el balance).
+    expect(normalizarAccesos(["deudas", "saldar"], grupo, DE_FABRICA_GRUPO)).toEqual(["saldar"])
+    expect(agregarAcceso([], "deudas", grupo)).toEqual([])
+    expect(agregarAcceso([], "metas", grupo)).toEqual(["metas"])
   })
 
   it("cada grupo guarda los suyos sin tocar los de otro", () => {

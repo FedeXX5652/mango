@@ -23,6 +23,8 @@ export interface ReglaRecurrente {
   id: string
   // Para decir que se cargo (1.12.0). Opcional: no hace a la regla.
   name?: string | null
+  // De un grupo (1.15.0): el movimiento va al grupo, con su reparto.
+  group_id?: string | null
   kind: "expense" | "income" | "transfer"
   account_id: string
   transfer_account_id: string | null

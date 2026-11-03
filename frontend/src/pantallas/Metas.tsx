@@ -12,16 +12,24 @@ import { Campo } from "@/componentes/ui/campo"
 import { Confirmar } from "@/componentes/ui/confirmar"
 import { Hoja } from "@/componentes/ui/hoja"
 import { Input } from "@/componentes/ui/input"
+import type { GrupoInfo } from "@/hooks/useEspacio"
 import { useVolver } from "@/hooks/useVolver"
 import { aCentavos, aTextoEditable, formatearMonto } from "@/lib/dinero"
+import { PERSONAL, rutaEspacio } from "@/lib/espacios"
 import { formatearFechaCorta } from "@/lib/fecha"
+import { TX_GRUPO } from "@/lib/lente"
 import { saldoCuenta } from "@/lib/saldos"
+import { usuarioActualId } from "@/lib/sesion"
 import { uuidv4 } from "@/lib/uuid"
 import { cn } from "@/lib/utils"
 import { anunciar } from "@/lib/anuncios"
+import { DelEspacio } from "@/pantallas/grupo/comun"
 
 // Metas de ahorro (fase 5). Cada meta se asocia a una cuenta; el progreso es el
 // saldo de esa cuenta contra el objetivo. Escribe local (goals) y sube por /goals.
+//
+// La misma pantalla en un grupo, `/grupos/<grupo>/metas` (1.15.0): la plata es
+// de todos, asi que la cuenta es una conjunta del grupo, y la edita cualquiera.
 
 interface Meta {
   id: string
@@ -37,19 +45,33 @@ const SQL_SALDOS = `
   SELECT a.id, a.name, a.currency, ${saldoCuenta()} AS balance
   FROM accounts a WHERE a.deleted_at IS NULL AND a.owner_id IS NOT NULL`
 
+// Las conjuntas de un grupo, con su saldo sobre el lente del grupo (como
+// CuentaConjunta): tiene lo que puso y pago cada miembro.
+const SQL_SALDOS_GRUPO = `
+  SELECT a.id, a.name, a.currency, ${saldoCuenta(TX_GRUPO)} AS balance
+  FROM accounts a WHERE a.deleted_at IS NULL AND a.group_id = ?`
+
 export function Metas() {
+  return <DelEspacio>{(grupo) => <PantallaMetas grupo={grupo} />}</DelEspacio>
+}
+
+function PantallaMetas({ grupo }: { grupo: GrupoInfo | null }) {
+  const espacio = grupo ? { tipo: "grupo" as const, id: grupo.id } : PERSONAL
   // A donde se vino (Inicio, Accesos, Ajustes o un atajo), no a un lugar fijo.
-  const volver = useVolver("/accesos")
+  const volver = useVolver(rutaEspacio(espacio, "accesos"))
   const db = usePowerSync()
   const { data: metas } = useQuery<Meta>(
-    "SELECT id, name, target_amount, currency, target_date, account_id FROM goals WHERE deleted_at IS NULL AND archived = 0 ORDER BY created_at",
+    `SELECT id, name, target_amount, currency, target_date, account_id FROM goals
+     WHERE deleted_at IS NULL AND archived = 0 AND COALESCE(group_id, '') = ?
+     ORDER BY created_at`,
+    [grupo?.id ?? ""],
   )
   const { data: cuentas } = useQuery<{
     id: string
     name: string
     currency: string
     balance: number
-  }>(SQL_SALDOS)
+  }>(grupo ? SQL_SALDOS_GRUPO : SQL_SALDOS, grupo ? [grupo.id] : [])
   const saldoDe = useMemo(() => new Map(cuentas.map((c) => [c.id, c.balance])), [cuentas])
 
   const [form, setForm] = useState(false)
@@ -74,7 +96,7 @@ export function Metas() {
       />
 
       <Hoja abierta={form} onOpenChange={setForm} titulo="Nueva meta">
-        <FormularioMeta cuentas={cuentas} onCerrar={() => setForm(false)} />
+        <FormularioMeta grupo={grupo} cuentas={cuentas} onCerrar={() => setForm(false)} />
       </Hoja>
       <Hoja
         abierta={editandoVigente}
@@ -84,6 +106,7 @@ export function Metas() {
         {editando && (
           <FormularioMeta
             key={editando.id}
+            grupo={grupo}
             cuentas={cuentas}
             inicial={editando}
             onCerrar={() => setEditando(null)}
@@ -95,8 +118,12 @@ export function Metas() {
       {metas.length === 0 ? (
         <Vacio
           icono={Target}
-          titulo="Sin metas"
-          detalle="Poné un objetivo de ahorro y seguí el progreso contra una cuenta."
+          titulo={grupo ? "El grupo no tiene metas" : "Sin metas"}
+          detalle={
+            grupo
+              ? "Poné un objetivo de ahorro del grupo y seguí el progreso contra una cuenta conjunta."
+              : "Poné un objetivo de ahorro y seguí el progreso contra una cuenta."
+          }
           accion={{ onClick: () => setForm(true), etiqueta: "Nueva meta" }}
         />
       ) : (
@@ -174,10 +201,12 @@ export function Metas() {
 // crearla y despues no cambia (el servidor no la deja cambiar): al editar se
 // elige entre las cuentas de esa moneda.
 function FormularioMeta({
+  grupo,
   cuentas,
   inicial,
   onCerrar,
 }: {
+  grupo: GrupoInfo | null
   cuentas: { id: string; name: string; currency: string }[]
   inicial?: Meta
   onCerrar: () => void
@@ -191,7 +220,11 @@ function FormularioMeta({
   const [fecha, setFecha] = useState(inicial?.target_date ?? "")
   const [error, setError] = useState("")
 
-  const moneda = inicial?.currency ?? cuentas.find((c) => c.id === cuentaId)?.currency ?? "ARS"
+  const moneda =
+    inicial?.currency ??
+    cuentas.find((c) => c.id === cuentaId)?.currency ??
+    grupo?.base_currency ??
+    "ARS"
   const elegibles = inicial ? cuentas.filter((c) => c.currency === inicial.currency) : cuentas
 
   async function guardar() {
@@ -206,8 +239,19 @@ function FormularioMeta({
         )
       } else {
         await db.execute(
-          "INSERT INTO goals (id, name, target_amount, currency, target_date, account_id, archived) VALUES (?, ?, ?, ?, ?, ?, 0)",
-          [uuidv4(), name.trim(), centavos, moneda, fecha || null, cuentaId || null],
+          `INSERT INTO goals (id, owner_id, group_id, name, target_amount, currency, target_date,
+             account_id, archived) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+          [
+            uuidv4(),
+            // Como el alta: la fila local con su dueño (el servidor pone el suyo).
+            usuarioActualId(),
+            grupo?.id ?? null,
+            name.trim(),
+            centavos,
+            moneda,
+            fecha || null,
+            cuentaId || null,
+          ],
         )
       }
       anunciar(
@@ -230,13 +274,18 @@ function FormularioMeta({
       <Campo etiqueta="Nombre">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Vacaciones" />
       </Campo>
-      <Campo etiqueta="Cuenta donde ahorrás">
+      <Campo etiqueta={grupo ? "Cuenta conjunta donde ahorran" : "Cuenta donde ahorrás"}>
         <SelectorEntidad
           titulo="Cuenta"
           placeholder="Elegí una cuenta"
           opciones={elegibles.map((c) => ({ id: c.id, nombre: c.name, detalle: c.currency }))}
           valor={cuentaId}
           onCambio={setCuentaId}
+          vacioSinOpciones={
+            grupo
+              ? "El grupo no tiene cuenta conjunta. Creala en el Inicio del grupo, en «Cuenta conjunta»."
+              : undefined
+          }
         />
       </Campo>
       <div className="grid grid-cols-2 gap-3">

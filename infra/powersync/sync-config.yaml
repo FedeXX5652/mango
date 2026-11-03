@@ -50,10 +50,11 @@ streams:
       - SELECT * FROM transactions WHERE owner_id = auth.user_id()
       - SELECT * FROM budgets WHERE owner_id = auth.user_id()
       - SELECT * FROM budget_rules WHERE owner_id = auth.user_id()
-      - SELECT * FROM recurring_rules WHERE owner_id = auth.user_id()
-      # Las de un grupo van por el stream del grupo (1.6.0).
+      # Las de un grupo van por el stream del grupo (plantillas 1.6.0,
+      # recurrentes y metas 1.15.0).
+      - SELECT * FROM recurring_rules WHERE owner_id = auth.user_id() AND group_id IS NULL
       - SELECT * FROM templates WHERE owner_id = auth.user_id() AND group_id IS NULL
-      - SELECT * FROM goals WHERE owner_id = auth.user_id()
+      - SELECT * FROM goals WHERE owner_id = auth.user_id() AND group_id IS NULL
       - SELECT * FROM debts WHERE owner_id = auth.user_id()
       # Calendario de pagos (1.5.0, 0030). Los ciclos llevan su propio owner_id:
       # la sync no hace JOIN con reminders.
@@ -191,6 +192,10 @@ streams:
       - SELECT * FROM budgets WHERE group_id IN (SELECT group_id FROM mis_grupos)
       # Plantillas del grupo (1.6.0, T1): las ve y las edita cualquier miembro.
       - SELECT * FROM templates WHERE group_id IN (SELECT group_id FROM mis_grupos)
+      # Recurrentes y metas del grupo (1.15.0): las ven todos. La recurrente la
+      # genera y la edita solo quien la creo; la meta la edita cualquiera.
+      - SELECT * FROM recurring_rules WHERE group_id IN (SELECT group_id FROM mis_grupos)
+      - SELECT * FROM goals WHERE group_id IN (SELECT group_id FROM mis_grupos)
       # Recordatorios del grupo y sus vencimientos (1.6.0, C3).
       - SELECT * FROM reminders WHERE group_id IN (SELECT group_id FROM mis_grupos)
       - SELECT * FROM reminder_cycles WHERE group_id IN (SELECT group_id FROM mis_grupos)
